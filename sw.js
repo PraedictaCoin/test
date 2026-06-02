@@ -1,15 +1,13 @@
-// PRAEDICTA Service Worker – offline support
 const CACHE_NAME = 'praedicta-v1';
 
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/app.js',
+  '/test/',
+  '/test/index.html',
+  '/test/app.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdn.jsdelivr.net/npm/@solana/web3.js@1.91.1/lib/index.iife.min.js'
 ];
 
-// Install event – pre-cache critical assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
@@ -22,7 +20,6 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate event – clean up old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
@@ -34,14 +31,12 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch event – serve from cache, falling back to network
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Don't cache Supabase API calls or Solana RPC
   if (event.request.url.includes('supabase.co') || 
       event.request.url.includes('solana.com')) {
-    return; // Let these go to network
+    return;
   }
 
   event.respondWith(
