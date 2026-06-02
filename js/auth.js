@@ -286,16 +286,6 @@ async function createPrediction() {
         // Add to current predictions immediately
         currentPredictions.unshift(newPrediction);
 
-        // Try to save bet to database (non-critical)
-        try {
-            await supabaseClient
-            .from('predictions')
-            .update({ bets: newPrediction.bets })
-            .eq('id', predictionId);
-        } catch (e) {
-            console.warn('Bet save deferred, will sync on refresh');
-        }
-
         // Success feedback
         showToast(`✨ Created & bet ${amount} PRAE on ${creatorBetOutcome.toUpperCase()}!`);
 
