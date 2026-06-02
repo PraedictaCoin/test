@@ -24,6 +24,24 @@ async function connectWallet() {
         rotateVoice(); DOM.gate.style.display = 'none'; DOM.mainApp.style.display = 'block'; DOM.disconnectBtn.style.display = 'inline-block';
         if (!localStorage.getItem('tutorialShown')) { DOM.tutorialOverlay.style.display = 'flex'; localStorage.setItem('tutorialShown', 'true'); }
         if (DOM.flipCoinBtn) { const today = getUTCDayKey(); const stored = JSON.parse(localStorage.getItem('prae_last_flip') || '{}'); DOM.flipCoinBtn.textContent = stored[walletAddress] === today ? '🪙 Flip Coin (done for today)' : '🪙 Flip Coin (1 available)'; }
+
+        // Add the new prediction immediately so it shows up
+        const newPrediction = {
+            id: predictionId,
+            title, description: desc, category: cat,
+            creator: walletAddress,
+            status: 'active',
+            created_at: new Date().toISOString(),
+            resolution_date: date,
+            auto_source: DOM.autoSource.value || null,
+            target_value: sanitize(DOM.targetValue.value, 50) || null,
+            source_url: sourceUrl || null,
+            bets: [{ user: walletAddress, outcome: creatorBetOutcome, amount }],
+            reactions: [],
+            suggestions: []
+        };
+        currentPredictions.unshift(newPrediction);
+
         await refreshAll();
     } catch (err) { console.error('Connection error:', err); showToast("Connection failed: " + err.message); }
     finally { setLoading(DOM.connectBtn, false); }

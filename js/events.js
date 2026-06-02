@@ -18,9 +18,26 @@ function initEventListeners() {
     DOM.loadMoreBtn?.addEventListener('click', loadMorePredictions);
     DOM.copyWalletBtn?.addEventListener('click', () => { if (walletAddress) navigator.clipboard.writeText(walletAddress).then(() => showToast("Wallet address copied!")); });
 
-    // Creator bet selection
-    DOM.creatorBetYes?.addEventListener('click', () => { creatorBetOutcome = 'yes'; if (DOM.creatorBetDisplay) DOM.creatorBetDisplay.innerHTML = '✅ You believe <strong>YES</strong> – 7 PRAE will be staked'; if (DOM.creatorBetYes) DOM.creatorBetYes.style.opacity = '1'; if (DOM.creatorBetNo) DOM.creatorBetNo.style.opacity = '0.5'; });
-    DOM.creatorBetNo?.addEventListener('click', () => { creatorBetOutcome = 'no'; if (DOM.creatorBetDisplay) DOM.creatorBetDisplay.innerHTML = '❌ You believe <strong>NO</strong> – 7 PRAE will be staked'; if (DOM.creatorBetYes) DOM.creatorBetYes.style.opacity = '0.5'; if (DOM.creatorBetNo) DOM.creatorBetNo.style.opacity = '1'; });
+    // Creator bet selection with visual feedback
+    DOM.creatorBetYes?.addEventListener('click', () => {
+        creatorBetOutcome = 'yes';
+        DOM.creatorBetYes.classList.add('selected');
+        DOM.creatorBetNo.classList.remove('selected');
+        if (DOM.creatorBetDisplay) {
+            DOM.creatorBetDisplay.innerHTML = '✅ You believe <strong>YES</strong> – 7 PRAE will be staked';
+            DOM.creatorBetDisplay.style.color = 'var(--accent)';
+        }
+    });
+
+    DOM.creatorBetNo?.addEventListener('click', () => {
+        creatorBetOutcome = 'no';
+        DOM.creatorBetNo.classList.add('selected');
+        DOM.creatorBetYes.classList.remove('selected');
+        if (DOM.creatorBetDisplay) {
+            DOM.creatorBetDisplay.innerHTML = '❌ You believe <strong>NO</strong> – 7 PRAE will be staked';
+            DOM.creatorBetDisplay.style.color = '#FF8888';
+        }
+    });
 
     document.querySelectorAll('.category-carousel-btn').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.category-carousel-btn').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.category = this.dataset.category; saveFilters(); renderPraedictions(); }); });
     document.querySelectorAll('.status-filter-btn[data-status]').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.status-filter-btn[data-status]').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.status = this.dataset.status; saveFilters(); renderPraedictions(); }); });
