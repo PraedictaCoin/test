@@ -526,11 +526,6 @@ function renderPredictionCard(p, isOracle) {
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
-    const grouped = {};
-    (p.reactions || []).forEach(r => {
-        if (isValidReaction(r.emoji)) {
-            grouped[r.emoji] = (grouped[r.emoji] || 0) + 1;
-        }
     });
     const reactionDisplay = Object.entries(grouped)
         .map(([emoji, count]) => `${escapeHtml(emoji)} ${count}`)
@@ -576,9 +571,19 @@ function renderActiveActions(p, yesPrice) {
 }
 
 function renderReactionBar(p) {
-    return `<div class="reaction-bar" style="margin-top:12px; display:flex; gap:8px;">
-        ${CONFIG.ALLOWED_EMOJIS.map(e => `<button class="reaction-btn react-btn" data-id="${p.id}" data-emoji="${e}" aria-label="React ${e}">${e}</button>`).join('')}
-        <button class="share-btn" data-url="${window.location.origin}#pred-${p.id}" aria-label="Share prediction">🔗 Share</button>
+    const grouped = {};
+    (p.reactions || []).forEach(r => {
+        if (isValidReaction(r.emoji)) {
+            grouped[r.emoji] = (grouped[r.emoji] || 0) + 1;
+        }
+    });
+
+    return `<div class="reaction-bar" style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+    ${CONFIG.ALLOWED_EMOJIS.map(e => {
+        const count = grouped[e] || 0;
+        return `<button class="reaction-btn react-btn" data-id="${p.id}" data-emoji="${e}" aria-label="React ${e}" style="display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">${e} ${count > 0 ? `<span style="font-size:.7rem;color:var(--accent);">${count}</span>` : ''}</button>`;
+    }).join('')}
+    <button class="share-btn" data-url="${window.location.origin}#pred-${p.id}" aria-label="Share prediction" style="margin-left:auto;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">🔗 Share</button>
     </div>`;
 }
 
@@ -643,53 +648,53 @@ async function reactClick(e) {
     const btn = e.currentTarget;
     const id = btn.dataset.id;
     const emoji = btn.dataset.emoji;
-    
+
     if (!isValidReaction(emoji)) return;
-    
+
     const prediction = currentPredictions.find(p => p.id === id);
     if (!prediction) return;
-    
+
     prediction.reactions = prediction.reactions || [];
-    
-    // Check if user already reacted with this emoji
-    if (prediction.reactions.some(r => r.user === walletAddress && r.emoji === emoji)) return;
-    
+
+    // Check if THIS USER already reacted with ANY emoji on this prediction
+    const userAlreadyReacted = prediction.reactions.some(r => r.user === walletAddress);
+    if (userAlreadyReacted) {
+        showToast("You already reacted to this prediction");
+        return;
+    }
+
     prediction.reactions.push({ user: walletAddress, emoji });
-    
-    // Save to Supabase so reactions persist
+
+    // Save to Supabase
     try {
         await supabaseClient
-            .from('predictions')
-            .update({ reactions: prediction.reactions })
-            .eq('id', id);
+        .from('predictions')
+        .update({ reactions: prediction.reactions })
+        .eq('id', id);
     } catch (err) {
         console.error('Failed to save reaction:', err);
     }
-    
-    const card = btn.closest('.praediction-card');
-    if (card) {
-        const grouped = {};
-        prediction.reactions.filter(r => isValidReaction(r.emoji)).forEach(r => {
-            grouped[r.emoji] = (grouped[r.emoji] || 0) + 1;
-        });
-        const display = Object.entries(grouped)
-            .map(([e, count]) => `${escapeHtml(e)} ${count}`)
-            .join(' ');
-        
-        let reactionDiv = card.querySelector('div[style*="margin-top:4px"]');
-        if (display) {
-            if (reactionDiv) {
-                reactionDiv.textContent = display;
-            } else {
-                reactionDiv = document.createElement('div');
-                reactionDiv.style.cssText = 'margin-top:4px; font-size:.8rem;';
-                reactionDiv.textContent = display;
-                card.appendChild(reactionDiv);
-            }
-        }
-    }
+
+    // Update the card display
+    updateReactionDisplay(prediction, btn.closest('.praediction-card'));
 }
 
+function updateReactionDisplay(prediction, card) {
+    if (!card) return;
+    const grouped = {};
+    (prediction.reactions || []).filter(r => isValidReaction(r.emoji)).forEach(r => {
+        grouped[r.emoji] = (grouped[r.emoji] || 0) + 1;
+    });
+
+    // Update each reaction button
+    CONFIG.ALLOWED_EMOJIS.forEach(emoji => {
+        const btn = card.querySelector(`.react-btn[data-emoji="${emoji}"]`);
+        if (btn) {
+            const count = grouped[emoji] || 0;
+            btn.innerHTML = count > 0 ? `${emoji} <span style="font-size:.7rem;color:var(--accent);">${count}</span>` : emoji;
+        }
+    });
+}
 function shareClick(e) {
     navigator.clipboard.writeText(e.target.dataset.url).then(() => showToast("Link copied!"));
 }
