@@ -852,8 +852,13 @@ async function renderProfile(userData) {
     updateFreezeTimer(user);
     updateHypeMessage();
 
-    if (DOM.displayNameInput) DOM.displayNameInput.value = user.display_name || '';
-    if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
+    // Hide name/avatar section if already set
+    if (user.display_name) {
+        if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'none';
+    } else {
+        if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'flex';
+        if (DOM.displayNameInput) DOM.displayNameInput.value = '';
+    }
     if (DOM.referralLink) DOM.referralLink.textContent = `${window.location.origin}?ref=${walletAddress}`;
 }
 
@@ -1072,7 +1077,13 @@ async function connectWallet() {
         }
 
         if (DOM.flipCoinBtn) {
-            DOM.flipCoinBtn.textContent = `🪙 Flip Coin (${coinFlipsRemaining} left)`;
+            const today = getUTCDayKey();
+            const lastFlip = localStorage.getItem(`last_flip_${walletAddress}`);
+            if (lastFlip === today) {
+                DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)';
+            } else {
+                DOM.flipCoinBtn.textContent = '🪙 Flip Coin (1 available)';
+            }
         }
 
         await refreshAll();
@@ -1095,7 +1106,6 @@ function disconnectWallet() {
     sessionExpiresAt = null;
     oracleAsked = false;
     blindVotingEnabled = false;
-    coinFlipsRemaining = CONFIG.MAX_COIN_FLIPS;
 }
 
 // ── Oracle Question Handler ────────────────────────────────
@@ -1290,23 +1300,28 @@ function initEventListeners() {
         window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
     });
 
-    DOM.flipCoinBtn?.addEventListener('click', async () => {
-        if (coinFlipsRemaining <= 0) {
-            showToast("🪙 No flips remaining today. Come back tomorrow!");
-            return;
-        }
-        coinFlipsRemaining--;
-        DOM.flipCoinBtn.textContent = `🪙 Flip Coin (${coinFlipsRemaining} left)`;
-        
-        if (Math.random() < 0.5) {
-            userPRAEBalance += 0.1;
-            saveBalance();
-            showToast("You won 0.1 PRAE! 🎉");
-        } else {
-            showToast("Better luck next time.");
-        }
-        await renderProfile();
-    });
+    // In initEventListeners, replace the flip coin handler:
+DOM.flipCoinBtn?.addEventListener('click', async () => {
+    const today = getUTCDayKey();
+    const lastFlip = localStorage.getItem(`last_flip_${walletAddress}`);
+    
+    if (lastFlip === today) {
+        showToast("🪙 Already flipped today! Come back tomorrow.");
+        return;
+    }
+    
+    localStorage.setItem(`last_flip_${walletAddress}`, today);
+    DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)';
+    
+    if (Math.random() < 0.5) {
+        userPRAEBalance += 0.1;
+        saveBalance();
+        showToast("You won 0.1 PRAE! 🎉");
+    } else {
+        showToast("Better luck next time.");
+    }
+    await renderProfile();
+   });
 
     DOM.showMyPraedictionsBtn?.addEventListener('click', () => {
         const c = DOM.myPraedictionsList;
