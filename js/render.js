@@ -4,23 +4,67 @@
 
 function renderPraedictions() {
     const container = DOM.praedictionsContainer; if (!container) return;
-    const filtered = currentPredictions.filter(p => { if (currentFilter.category !== 'all' && p.category !== currentFilter.category) return false; if (currentFilter.search && !p.title.toLowerCase().includes(currentFilter.search.toLowerCase())) return false; if (currentFilter.status !== 'all' && p.status !== currentFilter.status) return false; return true; });
 
-    // Empty state for brand new users
+    const filtered = currentPredictions.filter(p => {
+        if (currentFilter.category !== 'all' && p.category !== currentFilter.category) return false;
+        if (currentFilter.search && !p.title.toLowerCase().includes(currentFilter.search.toLowerCase())) return false;
+        if (currentFilter.status !== 'all' && p.status !== currentFilter.status) return false;
+        return true;
+    });
+
+    // Empty state ONLY for brand new users with zero predictions total
     if (currentPredictions.length === 0 && currentFilter.status === 'active' && currentFilter.category === 'all' && !currentFilter.search) {
         container.innerHTML = `<div style="text-align:center;padding:40px;grid-column:1/-1;"><div style="font-size:3rem;">🔮</div><h3 style="color:var(--accent);margin-top:8px;">The Oracle awaits your first praediction</h3><p style="color:var(--text-muted);margin:16px 0;line-height:1.6;">1. Describe what will happen<br>2. Provide a proof URL<br>3. Choose YES or NO<br>4. Stake 7 PRAE<br>5. Earn SeerScore when you're right!</p></div>`;
-        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; return;
+        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
+        if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
+        if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
+        return;
     }
 
-    if (filtered.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No praedictions match filters.</div>'; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; return; }
-    const activeOnly = filtered.filter(p => p.status === 'active'); const expiredOnly = filtered.filter(p => p.status === 'expired'); const resolvedOnly = filtered.filter(p => p.status === 'resolved');
+    // No matches for current filter
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No praedictions match your filters.</div>';
+        if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
+        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
+        return;
+    }
+
+    const activeOnly = filtered.filter(p => p.status === 'active');
+    const expiredOnly = filtered.filter(p => p.status === 'expired');
+    const resolvedOnly = filtered.filter(p => p.status === 'resolved');
     const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
-    if (currentFilter.status === 'expired') { container.innerHTML = expiredOnly.length > 0 ? expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No expired predictions.</div>'; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; }
-    else if (currentFilter.status === 'resolved') { container.innerHTML = resolvedOnly.length > 0 ? resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No resolved predictions.</div>'; if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; }
-    else { container.innerHTML = activeOnly.length > 0 ? activeOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No active praedictions.</div>'; if (DOM.expiredContainer) { DOM.expiredContainer.innerHTML = expiredOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">🕒 Expired – Awaiting Resolution</h3>' + expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : ''; } if (DOM.resolvedContainer) { DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : ''; } }
+
+    if (currentFilter.status === 'expired') {
+        container.innerHTML = expiredOnly.length > 0 ? expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No expired predictions.</div>';
+        if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
+    } else if (currentFilter.status === 'resolved') {
+        container.innerHTML = resolvedOnly.length > 0 ? resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No resolved predictions.</div>';
+        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
+    } else {
+        container.innerHTML = activeOnly.length > 0 ? activeOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No active praedictions. Create one below!</div>';
+        if (DOM.expiredContainer) {
+            DOM.expiredContainer.innerHTML = expiredOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">🕒 Expired – Awaiting Resolution</h3>' + expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '';
+        }
+        if (DOM.resolvedContainer) {
+            DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '';
+        }
+    }
+
     const allContainers = [container, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean);
-    allContainers.forEach(cont => { cont.querySelectorAll('.buy-btn').forEach(btn => btn.addEventListener('click', buyClick)); cont.querySelectorAll('.buy-amount').forEach(input => input.addEventListener('input', updatePayout)); cont.querySelectorAll('.react-btn').forEach(btn => btn.addEventListener('click', reactClick)); cont.querySelectorAll('.share-btn').forEach(btn => btn.addEventListener('click', shareClick)); cont.querySelectorAll('.oracle-decide').forEach(btn => btn.addEventListener('click', oracleDecide)); cont.querySelectorAll('.oracle-resolve').forEach(btn => btn.addEventListener('click', resolveClick)); });
-    if (blindVotingEnabled) { applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); }
+    allContainers.forEach(cont => {
+        cont.querySelectorAll('.buy-btn').forEach(btn => btn.addEventListener('click', buyClick));
+        cont.querySelectorAll('.buy-amount').forEach(input => input.addEventListener('input', updatePayout));
+        cont.querySelectorAll('.react-btn').forEach(btn => btn.addEventListener('click', reactClick));
+        cont.querySelectorAll('.share-btn').forEach(btn => btn.addEventListener('click', shareClick));
+        cont.querySelectorAll('.oracle-decide').forEach(btn => btn.addEventListener('click', oracleDecide));
+        cont.querySelectorAll('.oracle-resolve').forEach(btn => btn.addEventListener('click', resolveClick));
+    });
+
+    if (blindVotingEnabled) {
+        applyBlindVoting();
+        if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer);
+        if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer);
+    }
     setTimeout(updateCountdowns, 100);
 }
 
