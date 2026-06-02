@@ -70,5 +70,14 @@ function cacheDOM() {
     DOM.resolvedContainer = document.getElementById('resolvedContainer');
     DOM.expiredContainer = document.getElementById('expiredContainer');
     DOM.hottestCategory = document.getElementById('hottestCategory');
+    DOM.notificationBadge = document.getElementById('notificationBadge');
+    DOM.notificationText = document.getElementById('notificationText');
+    DOM.offlineBanner = document.getElementById('offlineBanner');
+    DOM.loadMoreBtn = document.getElementById('loadMoreBtn');
+    DOM.profileWalletAddress = document.getElementById('profileWalletAddress');
+    DOM.copyWalletBtn = document.getElementById('copyWalletBtn');
+    DOM.creatorBetYes = document.getElementById('creatorBetYes');
+    DOM.creatorBetNo = document.getElementById('creatorBetNo');
+    DOM.creatorBetDisplay = document.getElementById('creatorBetDisplay');
 }
 cacheDOM();

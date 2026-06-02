@@ -5,6 +5,13 @@
 function renderPraedictions() {
     const container = DOM.praedictionsContainer; if (!container) return;
     const filtered = currentPredictions.filter(p => { if (currentFilter.category !== 'all' && p.category !== currentFilter.category) return false; if (currentFilter.search && !p.title.toLowerCase().includes(currentFilter.search.toLowerCase())) return false; if (currentFilter.status !== 'all' && p.status !== currentFilter.status) return false; return true; });
+
+    // Empty state for brand new users
+    if (currentPredictions.length === 0 && currentFilter.status === 'active' && currentFilter.category === 'all' && !currentFilter.search) {
+        container.innerHTML = `<div style="text-align:center;padding:40px;grid-column:1/-1;"><div style="font-size:3rem;">🔮</div><h3 style="color:var(--accent);margin-top:8px;">The Oracle awaits your first praediction</h3><p style="color:var(--text-muted);margin:16px 0;line-height:1.6;">1. Describe what will happen<br>2. Provide a proof URL<br>3. Choose YES or NO<br>4. Stake 7 PRAE<br>5. Earn SeerScore when you're right!</p></div>`;
+        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; return;
+    }
+
     if (filtered.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No praedictions match filters.</div>'; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; return; }
     const activeOnly = filtered.filter(p => p.status === 'active'); const expiredOnly = filtered.filter(p => p.status === 'expired'); const resolvedOnly = filtered.filter(p => p.status === 'resolved');
     const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
@@ -26,28 +33,20 @@ function renderPredictionCard(p, isOracle) {
     const controversy = active ? getControversyLabel(yesPrice) : null; const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
     return `<div class="praediction-card ${controversy && controversy.class === 'badge-controversy' ? 'controversy' : ''}">
-        <div class="praediction-title">${escapeHtml(p.title)}</div>
-        <div class="praediction-desc">${escapeHtml(p.description)}</div>
-        <div class="meta-row"><span>${catIcon} ${displayCat}</span><span>📅 ${deadline}</span><span class="badge ${badgeClass}">${badgeText}</span>${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}</div>
-        ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
-        ${!active ? renderVoteStats(yesPrice, noPrice) : ''}${active ? renderVoteStats(yesPrice, noPrice) : ''}
-        ${active ? renderActiveActions(p, yesPrice) : renderResolvedStatus(p)}
-        ${p.source_url ? `<div style="font-size:.7rem;margin-top:4px;">📎 <a href="${escapeHtml(p.source_url)}" target="_blank" rel="noopener" style="color:var(--accent);">Verification Source</a></div>` : (!active && !p.auto_source ? '<div style="font-size:.7rem;color:#FF8888;">⚠️ No source provided</div>' : '')}
-        ${canResolve ? renderOracleResolveButtons(p) : ''}
+    <div class="praediction-title">${escapeHtml(p.title)}</div>
+    <div class="praediction-desc">${escapeHtml(p.description)}</div>
+    <div class="meta-row"><span>${catIcon} ${displayCat}</span><span>📅 ${deadline}</span><span class="badge ${badgeClass}">${badgeText}</span>${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}</div>
+    ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
+    ${p.creator === walletAddress && p.bets ? `<div style="font-size:.7rem;color:var(--accent);margin-top:4px;">🎯 Your bet: ${(p.bets.find(b => b.user === walletAddress) || {}).outcome?.toUpperCase() || '?'}</div>` : ''}
+    ${!active ? renderVoteStats(yesPrice, noPrice) : ''}${active ? renderVoteStats(yesPrice, noPrice) : ''}
+    ${active ? renderActiveActions(p, yesPrice) : renderResolvedStatus(p)}
+    ${p.source_url ? `<div style="font-size:.7rem;margin-top:4px;">📎 <a href="${escapeHtml(p.source_url)}" target="_blank" rel="noopener" style="color:var(--accent);">Verification Source</a></div>` : (!active && !p.auto_source ? '<div style="font-size:.7rem;color:#FF8888;">⚠️ No source provided</div>' : '')}
+    ${canResolve ? renderOracleResolveButtons(p) : ''}
     </div>`;
 }
 
 function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: ${yesPrice.toFixed(4)} PRAE</span><span>❌ NO: ${noPrice.toFixed(4)} PRAE</span></div>`; }
-
-function renderActiveActions(p, yesPrice) {
-    return `<div class="action-buttons"><input type="number" class="buy-amount" id="amount-${p.id}" value="${CONFIG.MIN_BET}" min="${CONFIG.MIN_BET}" step="1" inputmode="numeric" style="width:70px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:40px;padding:8px;color:var(--text);" aria-label="Bet amount"><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes"><span>Buy YES</span><span class="loader" style="display:none;"></span></button><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no"><span>Buy NO</span><span class="loader" style="display:none;"></span></button><button class="btn-suggest oracle-decide" data-id="${p.id}"><span>🦉 Oracle decide</span></button></div><div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);">Potential payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (yesPrice || 0.5)).toFixed(2)} YES</span></div>${renderReactionBar(p)}`;
-}
-
-function renderReactionBar(p) {
-    const grouped = {}; (p.reactions || []).forEach(r => { if (isValidReaction(r.emoji)) grouped[r.emoji] = (grouped[r.emoji] || 0) + 1; });
-    return `<div class="reaction-bar" style="margin-top:12px;display:flex;gap:8px;align-items:center;">${CONFIG.ALLOWED_EMOJIS.map(e => { const count = grouped[e] || 0; return `<button class="reaction-btn react-btn" data-id="${p.id}" data-emoji="${e}" style="display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">${e} ${count > 0 ? `<span style="font-size:.7rem;color:var(--accent);">${count}</span>` : ''}</button>`; }).join('')}<button class="share-btn" data-url="${window.location.origin}#pred-${p.id}" style="margin-left:auto;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">🔗 Share</button></div>`;
-}
-
+function renderActiveActions(p, yesPrice) { return `<div class="action-buttons"><input type="number" class="buy-amount" id="amount-${p.id}" value="${CONFIG.MIN_BET}" min="${CONFIG.MIN_BET}" step="1" inputmode="numeric" style="width:70px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:40px;padding:8px;color:var(--text);" aria-label="Bet amount"><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes"><span>Buy YES</span><span class="loader" style="display:none;"></span></button><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no"><span>Buy NO</span><span class="loader" style="display:none;"></span></button><button class="btn-suggest oracle-decide" data-id="${p.id}"><span>🦉 Oracle decide</span></button></div><div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);">Potential payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (yesPrice || 0.5)).toFixed(2)} YES</span></div>${renderReactionBar(p)}`; }
+function renderReactionBar(p) { const grouped = {}; (p.reactions || []).forEach(r => { if (isValidReaction(r.emoji)) grouped[r.emoji] = (grouped[r.emoji] || 0) + 1; }); return `<div class="reaction-bar" style="margin-top:12px;display:flex;gap:8px;align-items:center;">${CONFIG.ALLOWED_EMOJIS.map(e => { const count = grouped[e] || 0; return `<button class="reaction-btn react-btn" data-id="${p.id}" data-emoji="${e}" style="display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">${e} ${count > 0 ? `<span style="font-size:.7rem;color:var(--accent);">${count}</span>` : ''}</button>`; }).join('')}<button class="share-btn" data-url="${window.location.origin}#pred-${p.id}" style="margin-left:auto;background:transparent;border:1px solid var(--accent-glow);border-radius:20px;padding:4px 10px;cursor:pointer;color:var(--text);font-size:.8rem;">🔗 Share</button></div>`; }
 function renderResolvedStatus(p) { const outcomeText = p.unresolvable ? '🚫 UNRESOLVABLE - All bets refunded' : `RESOLVED: ${p.resolved_outcome === 'yes' ? '✅ YES' : '❌ NO'}`; return `<div style="text-align:center;margin-top:12px;padding:8px;background:var(--accent-glow);border-radius:12px;">🏆 ${outcomeText}</div>`; }
-
 function renderOracleResolveButtons(p) { return `<div style="margin-top:12px;display:flex;gap:8px;"><button class="oracle-resolve" data-id="${p.id}" data-outcome="yes">✅ YES</button><button class="oracle-resolve" data-id="${p.id}" data-outcome="no">❌ NO</button><button class="oracle-resolve" data-id="${p.id}" data-outcome="unresolvable" style="background:#FF4444;">🚫 Unresolvable</button></div>`; }

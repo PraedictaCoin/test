@@ -17,3 +17,6 @@ let useRealMarket = false;
 let oracleAsked = false;
 let previousLeaderboard = [];
 let blindVotingEnabled = false;
+let creatorBetOutcome = null;
+let predictionsOffset = 0;
+const PREDICTIONS_PER_PAGE = 50;

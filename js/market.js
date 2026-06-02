@@ -2,8 +2,7 @@
 // PRAEDICTA – Market & Trading Logic
 // ============================================================
 
-const mockMarkets = {};
-const MOCK_INITIAL_POOL = 1000;
+const mockMarkets = {}; const MOCK_INITIAL_POOL = 1000;
 
 function getMarket(id) { if (!mockMarkets[id]) { const keys = Object.keys(mockMarkets); if (keys.length >= CONFIG.MAX_CACHED_MARKETS) delete mockMarkets[keys[0]]; mockMarkets[id] = { yesPool: MOCK_INITIAL_POOL, noPool: MOCK_INITIAL_POOL }; } return mockMarkets[id]; }
 function getYesPrice(yes, no) { return (yes + no === 0) ? 0.5 : no / (yes + no); }
@@ -59,5 +58,4 @@ async function reactClick(e) {
 function updateReactionDisplay(prediction, card) { if (!card) return; const grouped = {}; (prediction.reactions || []).filter(r => isValidReaction(r.emoji)).forEach(r => { grouped[r.emoji] = (grouped[r.emoji] || 0) + 1; }); CONFIG.ALLOWED_EMOJIS.forEach(emoji => { const btn = card.querySelector(`.react-btn[data-emoji="${emoji}"]`); if (btn) { const count = grouped[emoji] || 0; btn.innerHTML = count > 0 ? `${emoji} <span style="font-size:.7rem;color:var(--accent);">${count}</span>` : emoji; } }); }
 
 function shareClick(e) { navigator.clipboard.writeText(e.target.dataset.url).then(() => showToast("Link copied!")); }
-
 function updatePayout(e) { const id = e.target.id.split('-')[1]; const amount = parseFloat(e.target.value) || CONFIG.MIN_BET; const market = getMarket(id); const price = getYesPrice(market.yesPool, market.noPool); const el = document.getElementById(`payout-${id}`); if (el) el.textContent = `${(amount / (price || 0.5)).toFixed(2)} YES`; }
