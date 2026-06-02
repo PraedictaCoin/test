@@ -1343,12 +1343,37 @@ function initEventListeners() {
         const c = DOM.myPraedictionsList;
         if (!c) return;
         if (c.style.display === 'none' || !c.style.display) {
-            const myBets = currentPredictions.flatMap(p =>
-                (p.bets || []).filter(b => b.user === walletAddress).map(b => ({ ...p, userBet: b }))
+            // Show predictions I created
+            const myCreated = currentPredictions.filter(p => p.creator === walletAddress);
+            // Show predictions I bet on
+            const myBets = currentPredictions.filter(p =>
+            (p.bets || []).some(b => b.user === walletAddress) && p.creator !== walletAddress
             );
-            c.innerHTML = myBets.length
-                ? myBets.map(p => `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;"><strong>${escapeHtml(p.title)}</strong>: ${p.userBet.outcome.toUpperCase()} • ${p.status}</div>`).join('')
-                : 'No praedictions yet.';
+
+            let html = '';
+
+            if (myCreated.length > 0) {
+                html += '<h4 style="color:var(--accent);margin-bottom:8px;">✨ Created by you</h4>';
+                html += myCreated.map(p =>
+                `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;">
+                <strong>${escapeHtml(p.title)}</strong><br>
+                <span style="font-size:.8rem;color:var(--text-muted);">Status: ${p.status.toUpperCase()}</span>
+                </div>`
+                ).join('');
+            }
+
+            if (myBets.length > 0) {
+                html += '<h4 style="color:var(--accent);margin:12px 0 8px;">💰 Your bets</h4>';
+                html += myBets.map(p => {
+                    const bet = p.bets.find(b => b.user === walletAddress);
+                    return `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;">
+                    <strong>${escapeHtml(p.title)}</strong><br>
+                    <span style="font-size:.8rem;color:var(--text-muted);">${bet.outcome.toUpperCase()} • ${p.status}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            c.innerHTML = html || 'No praedictions yet.';
             c.style.display = 'block';
         } else {
             c.style.display = 'none';
