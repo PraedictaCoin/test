@@ -55,6 +55,18 @@ function loadFilters() { try { const stored = localStorage.getItem('praedicta_fi
 // Fetch with retry
 async function fetchWithRetry(fn, maxRetries = 3) { for (let i = 0; i < maxRetries; i++) { try { return await fn(); } catch (err) { if (i === maxRetries - 1) throw err; await new Promise(r => setTimeout(r, 1000 * (i + 1))); } } }
 
+function cleanOldHoroscopeCache() {
+    const today = getUTCDayKey();
+    try {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+            if (key.startsWith('horoscope_') && !key.includes(today)) {
+                localStorage.removeItem(key);
+            }
+        });
+    } catch (e) { /* storage restricted */ }
+}
+
 // Notification
 function showNotification(message) { if (!DOM.notificationBadge || !DOM.notificationText) return; DOM.notificationBadge.style.display = 'block'; DOM.notificationText.textContent = '🔔 ' + message; setTimeout(() => { if (DOM.notificationBadge) DOM.notificationBadge.style.display = 'none'; }, 10000); }
 
