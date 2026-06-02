@@ -1,0 +1,74 @@
+// ============================================================
+// PRAEDICTA – DOM Cache
+// ============================================================
+
+const DOM = {};
+function cacheDOM() {
+    DOM.gate = document.getElementById('gate');
+    DOM.mainApp = document.getElementById('mainApp');
+    DOM.tutorialOverlay = document.getElementById('tutorialOverlay');
+    DOM.voiceMessage = document.getElementById('voiceMessage');
+    DOM.profileHoroscope = document.getElementById('profileHoroscope');
+    DOM.praedictionsContainer = document.getElementById('praedictionsContainer');
+    DOM.hypeMessage = document.getElementById('hypeMessage');
+    DOM.leaderboardList = document.getElementById('leaderboardList');
+    DOM.seerOfTheDay = document.getElementById('seerOfTheDay');
+    DOM.weeklyOracleMessage = document.getElementById('weeklyOracleMessage');
+    DOM.profileStats = document.getElementById('profileStats');
+    DOM.walletDisplay = document.getElementById('walletDisplay');
+    DOM.oracleIndicatorTop = document.getElementById('oracleIndicatorTop');
+    DOM.oracleIndicatorProfile = document.getElementById('oracleIndicatorProfile');
+    DOM.userZodiacDisplay = document.getElementById('userZodiacDisplay');
+    DOM.zodiacRealHeadline = document.getElementById('zodiacRealHeadline');
+    DOM.zodiacHoroscopeDisplay = document.getElementById('zodiacHoroscopeDisplay');
+    DOM.zodiacSelectorWrapper = document.getElementById('zodiacSelectorWrapper');
+    DOM.referralLink = document.getElementById('referralLink');
+    DOM.totalActive = document.getElementById('totalActive');
+    DOM.totalPraedicts = document.getElementById('totalPraedicts');
+    DOM.totalSeerscore = document.getElementById('totalSeerscore');
+    DOM.totalVolume = document.getElementById('totalVolume');
+    DOM.crowdYes = document.getElementById('crowdYes');
+    DOM.filterSearch = document.getElementById('filterSearch');
+    DOM.filterCategory = document.getElementById('filterCategory');
+    DOM.connectBtn = document.getElementById('connectBtn');
+    DOM.disconnectBtn = document.getElementById('disconnectBtn');
+    DOM.themeToggleSmall = document.getElementById('themeToggleSmall');
+    DOM.createBtn = document.getElementById('createBtn');
+    DOM.playToggle = document.getElementById('playToggle');
+    DOM.showMyPraedictionsBtn = document.getElementById('showMyPraedictionsBtn');
+    DOM.saveZodiacBtn = document.getElementById('saveZodiacBtn');
+    DOM.saveProfileBtn = document.getElementById('saveProfileBtn');
+    DOM.displayNameInput = document.getElementById('displayNameInput');
+    DOM.avatarSelect = document.getElementById('avatarSelect');
+    DOM.profileNameSection = document.getElementById('profileNameSection');
+    DOM.copyReferralBtn = document.getElementById('copyReferralBtn');
+    DOM.donateBtn = document.getElementById('donateBtn');
+    DOM.myPraedictionsList = document.getElementById('myPraedictionsList');
+    DOM.ageCheckbox = document.getElementById('ageCheckbox');
+    DOM.gateMessage = document.getElementById('gateMessage');
+    DOM.title = document.getElementById('title');
+    DOM.description = document.getElementById('description');
+    DOM.category = document.getElementById('category');
+    DOM.resolutionDate = document.getElementById('resolutionDate');
+    DOM.autoSource = document.getElementById('autoSource');
+    DOM.targetValue = document.getElementById('targetValue');
+    DOM.sourceUrl = document.getElementById('sourceUrl');
+    DOM.zodiacSelect = document.getElementById('zodiacSelect');
+    DOM.lunarPhase = document.getElementById('lunarPhase');
+    DOM.flipCoinBtn = document.getElementById('flipCoinBtn');
+    DOM.streakRewards = document.getElementById('streakRewards');
+    DOM.streakStory = document.getElementById('streakStory');
+    DOM.revealVotesBtn = document.getElementById('revealVotesBtn');
+    DOM.leaderboardCategoryFilter = document.getElementById('leaderboardCategoryFilter');
+    DOM.dailyDigest = document.getElementById('dailyDigest');
+    DOM.hallOfFameList = document.getElementById('hallOfFameList');
+    DOM.freezeTimer = document.getElementById('freezeTimer');
+    DOM.oracleQuestion = document.getElementById('oracleQuestion');
+    DOM.askOracleBtn = document.getElementById('askOracleBtn');
+    DOM.oracleAnswer = document.getElementById('oracleAnswer');
+    DOM.oracleLimit = document.getElementById('oracleLimit');
+    DOM.resolvedContainer = document.getElementById('resolvedContainer');
+    DOM.expiredContainer = document.getElementById('expiredContainer');
+    DOM.hottestCategory = document.getElementById('hottestCategory');
+}
+cacheDOM();
