@@ -5,7 +5,7 @@
 // ── Configuration ──────────────────────────────────────────
 const CONFIG = {
     SUPABASE_URL: "https://akjxouwzsbewihvrdzyn.supabase.co",
-    SUPABASE_ANON_KEY: "sb_publishable_OL32s1-muu_5d5ACQ_4kVQ_yEEeyJl1",
+    SUPABASE_ANON_KEY: "sb_publishable_IQveUOwzJBKD1ZKSgPV_Lw_Kb0LooKn",
     SECURE_RPC_URL: "https://akjxouwzsbewihvrdzyn.supabase.co/functions/v1/secure_rpc",
     ORACLE_WALLET: "FYCSFKujPbtAASg42J1riNfxYEJBUM5Sv88uBAnnSs3o",
     PRAE_MINT: "7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt",
