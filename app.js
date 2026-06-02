@@ -1,14 +1,14 @@
 // ============================================================
-// PRAEDICTA – Prediction Market App.js (v5 – All Features)
-// Prophet Titles + Controversy Meter + Seer Spotlight + More
+// PRAEDICTA – Prediction Market App.js (v6 – On-Chain Balance)
 // ============================================================
 
 // ── Configuration ──────────────────────────────────────────
 const CONFIG = {
     SUPABASE_URL: "https://akjxouwzsbewihvrdzyn.supabase.co",
-    SUPABASE_ANON_KEY: "sb_publishable_IQveUOwzJBKD1ZKSgPV_Lw_Kb0LooKn",
+    SUPABASE_ANON_KEY: "sb_publishable_OL32s1-muu_5d5ACQ_4kVQ_yEEeyJl1",
     SECURE_RPC_URL: "https://akjxouwzsbewihvrdzyn.supabase.co/functions/v1/secure_rpc",
     ORACLE_WALLET: "FYCSFKujPbtAASg42J1riNfxYEJBUM5Sv88uBAnnSs3o",
+    PRAE_MINT: "7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt",
     MIN_BET: 7,
     FREE_CREATIONS_DAILY: 3,
     FEE_PER_TRADE: 0.005,
@@ -61,7 +61,6 @@ const STREAK_STORIES = {
     100: "Day 100: Immortalized in the Hall of Fame."
 };
 
-// NEW: Prophet Title thresholds
 const PROPHET_TITLES = [
     { min: 1000, title: 'Oracle', emoji: '🦉' },
     { min: 500, title: 'Prophet', emoji: '🔮' },
@@ -169,10 +168,6 @@ function isValidReaction(emoji) {
     return CONFIG.ALLOWED_EMOJIS.includes(emoji);
 }
 
-function isValidUrl(url) {
-    try { new URL(url); return true; } catch { return false; }
-}
-
 function showToast(msg) {
     const t = document.createElement('div');
     t.className = 'toast';
@@ -197,7 +192,6 @@ function formatDateWithoutSeconds(iso) {
 
 const randomCompliment = () => COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
 
-// ── Prophet Title Helper ───────────────────────────────────
 function getProphetTitle(seerscore) {
     for (const tier of PROPHET_TITLES) {
         if (seerscore >= tier.min) return tier;
@@ -205,7 +199,6 @@ function getProphetTitle(seerscore) {
     return PROPHET_TITLES[PROPHET_TITLES.length - 1];
 }
 
-// ── Controversy Meter ──────────────────────────────────────
 function getControversyLabel(yesPrice) {
     const diff = Math.abs(yesPrice - 0.5);
     if (diff < 0.03) return { text: '⚡ SPLIT OPINION', class: 'badge-controversy' };
@@ -215,7 +208,6 @@ function getControversyLabel(yesPrice) {
     return null;
 }
 
-// ── Countdown Badge ────────────────────────────────────────
 function getTimeBadge(resolutionDate) {
     if (!resolutionDate) return null;
     const remaining = new Date(resolutionDate) - Date.now();
@@ -226,7 +218,6 @@ function getTimeBadge(resolutionDate) {
     return null;
 }
 
-// ── Hottest Category ───────────────────────────────────────
 function getHottestCategory() {
     const cats = {};
     currentPredictions.filter(p => p.status === 'active').forEach(p => {
@@ -447,7 +438,7 @@ async function buySharesReal(id, outcome, amount) {
     return { cost: 0, shares: 0 };
 }
 
-// ── Render Predictions (Tab-Separated) ─────────────────────
+// ── Render Predictions ─────────────────────────────────────
 function renderPraedictions() {
     const container = DOM.praedictionsContainer;
     if (!container) return;
@@ -532,7 +523,6 @@ function renderPredictionCard(p, isOracle) {
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
     const displayCat = p.category === 'crypto' ? 'Finance' : p.category;
 
-    // NEW: Controversy & Countdown badges
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
@@ -660,10 +650,7 @@ async function reactClick(e) {
     if (!prediction) return;
     
     prediction.reactions = prediction.reactions || [];
-    
-    // Prevent duplicate reactions
     if (prediction.reactions.some(r => r.user === walletAddress && r.emoji === emoji)) return;
-    
     prediction.reactions.push({ user: walletAddress, emoji });
     
     const card = btn.closest('.praediction-card');
@@ -826,7 +813,6 @@ async function renderProfile(userData) {
     const avatar = user.avatar || '';
     if (DOM.walletDisplay) DOM.walletDisplay.innerHTML = `${avatar} ${escapeHtml(displayName)}`;
 
-    // Prophet Title
     const seerScore = user.seerscore || 0;
     const prophetTitle = getProphetTitle(seerScore);
     
@@ -900,7 +886,6 @@ async function renderLeaderboard(period = 'all', category = null) {
             </div>`;
         }).join('');
 
-    // Seer Spotlight
     try {
         const { data: seer } = await supabaseClient.rpc('get_seer_of_the_day');
         if (seer && DOM.seerOfTheDay) {
@@ -955,13 +940,11 @@ async function refreshAll() {
         if (DOM.totalPraedicts) DOM.totalPraedicts.textContent = totalBet.toFixed(0);
         if (DOM.crowdYes) DOM.crowdYes.textContent = '50%';
 
-        // Total Volume
         const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs(m.yesPool - MOCK_INITIAL_POOL) + Math.abs(m.noPool - MOCK_INITIAL_POOL), 0);
         if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0);
 
         if (user && DOM.totalSeerscore) DOM.totalSeerscore.textContent = user.seerscore || 0;
 
-        // Hottest Category
         const hottest = getHottestCategory();
         if (DOM.hottestCategory) {
             DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
@@ -1025,6 +1008,10 @@ async function loginBonus() {
         sessionToken = result.token;
         sessionExpiresAt = Date.now() + CONFIG.SESSION_DURATION_MINUTES * 60 * 1000;
     }
+    if (result.balance !== undefined) {
+        userPRAEBalance = result.balance;
+        saveBalance();
+    }
     return result;
 }
 
@@ -1047,7 +1034,32 @@ async function connectWallet() {
 
         loadBalance();
 
-        await loginBonus();
+        const result = await loginBonus();
+        
+        if (result.error && result.error.includes('Insufficient PRAE')) {
+            const balance = result.balance || 0;
+            const required = result.required || 7;
+            
+            if (DOM.gateMessage) {
+                DOM.gateMessage.innerHTML = `
+                    <div style="text-align:center; margin-top:20px;">
+                        <p style="color:#FF8888; font-size:1rem;">💰 Insufficient PRAE Balance</p>
+                        <p style="margin-top:8px;">You have: <strong>${balance} PRAE</strong></p>
+                        <p>Required: <strong>${required} PRAE</strong></p>
+                        <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" 
+                           target="_blank" rel="noopener" 
+                           style="color:var(--accent); display:inline-block; margin-top:12px; padding:10px 20px; border:1px solid var(--accent); border-radius:40px; text-decoration:none;">
+                           Get PRAE on DexScreener →
+                        </a>
+                    </div>`;
+            }
+            
+            await window.solana.disconnect();
+            walletAddress = null;
+            walletPublicKey = null;
+            return;
+        }
+
         rotateVoice();
 
         DOM.gate.style.display = 'none';
@@ -1206,7 +1218,6 @@ function initEventListeners() {
 
     DOM.revealVotesBtn?.addEventListener('click', toggleBlindVoting);
 
-    // Category carousel
     document.querySelectorAll('.category-carousel-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.category-carousel-btn').forEach(b => b.classList.remove('active-filter'));
@@ -1216,7 +1227,6 @@ function initEventListeners() {
         });
     });
 
-    // Status filters
     document.querySelectorAll('.status-filter-btn[data-status]').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.status-filter-btn[data-status]').forEach(b => b.classList.remove('active-filter'));
@@ -1226,7 +1236,6 @@ function initEventListeners() {
         });
     });
 
-    // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
             const tab = this.dataset.tab;
@@ -1241,7 +1250,6 @@ function initEventListeners() {
         });
     });
 
-    // Profile
     DOM.saveProfileBtn?.addEventListener('click', async () => {
         const name = sanitize(DOM.displayNameInput.value, 20);
         const avatar = DOM.avatarSelect.value;
@@ -1282,7 +1290,6 @@ function initEventListeners() {
         window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
     });
 
-    // Coin flip with limit
     DOM.flipCoinBtn?.addEventListener('click', async () => {
         if (coinFlipsRemaining <= 0) {
             showToast("🪙 No flips remaining today. Come back tomorrow!");
@@ -1333,7 +1340,6 @@ function initEventListeners() {
         }
     });
 
-    // Leaderboard period buttons
     document.querySelectorAll('[data-period]').forEach(btn => {
         btn.addEventListener('click', async function() {
             document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active-filter'));
@@ -1352,7 +1358,7 @@ function init() {
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/test/sw.js')
+            navigator.serviceWorker.register('/test/sw.js')
                 .then(reg => console.log('SW registered:', reg.scope))
                 .catch(err => console.error('SW failed:', err));
         });
