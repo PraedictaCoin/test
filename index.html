@@ -9,11 +9,11 @@
       content="default-src 'self'; 
                script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; 
                connect-src 'self' 
-  						https://akjxouwzsbewihvrdzyn.functions.supabase.co
-  						https://cdn.jsdelivr.net
-  					   https://api.devnet.solana.com
- 						 https://api.mainnet-beta.solana.com
- 						 wss://api.devnet.solana.com;
+                 https://akjxouwzsbewihvrdzyn.supabase.co
+                 https://cdn.jsdelivr.net
+                 https://api.devnet.solana.com
+                 https://api.mainnet-beta.solana.com
+                 wss://api.devnet.solana.com;
                style-src 'self' 'unsafe-inline'; 
                img-src data:; 
                manifest-src data:;">
@@ -359,7 +359,7 @@
             
             <!-- Profile Edit -->
             <div id="profileNameSection" style="margin:16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                <input type="text" id="displayNameInput" placeholder="Your name" maxlength="20" style="flex:1;" autocomplete="nickname" aria-label="Display name">
+                <input type="text" id="displayNameInput" placeholder="Your name" maxlength="20" style="flex:1;" autocomplete="name" aria-label="Display name">
                 <select id="avatarSelect" aria-label="Avatar" style="background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; padding:8px 16px; color:var(--text);">
                     <!-- Filled by JS -->
                 </select>
