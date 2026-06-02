@@ -1,6 +1,6 @@
 // ============================================================
-// PRAEDICTA – Prediction Market App.js (Final v4)
-// Blind voting toggle + Tab-organized predictions
+// PRAEDICTA – Prediction Market App.js (v5 – All Features)
+// Prophet Titles + Controversy Meter + Seer Spotlight + More
 // ============================================================
 
 // ── Configuration ──────────────────────────────────────────
@@ -38,7 +38,7 @@ let userPRAEBalance = CONFIG.DEFAULT_BALANCE;
 let useRealMarket = false;
 let oracleAsked = false;
 let previousLeaderboard = [];
-let blindVotingEnabled = false;  // Blind voting toggle state
+let blindVotingEnabled = false;
 let coinFlipsRemaining = CONFIG.MAX_COIN_FLIPS;
 
 // ── Constants ──────────────────────────────────────────────
@@ -60,6 +60,16 @@ const STREAK_STORIES = {
     60: "Day 60: You are one with the Oracle.",
     100: "Day 100: Immortalized in the Hall of Fame."
 };
+
+// NEW: Prophet Title thresholds
+const PROPHET_TITLES = [
+    { min: 1000, title: 'Oracle', emoji: '🦉' },
+    { min: 500, title: 'Prophet', emoji: '🔮' },
+    { min: 250, title: 'High Seer', emoji: '👁️‍🗨️' },
+    { min: 100, title: 'Seer', emoji: '👁️' },
+    { min: 25, title: 'Acolyte', emoji: '📿' },
+    { min: 0, title: 'Novice', emoji: '🌱' }
+];
 
 // ── DOM Cache ──────────────────────────────────────────────
 const DOM = {};
@@ -86,6 +96,7 @@ function cacheDOM() {
     DOM.totalActive = document.getElementById('totalActive');
     DOM.totalPraedicts = document.getElementById('totalPraedicts');
     DOM.totalSeerscore = document.getElementById('totalSeerscore');
+    DOM.totalVolume = document.getElementById('totalVolume');
     DOM.crowdYes = document.getElementById('crowdYes');
     DOM.filterSearch = document.getElementById('filterSearch');
     DOM.filterCategory = document.getElementById('filterCategory');
@@ -126,6 +137,7 @@ function cacheDOM() {
     DOM.oracleLimit = document.getElementById('oracleLimit');
     DOM.resolvedContainer = document.getElementById('resolvedContainer');
     DOM.expiredContainer = document.getElementById('expiredContainer');
+    DOM.hottestCategory = document.getElementById('hottestCategory');
 }
 cacheDOM();
 
@@ -185,6 +197,47 @@ function formatDateWithoutSeconds(iso) {
 
 const randomCompliment = () => COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
 
+// ── Prophet Title Helper ───────────────────────────────────
+function getProphetTitle(seerscore) {
+    for (const tier of PROPHET_TITLES) {
+        if (seerscore >= tier.min) return tier;
+    }
+    return PROPHET_TITLES[PROPHET_TITLES.length - 1];
+}
+
+// ── Controversy Meter ──────────────────────────────────────
+function getControversyLabel(yesPrice) {
+    const diff = Math.abs(yesPrice - 0.5);
+    if (diff < 0.03) return { text: '⚡ SPLIT OPINION', class: 'badge-controversy' };
+    if (diff < 0.10) return { text: '🔥 Heated Debate', class: 'badge-flash' };
+    if (diff < 0.20) return { text: '🤔 Leaning', class: 'badge-challenge' };
+    if (diff > 0.40) return { text: '📊 Near Consensus', class: 'badge-active' };
+    return null;
+}
+
+// ── Countdown Badge ────────────────────────────────────────
+function getTimeBadge(resolutionDate) {
+    if (!resolutionDate) return null;
+    const remaining = new Date(resolutionDate) - Date.now();
+    if (remaining < 0) return null;
+    if (remaining < 30 * 60 * 1000) return { text: '⏰ 30min left!', class: 'badge-flash' };
+    if (remaining < 60 * 60 * 1000) return { text: '⏰ Closing soon', class: 'badge-challenge' };
+    if (remaining < 3 * 60 * 60 * 1000) return { text: '⌛ Today', class: 'badge-mystery' };
+    return null;
+}
+
+// ── Hottest Category ───────────────────────────────────────
+function getHottestCategory() {
+    const cats = {};
+    currentPredictions.filter(p => p.status === 'active').forEach(p => {
+        cats[p.category] = (cats[p.category] || 0) + 1;
+    });
+    const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return { name: 'None', count: 0, icon: '📭' };
+    const [cat, count] = sorted[0];
+    return { name: cat === 'crypto' ? 'Finance' : cat, count, icon: CATEGORY_ICONS[cat] || '📁' };
+}
+
 // ── Balance Persistence ────────────────────────────────────
 function saveBalance() {
     if (walletAddress) {
@@ -226,20 +279,13 @@ function applyBlindVoting(container = document) {
 
 function toggleBlindVoting() {
     blindVotingEnabled = !blindVotingEnabled;
-    
-    // Update all visible vote-stats
     applyBlindVoting();
-    
-    // Update all containers
     if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer);
     if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer);
-    
-    // Update button text
     if (DOM.revealVotesBtn) {
         DOM.revealVotesBtn.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes';
         DOM.revealVotesBtn.classList.toggle('active-filter', blindVotingEnabled);
     }
-    
     showToast(blindVotingEnabled ? '🙈 Votes hidden – click to reveal' : '👁️ Votes visible');
 }
 
@@ -415,20 +461,17 @@ function renderPraedictions() {
 
     if (filtered.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No praedictions match filters.</div>';
-        // Clear other containers too
         if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
         if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
         return;
     }
 
-    // Separate by status for tab display
     const activeOnly = filtered.filter(p => p.status === 'active');
     const expiredOnly = filtered.filter(p => p.status === 'expired');
     const resolvedOnly = filtered.filter(p => p.status === 'resolved');
 
     const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
 
-    // If filtering by a specific status, show only those in main container
     if (currentFilter.status === 'expired') {
         container.innerHTML = expiredOnly.length > 0
             ? expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('')
@@ -440,12 +483,10 @@ function renderPraedictions() {
             : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No resolved predictions.</div>';
         if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
     } else {
-        // Default: show active in main container
         container.innerHTML = activeOnly.length > 0
             ? activeOnly.map(p => renderPredictionCard(p, isOracle)).join('')
             : '<div style="text-align:center;padding:40px;grid-column:1/-1;color:var(--text-muted);">No active praedictions.</div>';
         
-        // Show expired in secondary container
         if (DOM.expiredContainer) {
             DOM.expiredContainer.innerHTML = expiredOnly.length > 0
                 ? '<h3 style="color:var(--accent);margin-bottom:12px;">🕒 Expired – Awaiting Resolution</h3>' + 
@@ -453,7 +494,6 @@ function renderPraedictions() {
                 : '';
         }
         
-        // Show resolved in tertiary container
         if (DOM.resolvedContainer) {
             DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0
                 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + 
@@ -462,7 +502,6 @@ function renderPraedictions() {
         }
     }
 
-    // Attach event listeners to all containers
     const allContainers = [container, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean);
     allContainers.forEach(cont => {
         cont.querySelectorAll('.buy-btn').forEach(btn => btn.addEventListener('click', buyClick));
@@ -473,7 +512,6 @@ function renderPraedictions() {
         cont.querySelectorAll('.oracle-resolve').forEach(btn => btn.addEventListener('click', resolveClick));
     });
 
-    // Re-apply blind voting if enabled
     if (blindVotingEnabled) {
         applyBlindVoting();
         if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer);
@@ -494,7 +532,10 @@ function renderPredictionCard(p, isOracle) {
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
     const displayCat = p.category === 'crypto' ? 'Finance' : p.category;
 
-    // Reactions
+    // NEW: Controversy & Countdown badges
+    const controversy = active ? getControversyLabel(yesPrice) : null;
+    const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
+
     const grouped = {};
     (p.reactions || []).forEach(r => {
         if (isValidReaction(r.emoji)) {
@@ -505,13 +546,15 @@ function renderPredictionCard(p, isOracle) {
         .map(([emoji, count]) => `${escapeHtml(emoji)} ${count}`)
         .join(' ');
 
-    return `<div class="praediction-card ${p.status === 'expired' ? '' : ''}">
+    return `<div class="praediction-card ${controversy && controversy.class === 'badge-controversy' ? 'controversy' : ''}">
         <div class="praediction-title">${escapeHtml(p.title)}</div>
         <div class="praediction-desc">${escapeHtml(p.description)}</div>
         <div class="meta-row">
             <span>${catIcon} ${displayCat}</span>
             <span>📅 ${deadline}</span>
             <span class="badge ${badgeClass}">${badgeText}</span>
+            ${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}
+            ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
         </div>
         ${!active ? renderVoteStats(yesPrice, noPrice) : ''}
         ${active ? renderVoteStats(yesPrice, noPrice) : ''}
@@ -617,7 +660,10 @@ async function reactClick(e) {
     if (!prediction) return;
     
     prediction.reactions = prediction.reactions || [];
+    
+    // Prevent duplicate reactions
     if (prediction.reactions.some(r => r.user === walletAddress && r.emoji === emoji)) return;
+    
     prediction.reactions.push({ user: walletAddress, emoji });
     
     const card = btn.closest('.praediction-card');
@@ -779,10 +825,25 @@ async function renderProfile(userData) {
     const displayName = user.display_name || `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`;
     const avatar = user.avatar || '';
     if (DOM.walletDisplay) DOM.walletDisplay.innerHTML = `${avatar} ${escapeHtml(displayName)}`;
-    if (DOM.profileStats) DOM.profileStats.innerHTML = `
-        <div><span style="color:var(--accent);">💰 PRAE Balance:</span> ${userPRAEBalance.toFixed(2)}</div>
-        <div><span style="color:var(--accent);">👁️ Seerscore:</span> ${user.seerscore || 0}</div>`;
-    if (DOM.dailyDigest) DOM.dailyDigest.innerHTML = '📊 Yesterday: you traded wisely.';
+
+    // Prophet Title
+    const seerScore = user.seerscore || 0;
+    const prophetTitle = getProphetTitle(seerScore);
+    
+    if (DOM.profileStats) {
+        DOM.profileStats.innerHTML = `
+            <div><span style="color:var(--accent);">💰 PRAE Balance:</span> ${userPRAEBalance.toFixed(2)}</div>
+            <div><span style="color:var(--accent);">👁️ Seerscore:</span> ${seerScore}</div>
+            <div style="margin-top:8px;"><span style="color:var(--oracle-color);">${prophetTitle.emoji} Rank:</span> ${prophetTitle.title}</div>`;
+    }
+    
+    if (DOM.dailyDigest) {
+        const horo = user.zodiac ? await fetchHoroscopeForZodiac(user.zodiac) : null;
+        DOM.dailyDigest.innerHTML = '📊 Yesterday: you traded wisely.';
+        if (horo && horo.luckyNumber) {
+            DOM.dailyDigest.innerHTML += `<br>🍀 Lucky Number: <strong>${horo.luckyNumber}</strong>`;
+        }
+    }
 
     const moon = getLunarPhase();
     if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji} ${moon.name}`;
@@ -832,16 +893,25 @@ async function renderLeaderboard(period = 'all', category = null) {
         : data.map((u, i) => {
             const changeIcon = u.positionChange > 0 ? ' 🟢↑' : u.positionChange < 0 ? ' 🔴↓' : '';
             const name = u.display_name || `${(u.address || '').slice(0, 6)}...${(u.address || '').slice(-4)}`;
+            const uTitle = getProphetTitle(u.seerscore || 0);
             return `<div style="display:flex;justify-content:space-between;padding:8px;" class="${u.positionChange !== 0 ? 'leaderboard-glow' : ''}">
-                <div>${i + 1}. ${u.avatar || ''} ${escapeHtml(name)}${changeIcon}</div>
+                <div>${i + 1}. ${u.avatar || ''} ${uTitle.emoji} ${escapeHtml(name)}${changeIcon}</div>
                 <div>👁️ ${u.seerscore}</div>
             </div>`;
         }).join('');
 
+    // Seer Spotlight
     try {
         const { data: seer } = await supabaseClient.rpc('get_seer_of_the_day');
         if (seer && DOM.seerOfTheDay) {
-            DOM.seerOfTheDay.innerHTML = `👁️ Seer of the Day: ${seer.display_name || (seer.address || '').slice(0, 6)}...`;
+            const seerTitle = getProphetTitle(seer.seerscore || 0);
+            DOM.seerOfTheDay.innerHTML = `
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;">🌟</div>
+                    <div>👁️ Seer of the Day</div>
+                    <div style="font-size:1.2rem; color:var(--accent);">${seerTitle.emoji} ${seer.display_name || (seer.address || '').slice(0, 6)}...</div>
+                    <div style="font-size:.8rem;">${seerTitle.title} • SeerScore: ${seer.seerscore || '???'}</div>
+                </div>`;
         }
     } catch (err) {
         console.error('Seer of day error:', err);
@@ -884,7 +954,18 @@ async function refreshAll() {
         const totalBet = Object.values(mockMarkets).reduce((s, m) => s + m.yesPool + m.noPool - (MOCK_INITIAL_POOL * 2), 0);
         if (DOM.totalPraedicts) DOM.totalPraedicts.textContent = totalBet.toFixed(0);
         if (DOM.crowdYes) DOM.crowdYes.textContent = '50%';
+
+        // Total Volume
+        const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs(m.yesPool - MOCK_INITIAL_POOL) + Math.abs(m.noPool - MOCK_INITIAL_POOL), 0);
+        if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0);
+
         if (user && DOM.totalSeerscore) DOM.totalSeerscore.textContent = user.seerscore || 0;
+
+        // Hottest Category
+        const hottest = getHottestCategory();
+        if (DOM.hottestCategory) {
+            DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
+        }
 
         const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
         if (DOM.oracleIndicatorTop) DOM.oracleIndicatorTop.style.display = isOracle ? 'inline-flex' : 'none';
@@ -978,7 +1059,6 @@ async function connectWallet() {
             localStorage.setItem('tutorialShown', 'true');
         }
 
-        // Update coin flip button
         if (DOM.flipCoinBtn) {
             DOM.flipCoinBtn.textContent = `🪙 Flip Coin (${coinFlipsRemaining} left)`;
         }
@@ -1124,7 +1204,6 @@ function initEventListeners() {
         await renderLeaderboard(leaderboardPeriod, e.target.value || null);
     });
 
-    // Blind voting toggle
     DOM.revealVotesBtn?.addEventListener('click', toggleBlindVoting);
 
     // Category carousel

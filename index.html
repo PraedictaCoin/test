@@ -161,6 +161,7 @@
         .freeze-timer { font-size:.7rem; color:var(--accent); text-align:center; margin-top:4px; }
         .streak-story { font-size:.8rem; color:var(--accent); text-align:center; margin-top:8px; font-style:italic; }
         .hype-message { text-align:center; padding:8px; color:var(--accent); font-style:italic; font-size:.9rem; }
+        .hottest-category { text-align:center; padding:8px; color:var(--accent); font-size:.85rem; margin-bottom:8px; }
         .oracle-tab input { width:100%; padding:12px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; color:var(--text); margin-bottom:12px; }
         .footer-text { text-align:center; padding:20px; color:var(--text-muted); font-size:.7rem; }
         .ad-banner { text-align:center; padding:12px; margin-top:16px; background:var(--card-bg); border-radius:12px; border:1px solid var(--card-border); }
@@ -242,6 +243,7 @@
         <div class="stats" role="status" aria-live="polite">
             <div class="stat"><div class="stat-value" id="totalActive">0</div><div>Active</div></div>
             <div class="stat"><div class="stat-value" id="totalPraedicts">0</div><div>PRAE Bet</div></div>
+            <div class="stat"><div class="stat-value" id="totalVolume">0</div><div>📊 Volume</div></div>
             <div class="stat"><div class="stat-value" id="totalSeerscore">0</div><div>Seerscore</div></div>
             <div class="stat"><div class="stat-value" id="crowdYes">-</div><div>👁️ Crowd</div></div>
         </div>
@@ -302,13 +304,16 @@
                 <option value="wildcard">🎲 Wildcard</option>
             </select>
             <input type="text" id="filterSearch" placeholder="Search title..." inputmode="search" aria-label="Search predictions">
-            <button id="revealVotesBtn" class="status-filter-btn" aria-label="Toggle blind voting">👁️ Reveal Votes</button>
+            <button id="revealVotesBtn" class="status-filter-btn" aria-label="Toggle blind voting">👁️ Hide Votes</button>
         </div>
         
-        <!-- Predictions Grid -->
-                <div id="praedictionsContainer" class="praedictions-grid" role="list"></div>
+        <!-- Hottest Category -->
+        <div id="hottestCategory" class="hottest-category"></div>
         
-        <!-- Expired & Resolved sections (shown below active predictions) -->
+        <!-- Predictions Grid -->
+        <div id="praedictionsContainer" class="praedictions-grid" role="list"></div>
+        
+        <!-- Expired & Resolved sections -->
         <div id="expiredContainer" style="margin-top:30px;"></div>
         <div id="resolvedContainer" style="margin-top:30px;"></div>
         
@@ -387,7 +392,7 @@
             <div id="profileStats" style="margin-top:12px;"></div>
             <div id="dailyDigest" class="daily-digest"></div>
             
-            <button id="flipCoinBtn" class="btn" style="width:100%; margin-top:12px;" aria-label="Flip coin for reward">🪙 Flip Coin (Get a Reward)</button>
+            <button id="flipCoinBtn" class="btn" style="width:100%; margin-top:12px;" aria-label="Flip coin for reward">🪙 Flip Coin (3 left)</button>
             
             <!-- Referral -->
             <div class="referral-box">
@@ -460,8 +465,8 @@
                 </div>
             </div>
             <div id="leaderboardList" style="margin-top:12px;"></div>
-            <div id="weeklyOracleMessage" style="margin-top:12px; padding:12px; background:var(--accent-glow); border-radius:12px; text-align:center; font-style:italic;"></div>
             <div id="seerOfTheDay" style="margin-top:16px; padding:12px; background:var(--accent-glow); border-radius:12px; text-align:center; font-weight:bold;"></div>
+            <div id="weeklyOracleMessage" style="margin-top:12px; padding:12px; background:var(--accent-glow); border-radius:12px; text-align:center; font-style:italic;"></div>
         </div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
     </section>
@@ -494,7 +499,7 @@
             <div class="support-description">
                 <strong style="color:var(--accent);">👁️ Support PRAEDICTA</strong>
                 <p style="margin-top:8px;">Help us keep the Oracle running. Your support fuels the vision. Add liquidity, spread the word, or send a coffee.</p>
-                <p style="margin-top:12px; font-weight:bold;">✨ Features: 77 daily votes & creations, Prophet Titles, Streak Rewards, Coin Flip, Mystery Box, Blind Voting, Oracle Decide, Reactions, Sound Themes, Achievements, Referrals, Streak Freeze, Weekly Oracle, Controversy Meter, Hall of Fame, Streak Shield Timer, Oracle's Crystal Ball, Streak Story, Flash Predictions, PRAE Balance Check, Seer Spotlight, Streak Gift, and more!</p>
+                <p style="margin-top:12px; font-weight:bold;">✨ Features: 3 free daily creations, Prophet Titles, Blind Voting, Oracle Decide, Reactions, Streak Rewards, Coin Flip, Horoscope & Moon Phase, Controversy Meter, Countdown Badges, Leaderboard, Hall of Fame, and more!</p>
             </div>
             <button id="donateBtn" class="btn" style="width:100%; margin-top:20px;">Support 👁️ Add liquidity to the pool</button>
             <div class="ad-banner">
@@ -537,41 +542,49 @@
 // FAQ Generator
 (function() {
     const faqData = [
-        { q: '👁️ How does PRAEDICTA work?', a: 'Seers praedict future events. The Community can vote. The Oracle resolves.' },
-        { q: '🔮 What can I PRAEdict?', a: 'Anything with a <span style="color:var(--accent);">VERIFIABLE</span> source URL! Finance, sports, elections, economics, tech, world events, or Wildcard.' },
+        { q: '👁️ How does PRAEDICTA work?', a: 'Seers create praedictions about future events. The community buys YES or NO shares. The Oracle resolves after the deadline.' },
+        { q: '🔮 What can I PRAEdict?', a: 'Anything with a <span style="color:var(--accent);">VERIFIABLE</span> outcome! Finance, sports, politics, world events, or Wildcard.' },
         { q: '📜 What features does PRAEDICTA offer?', a: `<ul style="padding-left:20px;">
-            <li>✨ Create up to 77 praedictions daily</li>
-            <li>🗳️ Cast up to 77 votes per day</li>
+            <li>✨ Create up to 3 free praedictions daily</li>
+            <li>💰 Buy YES or NO shares with PRAE tokens</li>
+            <li>🎮 Play Money mode – test strategies without risk</li>
+            <li>⛓️ Real Market mode – coming soon with on-chain PRAE</li>
             <li>🏅 Prophet Titles – Novice, Seer, Prophet, Oracle</li>
-            <li>🔥 Streak Rewards – permanent bonuses for consecutive days</li>
-            <li>🪙 Daily Coin Flip – win up to 3 extra votes or creations</li>
-            <li>🎁 Mystery Box – bonus vote on a random prediction</li>
-            <li>🌙 Your Daily Praediction with horoscope & moon phase</li>
-            <li>👁️ Blind Voting – vote without seeing current results</li>
-            <li>🦉 Let the Oracle decide – random vote for you</li>
+            <li>⚡ Controversy Meter – see when the crowd is split</li>
+            <li>⏰ Countdown Badges – know what's closing soon</li>
+            <li>👁️ Blind Voting – toggle to hide/reveal vote counts</li>
+            <li>🦉 Oracle Decide – let fate choose your vote</li>
             <li>🔮 Reactions (🔥😱🤔👀) on predictions</li>
-            <li>🏆 Achievements & Badges</li>
-            <li>👥 Referral Program – earn permanent bonuses</li>
-            <li>❄️ Streak Freeze – protect your streak once a week</li>
-            <li>📊 Category Leaderboards & Hall of Fame</li>
-            <li>⚡ Controversy Meter, Weekly Oracle Message, Flash Predictions</li>
-            <li>⏳ Streak Shield Timer – see when your next freeze refills</li>
-            <li>🔮 Oracle's Crystal Ball – ask a question, get a mystical answer</li>
-            <li>📖 Streak Story – your personal journey as a Seer</li>
-            <li>💰 PRAE Balance Check – know your token holdings</li>
-            <li>🌟 Seer Spotlight – a random Seer highlighted daily</li>
-            <li>🎁 Streak Gift – bonus votes for reaching a 7‑day streak</li>
-            <li>🔒 Secure Phantom Wallet Authentication</li>
+            <li>🌙 Daily Horoscope & Moon Phase for your zodiac</li>
+            <li>🔥 Login Streak tracking with milestone stories</li>
+            <li>❄️ Streak Freeze timer</li>
+            <li>🪙 Daily Coin Flip – win bonus PRAE (3 flips per session)</li>
+            <li>🌟 Seer Spotlight – daily featured Seer</li>
+            <li>🏆 Leaderboard – Top Seers ranked by SeerScore</li>
+            <li>🏛️ Hall of Fame – most accurate resolved predictions</li>
+            <li>📊 Filter by category, status, and search</li>
+            <li>🔗 Share predictions via link</li>
+            <li>👥 Referral system</li>
+            <li>🌓 Light/Dark theme toggle</li>
+            <li>📱 PWA – install as mobile or desktop app</li>
+            <li>🔒 Secure Phantom Wallet authentication</li>
+            <li>🔮 Ask the Oracle – one mystical answer per session</li>
+            <li style="color:var(--text-muted);">🎁 Mystery Box – coming soon</li>
+            <li style="color:var(--text-muted);">🎵 Sound Themes – coming soon</li>
+            <li style="color:var(--text-muted);">🏆 Achievements & Badges – coming soon</li>
+            <li style="color:var(--text-muted);">🎁 Streak Gift – coming soon</li>
         </ul>` },
-        { q: '🦉 How does the Oracle resolve the Praedictions?', a: 'The Oracle resolves each praediction using user suggestions and real‑world evidence.' },
-        { q: '🗳️ How to help resolve?', a: 'After the deadline, click "Suggest Outcome" with evidence URL. The Oracle reviews.' },
-        { q: '📈 How does auto‑resolve work?', a: 'If you select a price feed and a target value, after the deadline the system automatically fetches the real price.' },
-        { q: '💎 Do I lose my 777 PRAE?', a: '<span style="color:var(--accent);">NO!</span> The app only <span style="color:var(--accent);">CHECKS</span> your balance. Your tokens stay in your wallet.' },
-        { q: '👁️ What is PRAE and where can I get it.', a: 'PRAE is a community token. Used for reputation. You can get it on DexScreener or Raydium.' },
-        { q: '👥 Is there a community I can join?', a: '<span style="color:var(--accent);">Yes!</span> Join our Telegram: <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" style="color:var(--accent);">t.me/praedictacoin</a> or X: <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" style="color:var(--accent);">@PraedictaCoin</a>.' },
-        { q: '💛 How can I support the project?', a: 'Check the <strong>"Support" tab</strong> – you can donate or add liquidity to the PRAE token.' },
-        { q: '📱 Can I install this as an app?', a: 'YES! This is a PWA. On mobile: Chrome → "Add to Home Screen". On desktop: Click the install icon.' },
-        { q: '⚖️ Legal disclaimer', a: 'Free game for entertainment. SeerScore is for Reputation only, points have no cash value.' },
+        { q: '🦉 How does the Oracle resolve predictions?', a: 'The Oracle reviews user suggestions and real‑world evidence after the deadline, then resolves to YES or NO.' },
+        { q: '💰 What is PRAE and where can I get it?', a: 'PRAE is the prediction token on Solana. Get it on <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">DexScreener</a>.' },
+        { q: '🎮 Play Money vs Real Market?', a: 'Play Money uses a built-in AMM to test strategies. Real Market (coming soon) uses actual PRAE tokens on Solana.' },
+        { q: '👁️ What is Blind Voting?', a: 'Toggle to blur all vote counts. Vote without seeing what others chose – test your intuition!' },
+        { q: '🏅 What are Prophet Titles?', a: 'Earn ranks based on your SeerScore: 🌱 Novice (0), 👁️ Seer (100), 👁️‍🗨️ High Seer (250), 🔮 Prophet (500), 🦉 Oracle (1000+).' },
+        { q: '⚡ What is the Controversy Meter?', a: 'When YES and NO are nearly tied, a "Split Opinion" or "Heated Debate" badge appears on the prediction card.' },
+        { q: '🔥 What are Streaks?', a: 'Login daily to build your streak. Milestones unlock stories and bonuses. Use Streak Freeze to protect your progress.' },
+        { q: '👥 Is there a community?', a: '<span style="color:var(--accent);">Yes!</span> Join our Telegram: <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" style="color:var(--accent);">t.me/praedictacoin</a> or X: <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" style="color:var(--accent);">@PraedictaCoin</a>.' },
+        { q: '💛 How can I support the project?', a: 'Check the <strong>"Support" tab</strong> – add liquidity to the PRAE pool or spread the word.' },
+        { q: '📱 Can I install this as an app?', a: 'YES! This is a PWA. On mobile: Chrome → "Add to Home Screen". On desktop: click the install icon in your browser.' },
+        { q: '⚖️ Legal disclaimer', a: 'Free game for entertainment. SeerScore is for reputation only. Points have no cash value.' },
         { q: '📜 Terms of Service', a: 'Read our Terms <a href="#" class="legal-link" data-doc="terms" style="color:var(--accent);">here</a>.' },
         { q: '🔒 Privacy Policy', a: 'Read our Privacy Policy <a href="#" class="legal-link" data-doc="privacy" style="color:var(--accent);">here</a>.' },
         { q: '⚖️ Imprint', a: 'View imprint <a href="#" class="legal-link" data-doc="imprint" style="color:var(--accent);">here</a>.' }
