@@ -48,8 +48,8 @@
             --badge-resolved: #aa66ff;
             --select-option-bg: #FFFFFF;
         }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { background: var(--bg); color: var(--text); font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; overflow-x: hidden; transition: background .3s, color .3s; font-size:16px; }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; transition: background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; overflow-x: hidden; font-size:16px; }
 
         .btn { padding:12px 28px; border-radius:50px; font-size:.8rem; font-weight:500; letter-spacing:2px; text-transform:uppercase; background:var(--accent); color:var(--bg); border:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
         .btn:disabled { opacity:.5; cursor:not-allowed; }
@@ -151,9 +151,10 @@
         .footer-text { text-align:center; padding:20px; color:var(--text-muted); font-size:.7rem; }
         .ad-banner { text-align:center; padding:12px; margin-top:16px; background:var(--card-bg); border-radius:12px; border:1px solid var(--card-border); }
         .legal-banner { text-align:center; padding:16px; margin-top:16px; font-size:.75rem; color:var(--text-muted); }
+        .offline-banner { display:none; background:#FF4444; color:#FFF; text-align:center; padding:8px; border-radius:12px; margin-bottom:16px; }
 
-        #particlesCanvas { position:fixed; top:0; left:0; z-index:-1; pointer-events:none; opacity: 0.8; }
-        body.light #particlesCanvas { opacity: 0.5; }
+        #particlesCanvas { position:fixed; top:0; left:0; z-index:-1; pointer-events:none; opacity:0.6; }
+        body.light #particlesCanvas { opacity:0.35; }
 
         @keyframes fadeIn { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
         @keyframes blink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(.1)} }
@@ -176,10 +177,9 @@
 </head>
 <body>
 
-<!-- Particles Canvas -->
 <canvas id="particlesCanvas"></canvas>
 
-<!-- Tutorial Overlay -->
+<!-- Tutorial -->
 <div id="tutorialOverlay" class="tutorial-overlay" style="display:none;">
     <div class="tutorial-card overlay-message" style="position:static;transform:none;">
         <div class="eye-container" style="width:80px;height:50px;margin:0 auto 16px;">
@@ -194,14 +194,12 @@
 <!-- Gate -->
 <div id="gate" class="gate">
     <div class="gate-card">
-        <div class="eye-container">
-            <div class="eye"><div class="iris"><div class="pupil"></div></div></div>
-        </div>
+        <div class="eye-container"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div>
         <h2>PRAEDICTA</h2>
         <div class="tagline">for those who see</div>
         <div class="age-consent" style="margin:16px 0;">
             <input type="checkbox" id="ageCheckbox" aria-label="Age confirmation">
-            <label for="ageCheckbox">I confirm I am at least 18 (21 in some jurisdictions) and accept the <a href="#" class="legal-link" data-doc="terms" style="color:var(--accent);">Terms</a> and <a href="#" class="legal-link" data-doc="privacy" style="color:var(--accent);">Privacy Policy</a>.</label>
+            <label for="ageCheckbox">I confirm I am at least 18 and accept the <a href="#" class="legal-link" data-doc="terms" style="color:var(--accent);">Terms</a> and <a href="#" class="legal-link" data-doc="privacy" style="color:var(--accent);">Privacy Policy</a>.</label>
         </div>
         <button id="connectBtn" class="btn"><span>Connect Wallet</span><span class="loader" style="display:none;"></span></button>
         <p style="color:var(--text-muted); font-size:.7rem; margin-top:8px;">🔐 Signing is free – it just proves you own this wallet.</p>
@@ -214,9 +212,7 @@
 
     <header class="app-header" role="banner">
         <div class="logo-area">
-            <div class="logo-eye" id="logoEyeWrapper" aria-hidden="true">
-                <div class="eye"><div class="iris"><div class="pupil"></div></div></div>
-            </div>
+            <div class="logo-eye" id="logoEyeWrapper" aria-hidden="true"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div>
             <div><h1>PRAEDICTA</h1><div class="tagline">for those who see</div></div>
         </div>
         <div class="stats" role="status" aria-live="polite">
@@ -225,8 +221,12 @@
             <div class="stat"><div class="stat-value" id="totalVolume">0</div><div>📊 Volume</div></div>
             <div class="stat"><div class="stat-value" id="totalSeerscore">0</div><div>Seerscore</div></div>
             <div class="stat"><div class="stat-value" id="crowdYes">-</div><div>👁️ Crowd</div></div>
+            <div class="stat" id="notificationBadge" style="display:none; cursor:pointer;" onclick="this.style.display='none';"><div class="stat-value" style="font-size:1rem;" id="notificationText">🔔</div><div>Updates</div></div>
         </div>
     </header>
+
+    <!-- Offline Banner -->
+    <div id="offlineBanner" class="offline-banner">⚠️ Connection lost. Retrying...</div>
 
     <nav class="tabs" role="tablist">
         <div class="tabs-left">
@@ -239,18 +239,18 @@
             <button class="tab-btn" data-tab="faq" role="tab" aria-selected="false">❓ FAQ</button>
         </div>
         <div class="right-tab-items">
-            <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="community-btn" aria-label="Telegram Community">📱 Seers DEN</a>
-            <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" class="prae-btn" aria-label="Get PRAE token">👁️ Get PRAE</a>
-            <button id="playToggle" class="play-toggle" title="Toggle play/real mode" aria-label="Toggle market mode">🎮 Play Money</button>
-            <button id="themeToggleSmall" class="theme-toggle-small" aria-label="Toggle light/dark theme">🌓 Light/Dark</button>
-            <button id="disconnectBtn" class="theme-toggle-small" style="display:none;" aria-label="Disconnect wallet">🔌 Disconnect</button>
+            <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="community-btn">📱 Seers DEN</a>
+            <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" class="prae-btn">👁️ Get PRAE</a>
+            <button id="playToggle" class="play-toggle">🎮 Play Money</button>
+            <button id="themeToggleSmall" class="theme-toggle-small">🌓 Light/Dark</button>
+            <button id="disconnectBtn" class="theme-toggle-small" style="display:none;">🔌 Disconnect</button>
             <div id="oracleIndicatorTop" class="oracle-indicator-top" style="display:none;">🦉 ORACLE</div>
         </div>
     </nav>
 
     <!-- Tab: Praedictions -->
     <section id="tab-praedictions" class="tab-content active" role="tabpanel">
-        <div id="voiceMessage" class="voice" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
+        <div id="voiceMessage" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
 
         <div class="category-carousel" id="categoryCarousel">
             <button class="category-carousel-btn active-filter" data-category="all">All</button>
@@ -274,14 +274,15 @@
                 <option value="crypto">💰 Finance</option><option value="people">👤 People</option>
                 <option value="sports">⚽ Sports</option><option value="wildcard">🎲 Wildcard</option>
             </select>
-            <input type="text" id="filterSearch" placeholder="Search title..." inputmode="search" aria-label="Search predictions">
-            <button id="revealVotesBtn" class="status-filter-btn" aria-label="Toggle blind voting">👁️ Hide Votes</button>
+            <input type="text" id="filterSearch" placeholder="Search title..." inputmode="search">
+            <button id="revealVotesBtn" class="status-filter-btn">👁️ Hide Votes</button>
         </div>
 
         <div id="hottestCategory" class="hottest-category"></div>
         <div id="praedictionsContainer" class="praedictions-grid" role="list"></div>
         <div id="expiredContainer" style="margin-top:30px;"></div>
         <div id="resolvedContainer" style="margin-top:30px;"></div>
+        <button id="loadMoreBtn" class="btn" style="width:100%; margin-top:16px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent); display:none;">Load More Predictions</button>
 
         <div class="create-praediction card">
             <h3 style="margin-bottom:12px;">I praedict that…</h3>
@@ -305,7 +306,18 @@
             </select>
             <input type="text" id="targetValue" placeholder="Target price (only for auto-resolve)" maxlength="50" autocomplete="off">
             <input type="url" id="sourceUrl" placeholder="Proof URL - where will the result be verifiable? (required)" maxlength="500" style="width:100%; padding:10px; margin-bottom:12px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:12px; color:var(--text); font-family:inherit;">
-            <button id="createBtn" class="btn" style="width:100%;"><span>✨ Create</span><span class="loader" style="display:none;"></span></button>
+
+            <!-- Creator bet selection -->
+            <div style="margin:12px 0; padding:12px; background:var(--accent-glow); border-radius:12px;">
+                <p style="color:var(--accent); font-weight:500; margin-bottom:8px;">Your conviction (required - min 7 PRAE):</p>
+                <div style="display:flex; gap:8px;">
+                    <button id="creatorBetYes" class="btn-praedict" type="button" style="flex:1;">✅ I believe YES</button>
+                    <button id="creatorBetNo" class="btn-praedict" type="button" style="flex:1; background:rgba(255,68,68,0.8);">❌ I believe NO</button>
+                </div>
+                <p id="creatorBetDisplay" style="text-align:center; margin-top:8px; font-size:.8rem; color:var(--text-muted);">Select your conviction</p>
+            </div>
+
+            <button id="createBtn" class="btn" style="width:100%;"><span>✨ Create & Stake 7 PRAE</span><span class="loader" style="display:none;"></span></button>
         </div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
     </section>
@@ -317,13 +329,17 @@
                 Welcome Seer: <span id="walletDisplay" class="wallet-address"></span>
                 <span id="oracleIndicatorProfile" style="display:none; margin-left:8px;" class="oracle-badge">🦉 ORACLE</span>
             </h2>
+            <div style="margin-top:4px; font-size:.7rem; color:var(--text-muted);">
+                <span id="profileWalletAddress"></span>
+                <button id="copyWalletBtn" class="social-btn" style="font-size:.65rem; padding:2px 8px; margin-left:4px;">📋 Copy</button>
+            </div>
             <div id="profileNameSection" style="margin:16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                <input type="text" id="displayNameInput" placeholder="Your name" maxlength="20" style="flex:1;" autocomplete="name" aria-label="Display name">
+                <input type="text" id="displayNameInput" placeholder="Your name" maxlength="20" style="flex:1;" autocomplete="name">
                 <select id="avatarSelect" aria-label="Avatar" style="background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; padding:8px 16px; color:var(--text);"></select>
                 <button id="saveProfileBtn" class="social-btn">Save</button>
             </div>
-            <div id="profileHoroscope" class="voice" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
-            <div id="lunarPhase" class="lunar-phase" style="text-align:center;font-size:1.2rem;margin-bottom:8px;"></div>
+            <div id="profileHoroscope" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
+            <div id="lunarPhase" style="text-align:center;font-size:1.2rem;margin-bottom:8px;"></div>
             <div class="zodiac-selector" id="zodiacSelectorWrapper">
                 <span style="color:var(--accent);">⭐ Your Zodiac Sign:</span>
                 <select id="zodiacSelect" aria-label="Zodiac sign"></select>
@@ -337,11 +353,11 @@
             <div id="freezeTimer" class="freeze-timer"></div>
             <div id="profileStats" style="margin-top:12px;"></div>
             <div id="dailyDigest" class="daily-digest"></div>
-            <button id="flipCoinBtn" class="btn" style="width:100%; margin-top:12px;" aria-label="Flip coin for reward">🪙 Flip Coin (1 available)</button>
+            <button id="flipCoinBtn" class="btn" style="width:100%; margin-top:12px;">🪙 Flip Coin (1 available)</button>
             <div class="referral-box"><strong style="color:var(--accent);">🔗 Your Referral Link</strong><br><span id="referralLink"></span><br><button id="copyReferralBtn" class="social-btn" style="margin-top:8px;">📋 Copy Link</button></div>
             <div style="margin-top:20px;"><button id="showMyPraedictionsBtn" class="btn" style="width:100%; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">📋 Show My Praedictions</button><div id="myPraedictionsList" style="display:none; margin-top:8px;"></div></div>
             <div class="ad-banner">👁️ P R A E D I C T A – Predict and earn SeerScore ✨<br><a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">Get PRAE on DexScreener →</a></div>
-            <div class="legal-banner"><a href="#" class="legal-link" data-doc="terms">📜 Terms of Service</a> | <a href="#" class="legal-link" data-doc="privacy">🔒 Privacy Policy</a> | <a href="#" class="legal-link" data-doc="imprint">⚖️ Imprint</a> | <a href="#" id="deleteAccountLink" style="color:#ff8888;">🗑️ Delete Account</a></div>
+            <div class="legal-banner"><a href="#" class="legal-link" data-doc="terms">📜 Terms</a> | <a href="#" class="legal-link" data-doc="privacy">🔒 Privacy</a> | <a href="#" class="legal-link" data-doc="imprint">⚖️ Imprint</a> | <a href="#" id="deleteAccountLink" style="color:#ff8888;">🗑️ Delete Account</a></div>
         </div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
     </section>
@@ -351,7 +367,7 @@
         <div class="card">
             <h3 style="color:var(--accent); text-align:center;">🔮 Ask the Crystal Ball</h3>
             <p style="text-align:center; margin-bottom:16px;">Speak your question and gaze into the crystal…</p>
-            <div class="oracle-tab"><input type="text" id="oracleQuestion" placeholder="What do you wish to know?" maxlength="200" aria-label="Oracle question"></div>
+            <div class="oracle-tab"><input type="text" id="oracleQuestion" placeholder="What do you wish to know?" maxlength="200"></div>
             <button id="askOracleBtn" class="btn" style="width:100%;">🔮 Ask</button>
             <div id="oracleAnswer" style="text-align:center; margin-top:20px; font-style:italic; color:var(--accent);"></div>
             <p id="oracleLimit" style="text-align:center; font-size:.7rem; color:var(--text-muted); margin-top:8px;">You may ask once per login.</p>
@@ -369,7 +385,7 @@
                     <button class="status-filter-btn active-filter" data-period="all">All Time</button>
                     <button class="status-filter-btn" data-period="year">This Year</button>
                     <button class="status-filter-btn" data-period="month">This Month</button>
-                    <select id="leaderboardCategoryFilter" aria-label="Leaderboard category" style="background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; padding:8px 16px; color:var(--text);">
+                    <select id="leaderboardCategoryFilter" style="background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; padding:8px 16px; color:var(--text);">
                         <option value="">All Categories</option>
                         <option value="worldevents">🌍 World</option><option value="politics">🏛️ Politics</option>
                         <option value="crypto">💰 Finance</option><option value="people">👤 People</option>
@@ -388,7 +404,7 @@
     <section id="tab-halloffame" class="tab-content" role="tabpanel">
         <div class="card">
             <h3 style="color:var(--accent); text-align:center;">🏛️ Prediction Hall of Fame</h3>
-            <p style="text-align:center; margin-bottom:16px;">Top 10 most accurate predictions (by correct votes)</p>
+            <p style="text-align:center; margin-bottom:16px;">Top 10 most accurate predictions</p>
             <div id="hallOfFameList"></div>
         </div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
@@ -400,29 +416,23 @@
             <h3 style="color:var(--accent); text-align:center;">👁️ Support PRAEDICTA</h3>
             <p style="text-align:center;">Your support keeps PRAE in the Game.</p>
             <div class="social-links" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center;">
-                <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="social-btn">📱 PRAEDICTA Channel</a>
+                <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="social-btn">📱 Telegram</a>
                 <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" class="social-btn">🐦 X</a>
                 <a href="https://praedictacoin.github.io" target="_blank" rel="noopener" class="social-btn">👁️ Homepage</a>
                 <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" class="social-btn">📊 DexScreener</a>
             </div>
             <div class="support-description">
                 <strong style="color:var(--accent);">👁️ Support PRAEDICTA</strong>
-                <p style="margin-top:8px;">Help us keep the Oracle running. Your support fuels the vision. Add liquidity, spread the word, or send a coffee.</p>
-                <p style="margin-top:12px; font-weight:bold;">✨ Features: 3 free daily creations, Prophet Titles, Blind Voting, Oracle Decide, Reactions, Streak Rewards, Coin Flip, Horoscope & Moon Phase, Controversy Meter, Countdown Badges, Leaderboard, Hall of Fame, and more!</p>
+                <p style="margin-top:8px;">Help us keep the Oracle running. Add liquidity, spread the word, or send a coffee.</p>
             </div>
-            <button id="donateBtn" class="btn" style="width:100%; margin-top:20px;">Support 👁️ Add liquidity to the pool</button>
-            <div class="ad-banner">🌟 Use affiliate links to support us:<br><a href="https://phantom.app/" target="_blank" rel="noopener" style="color:var(--accent);">Phantom Wallet</a> | <a href="https://jup.ag/" target="_blank" rel="noopener" style="color:var(--accent);">Jupiter Aggregator</a></div>
-            <div class="ad-banner">👁️ P R A E D I C T A - For those who see<br><a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">Trade PRAE here</a></div>
+            <button id="donateBtn" class="btn" style="width:100%; margin-top:20px;">Support 👁️ Add liquidity</button>
         </div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
     </section>
 
     <!-- Tab: FAQ -->
     <section id="tab-faq" class="tab-content" role="tabpanel">
-        <div class="card">
-            <h3>❓ Frequently Asked Questions</h3>
-            <div id="faqContainer"></div>
-        </div>
+        <div class="card"><h3>❓ Frequently Asked Questions</h3><div id="faqContainer"></div></div>
         <div class="footer-text">PRAEDICTA - 2026 - For those who see</div>
     </section>
 
@@ -443,66 +453,19 @@
 
 <!-- Particles -->
 <script>
-(function() {
-    const canvas = document.getElementById('particlesCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let particles = [];
-    const maxParticles = 40;
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', resize); resize();
-    class Particle {
-        constructor() { this.reset(); }
-        reset() { this.x = Math.random() * canvas.width; this.y = canvas.height + Math.random() * 100; this.size = Math.random() * 2 + 0.5; this.speed = Math.random() * 0.5 + 0.2; this.opacity = Math.random() * 0.5 + 0.1; this.wobble = Math.random() * Math.PI * 2; }
-        update() { this.y -= this.speed; this.wobble += 0.01; this.x += Math.sin(this.wobble) * 0.3; if (this.y < -10) this.reset(); }
-        draw() { const accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#00F0FF'; ctx.fillStyle = accent; ctx.globalAlpha = this.opacity; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); }
-    }
-    for (let i = 0; i < maxParticles; i++) particles.push(new Particle());
-    function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); ctx.globalAlpha = 1; requestAnimationFrame(animate); }
-    animate();
-})();
+(function(){const canvas=document.getElementById('particlesCanvas');if(!canvas)return;const ctx=canvas.getContext('2d');let particles=[];const maxParticles=40;function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}window.addEventListener('resize',resize);resize();class Particle{constructor(){this.reset()}reset(){this.x=Math.random()*canvas.width;this.y=canvas.height+Math.random()*100;this.size=Math.random()*3+1;this.speed=Math.random()*0.5+0.2;this.opacity=Math.random()*0.5+0.3;this.wobble=Math.random()*Math.PI*2}update(){this.y-=this.speed;this.wobble+=0.01;this.x+=Math.sin(this.wobble)*0.3;if(this.y<-10)this.reset()}draw(){const accent=getComputedStyle(document.body).getPropertyValue('--accent').trim()||'#00F0FF';ctx.fillStyle=accent;ctx.globalAlpha=this.opacity;ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);ctx.fill()}}for(let i=0;i<maxParticles;i++)particles.push(new Particle());function animate(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(p=>{p.update();p.draw()});ctx.globalAlpha=1;requestAnimationFrame(animate)}animate()})();
 </script>
 
 <!-- FAQ Generator -->
 <script>
-(function() {
-    const faqData = [
-        { q: '👁️ How does PRAEDICTA work?', a: 'Seers create praedictions about future events. The community buys YES or NO shares. The Oracle resolves after the deadline.' },
-        { q: '🔮 What can I PRAEdict?', a: 'Anything with a <span style="color:var(--accent);">VERIFIABLE</span> outcome! Finance, sports, politics, world events, or Wildcard.' },
-        { q: '📜 What features does PRAEDICTA offer?', a: `<ul style="padding-left:20px;"><li>✨ Create up to 3 free praedictions daily</li><li>💰 Buy YES or NO shares with PRAE tokens</li><li>🎮 Play Money mode – test strategies without risk</li><li>⛓️ Real Market mode – coming soon with on-chain PRAE</li><li>🏅 Prophet Titles – Novice, Seer, Prophet, Oracle</li><li>⚡ Controversy Meter – see when the crowd is split</li><li>⏰ Countdown Badges – know what's closing soon</li><li>👁️ Blind Voting – toggle to hide/reveal vote counts</li><li>🦉 Oracle Decide – let fate choose your vote</li><li>🔮 Reactions (🔥😱🤔👀) on predictions</li><li>🌙 Daily Horoscope & Moon Phase for your zodiac</li><li>🔥 Login Streak tracking with milestone stories</li><li>❄️ Streak Freeze timer</li><li>🪙 Daily Coin Flip – win bonus PRAE</li><li>🌟 Seer Spotlight – daily featured Seer</li><li>🏆 Leaderboard – Top Seers ranked by SeerScore</li><li>🏛️ Hall of Fame – most accurate resolved predictions</li><li>📊 Filter by category, status, and search</li><li>🔗 Share predictions via link</li><li>👥 Referral system</li><li>🌓 Light/Dark theme toggle</li><li>📱 PWA – install as mobile or desktop app</li><li>🔒 Secure Phantom Wallet authentication</li><li>🔮 Ask the Oracle – one mystical answer per session</li><li>📎 Source URL required for verifiable predictions</li><li style="color:var(--text-muted);">🎁 Mystery Box – coming soon</li><li style="color:var(--text-muted);">🎵 Sound Themes – coming soon</li></ul>` },
-        { q: '📎 Why do I need a source URL?', a: 'Every prediction must be verifiable. Provide a URL where the result will be publicly posted. Auto-resolve (CoinGecko) predictions are exempt.' },
-        { q: '🦉 How does the Oracle resolve predictions?', a: 'The Oracle checks the source URL or auto-resolve data after the deadline. If unresolvable, all bets are refunded.' },
-        { q: '💰 What is PRAE and where can I get it?', a: 'PRAE is the prediction token on Solana. Get it on <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">DexScreener</a>.' },
-        { q: '🎮 Play Money vs Real Market?', a: 'Play Money uses a built-in AMM to test strategies. Real Market (coming soon) uses actual PRAE tokens on Solana.' },
-        { q: '👁️ What is Blind Voting?', a: 'Toggle to blur all vote counts. Vote without seeing what others chose – test your intuition!' },
-        { q: '🏅 What are Prophet Titles?', a: 'Earn ranks based on your SeerScore: 🌱 Novice (0), 👁️ Seer (100), 👁️‍🗨️ High Seer (250), 🔮 Prophet (500), 🦉 Oracle (1000+).' },
-        { q: '⚡ What is the Controversy Meter?', a: 'When YES and NO are nearly tied, a "Split Opinion" or "Heated Debate" badge appears on the prediction card.' },
-        { q: '🔥 What are Streaks?', a: 'Login daily to build your streak. Milestones unlock stories and bonuses. Use Streak Freeze to protect your progress.' },
-        { q: '👥 Is there a community?', a: '<span style="color:var(--accent);">Yes!</span> Join our Telegram: <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" style="color:var(--accent);">t.me/praedictacoin</a> or X: <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" style="color:var(--accent);">@PraedictaCoin</a>.' },
-        { q: '📱 Can I install this as an app?', a: 'YES! This is a PWA. On mobile: Chrome → "Add to Home Screen". On desktop: click the install icon in your browser.' },
-        { q: '⚖️ Legal disclaimer', a: 'Free game for entertainment. SeerScore is for reputation only. Points have no cash value.' },
-        { q: '📜 Terms of Service', a: 'Read our Terms <a href="#" class="legal-link" data-doc="terms" style="color:var(--accent);">here</a>.' },
-        { q: '🔒 Privacy Policy', a: 'Read our Privacy Policy <a href="#" class="legal-link" data-doc="privacy" style="color:var(--accent);">here</a>.' },
-        { q: '⚖️ Imprint', a: 'View imprint <a href="#" class="legal-link" data-doc="imprint" style="color:var(--accent);">here</a>.' }
-    ];
-    const container = document.getElementById('faqContainer');
-    if (container) { faqData.forEach(item => { const qDiv = document.createElement('div'); qDiv.style.cssText = 'color:var(--accent);margin-top:16px;font-weight:500;'; qDiv.textContent = item.q; const aDiv = document.createElement('div'); aDiv.style.cssText = 'margin-top:4px;color:var(--text-secondary);font-size:.9rem;'; aDiv.innerHTML = item.a; container.appendChild(qDiv); container.appendChild(aDiv); }); }
-})();
+(function(){const faqData=[{q:'👁️ How does PRAEDICTA work?',a:'Seers create praedictions about future events. The community buys YES or NO shares. The Oracle resolves after the deadline.'},{q:'🔮 What can I PRAEdict?',a:'Anything with a <span style="color:var(--accent);">VERIFIABLE</span> outcome! Finance, sports, politics, world events, or Wildcard.'},{q:'📜 What features does PRAEDICTA offer?',a:'<ul style="padding-left:20px;"><li>✨ Create predictions – stake 7 PRAE on your conviction</li><li>💰 Buy YES or NO shares with PRAE tokens</li><li>🎮 Play Money mode – test strategies</li><li>🏅 Prophet Titles – Novice to Oracle</li><li>⚡ Controversy Meter</li><li>👁️ Blind Voting</li><li>🦉 Oracle Decide</li><li>🔮 Reactions</li><li>🌙 Daily Horoscope & Moon Phase</li><li>🔥 Login Streaks</li><li>🪙 Daily Coin Flip</li><li>🌟 Seer Spotlight</li><li>🏆 Leaderboard</li><li>🏛️ Hall of Fame</li><li>📱 PWA – install as app</li><li>🔒 Secure Phantom Wallet</li></ul>'},{q:'📎 Why do I need a source URL?',a:'Every prediction must be verifiable. Provide a URL where the result will be publicly posted.'},{q:'🦉 How does the Oracle resolve?',a:'The Oracle checks the source URL or auto-resolve data. If unresolvable, all bets are refunded.'},{q:'💰 What is PRAE?',a:'PRAE is the prediction token on Solana. Get it on <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">DexScreener</a>.'},{q:'👥 Community?',a:'Join our Telegram: <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" style="color:var(--accent);">t.me/praedictacoin</a>'},{q:'📱 Install as app?',a:'YES! PWA. Chrome → "Add to Home Screen".'},{q:'⚖️ Legal',a:'Free game for entertainment. SeerScore has no cash value.'}];const container=document.getElementById('faqContainer');if(container){faqData.forEach(item=>{const qDiv=document.createElement('div');qDiv.style.cssText='color:var(--accent);margin-top:16px;font-weight:500;';qDiv.textContent=item.q;const aDiv=document.createElement('div');aDiv.style.cssText='margin-top:4px;color:var(--text-secondary);font-size:.9rem;';aDiv.innerHTML=item.a;container.appendChild(qDiv);container.appendChild(aDiv)})}})();
 </script>
 
-<!-- Avatar & Zodiac Generators -->
+<!-- Avatar & Zodiac -->
 <script>
-(function() {
-    const avatars = ['', '👁️', '🦉', '🔮', '✨', '🐉', '🦊', '🐺', '🦅', '🐍', '🦋', '🐙', '🦄', '🌋', '👻', '🧙', '🧿', '🗿', '👧', '👨', '🧘', '💻', '📈', '📜', '📡', '📶', '⛪', '🕌', '🕍', '🛕', '🏮', '🚀', '⚽', '🏈', '⛳', '⚾', '🏀', '🏁', '🏐', '🎾', '💴'];
-    const select = document.getElementById('avatarSelect');
-    if (select) select.innerHTML = avatars.map(a => `<option value="${a}">${a || 'No avatar'}</option>`).join('');
-})();
-(function() {
-    const zodiacs = [{ value:'', label:'Select' },{ value:'aries', label:'♈ Aries' },{ value:'taurus', label:'♉ Taurus' },{ value:'gemini', label:'♊ Gemini' },{ value:'cancer', label:'♋ Cancer' },{ value:'leo', label:'♌ Leo' },{ value:'virgo', label:'♍ Virgo' },{ value:'libra', label:'♎ Libra' },{ value:'scorpio', label:'♏ Scorpio' },{ value:'sagittarius', label:'♐ Sagittarius' },{ value:'capricorn', label:'♑ Capricorn' },{ value:'aquarius', label:'♒ Aquarius' },{ value:'pisces', label:'♓ Pisces' }];
-    const select = document.getElementById('zodiacSelect');
-    if (select) select.innerHTML = zodiacs.map(z => `<option value="${z.value}">${z.label}</option>`).join('');
-})();
-document.addEventListener('click', function(e) { const link = e.target.closest('.legal-link'); if (!link) return; e.preventDefault(); const doc = link.dataset.doc; alert('📜 ' + doc.charAt(0).toUpperCase() + doc.slice(1) + ' document will be available soon.'); });
+(function(){const avatars=['','👁️','🦉','🔮','✨','🐉','🦊','🐺','🦅','🐍','🦋','🐙','🦄','🌋','👻','🧙','🧿','🗿','👧','👨','🧘','💻','📈','📜','📡','📶','⛪','🕌','🕍','🛕','🏮','🚀','⚽','🏈','⛳','⚾','🏀','🏁','🏐','🎾','💴'];const s=document.getElementById('avatarSelect');if(s)s.innerHTML=avatars.map(a=>`<option value="${a}">${a||'No avatar'}</option>`).join('')})();
+(function(){const z=[{value:'',label:'Select'},{value:'aries',label:'♈ Aries'},{value:'taurus',label:'♉ Taurus'},{value:'gemini',label:'♊ Gemini'},{value:'cancer',label:'♋ Cancer'},{value:'leo',label:'♌ Leo'},{value:'virgo',label:'♍ Virgo'},{value:'libra',label:'♎ Libra'},{value:'scorpio',label:'♏ Scorpio'},{value:'sagittarius',label:'♐ Sagittarius'},{value:'capricorn',label:'♑ Capricorn'},{value:'aquarius',label:'♒ Aquarius'},{value:'pisces',label:'♓ Pisces'}];const s=document.getElementById('zodiacSelect');if(s)s.innerHTML=z.map(x=>`<option value="${x.value}">${x.label}</option>`).join('')})();
+document.addEventListener('click',function(e){const link=e.target.closest('.legal-link');if(!link)return;e.preventDefault();alert('📜 Document will be available soon.')});
 </script>
 
 </body>
