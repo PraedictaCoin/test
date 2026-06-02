@@ -526,27 +526,21 @@ function renderPredictionCard(p, isOracle) {
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
-    });
-    const reactionDisplay = Object.entries(grouped)
-        .map(([emoji, count]) => `${escapeHtml(emoji)} ${count}`)
-        .join(' ');
-
     return `<div class="praediction-card ${controversy && controversy.class === 'badge-controversy' ? 'controversy' : ''}">
-        <div class="praediction-title">${escapeHtml(p.title)}</div>
-        <div class="praediction-desc">${escapeHtml(p.description)}</div>
-        <div class="meta-row">
-            <span>${catIcon} ${displayCat}</span>
-            <span>📅 ${deadline}</span>
-            <span class="badge ${badgeClass}">${badgeText}</span>
-            ${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}
-            ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
-        </div>
-        ${!active ? renderVoteStats(yesPrice, noPrice) : ''}
-        ${active ? renderVoteStats(yesPrice, noPrice) : ''}
-        ${active ? renderActiveActions(p, yesPrice) : renderResolvedStatus(p)}
-        ${reactionDisplay ? `<div style="margin-top:4px; font-size:.8rem;">${reactionDisplay}</div>` : ''}
-        ${canResolve ? renderOracleResolveButtons(p) : ''}
-        ${!active ? renderReactionBar(p) : ''}
+    <div class="praediction-title">${escapeHtml(p.title)}</div>
+    <div class="praediction-desc">${escapeHtml(p.description)}</div>
+    <div class="meta-row">
+    <span>${catIcon} ${displayCat}</span>
+    <span>📅 ${deadline}</span>
+    <span class="badge ${badgeClass}">${badgeText}</span>
+    ${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}
+    ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
+    </div>
+    ${!active ? renderVoteStats(yesPrice, noPrice) : ''}
+    ${active ? renderVoteStats(yesPrice, noPrice) : ''}
+    ${active ? renderActiveActions(p, yesPrice) : renderResolvedStatus(p)}
+    ${canResolve ? renderOracleResolveButtons(p) : ''}
+    ${!active ? renderReactionBar(p) : ''}
     </div>`;
 }
 
