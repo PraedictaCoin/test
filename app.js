@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Prediction Market App.js (v6 – On-Chain Balance)
+// PRAEDICTA – Prediction Market App.js (v7 – Final)
 // ============================================================
 
 // ── Configuration ──────────────────────────────────────────
@@ -39,7 +39,6 @@ let useRealMarket = false;
 let oracleAsked = false;
 let previousLeaderboard = [];
 let blindVotingEnabled = false;
-let coinFlipsRemaining = CONFIG.MAX_COIN_FLIPS;
 
 // ── Constants ──────────────────────────────────────────────
 const signToNumber = { aries:1, taurus:2, gemini:3, cancer:4, leo:5, virgo:6, libra:7, scorpio:8, sagittarius:9, capricorn:10, aquarius:11, pisces:12 };
@@ -109,6 +108,7 @@ function cacheDOM() {
     DOM.saveProfileBtn = document.getElementById('saveProfileBtn');
     DOM.displayNameInput = document.getElementById('displayNameInput');
     DOM.avatarSelect = document.getElementById('avatarSelect');
+    DOM.profileNameSection = document.getElementById('profileNameSection');
     DOM.copyReferralBtn = document.getElementById('copyReferralBtn');
     DOM.donateBtn = document.getElementById('donateBtn');
     DOM.myPraedictionsList = document.getElementById('myPraedictionsList');
@@ -311,7 +311,7 @@ async function fetchHoroscopeForZodiac(sign) {
             sessionHoroscopeCache[cacheKey] = cached;
             return cached;
         }
-    } catch (e) { /* ignore corrupt cache */ }
+    } catch (e) { /* ignore */ }
 
     const { data, error } = await supabaseClient
         .from('daily_horoscopes')
@@ -353,7 +353,7 @@ function updateHypeMessage() {
     DOM.hypeMessage.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)];
 }
 
-// ── Streak Display Functions ───────────────────────────────
+// ── Streak Display ─────────────────────────────────────────
 function updateStreakDisplay(user) {
     if (!DOM.streakRewards || !user) return;
     const streak = user.login_streak || 0;
@@ -386,7 +386,7 @@ function updateFreezeTimer(user) {
             const mins = Math.floor((remaining % 3600000) / 60000);
             DOM.freezeTimer.textContent = `❄️ Next freeze in: ${hours}h ${mins}m`;
         } else {
-            DOM.freezeTimer.textContent = '❄️ Freeze available! Use it to protect your streak.';
+            DOM.freezeTimer.textContent = '❄️ Freeze available!';
         }
     } else {
         DOM.freezeTimer.textContent = '';
@@ -650,8 +650,21 @@ async function reactClick(e) {
     if (!prediction) return;
     
     prediction.reactions = prediction.reactions || [];
+    
+    // Check if user already reacted with this emoji
     if (prediction.reactions.some(r => r.user === walletAddress && r.emoji === emoji)) return;
+    
     prediction.reactions.push({ user: walletAddress, emoji });
+    
+    // Save to Supabase so reactions persist
+    try {
+        await supabaseClient
+            .from('predictions')
+            .update({ reactions: prediction.reactions })
+            .eq('id', id);
+    } catch (err) {
+        console.error('Failed to save reaction:', err);
+    }
     
     const card = btn.closest('.praediction-card');
     if (card) {
@@ -847,11 +860,6 @@ async function renderProfile(userData) {
         }
     }
 
-    updateStreakDisplay(user);
-    updateStreakStory(user);
-    updateFreezeTimer(user);
-    updateHypeMessage();
-
     // Hide name/avatar section if already set
     if (user.display_name) {
         if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'none';
@@ -859,6 +867,13 @@ async function renderProfile(userData) {
         if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'flex';
         if (DOM.displayNameInput) DOM.displayNameInput.value = '';
     }
+
+    updateStreakDisplay(user);
+    updateStreakStory(user);
+    updateFreezeTimer(user);
+    updateHypeMessage();
+
+    if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
     if (DOM.referralLink) DOM.referralLink.textContent = `${window.location.origin}?ref=${walletAddress}`;
 }
 
@@ -1076,6 +1091,7 @@ async function connectWallet() {
             localStorage.setItem('tutorialShown', 'true');
         }
 
+        // Flip coin state - once per day
         if (DOM.flipCoinBtn) {
             const today = getUTCDayKey();
             const lastFlip = localStorage.getItem(`last_flip_${walletAddress}`);
@@ -1300,28 +1316,28 @@ function initEventListeners() {
         window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
     });
 
-    // In initEventListeners, replace the flip coin handler:
-DOM.flipCoinBtn?.addEventListener('click', async () => {
-    const today = getUTCDayKey();
-    const lastFlip = localStorage.getItem(`last_flip_${walletAddress}`);
-    
-    if (lastFlip === today) {
-        showToast("🪙 Already flipped today! Come back tomorrow.");
-        return;
-    }
-    
-    localStorage.setItem(`last_flip_${walletAddress}`, today);
-    DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)';
-    
-    if (Math.random() < 0.5) {
-        userPRAEBalance += 0.1;
-        saveBalance();
-        showToast("You won 0.1 PRAE! 🎉");
-    } else {
-        showToast("Better luck next time.");
-    }
-    await renderProfile();
-   });
+    // Flip coin - once per day
+    DOM.flipCoinBtn?.addEventListener('click', async () => {
+        const today = getUTCDayKey();
+        const lastFlip = localStorage.getItem(`last_flip_${walletAddress}`);
+        
+        if (lastFlip === today) {
+            showToast("🪙 Already flipped today! Come back tomorrow.");
+            return;
+        }
+        
+        localStorage.setItem(`last_flip_${walletAddress}`, today);
+        DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)';
+        
+        if (Math.random() < 0.5) {
+            userPRAEBalance += 0.1;
+            saveBalance();
+            showToast("You won 0.1 PRAE! 🎉");
+        } else {
+            showToast("Better luck next time.");
+        }
+        await renderProfile();
+    });
 
     DOM.showMyPraedictionsBtn?.addEventListener('click', () => {
         const c = DOM.myPraedictionsList;
