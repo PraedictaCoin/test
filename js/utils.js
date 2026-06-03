@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js)
+// PRAEDICTA – Utility Functions (utils.js) - COMPLETE
 // ============================================================
 
 let cachedDayKey = ''; let cachedDayKeyDate = 0;
@@ -9,7 +9,18 @@ function escapeHtml(s) { if (!s) return ''; const d = document.createElement('di
 function sanitize(str, maxLen = CONFIG.MAX_DESC_LENGTH) { if (!str) return ''; return str.trim().slice(0, maxLen).replace(/[<>]/g, ''); }
 function isValidReaction(emoji) { return CONFIG.ALLOWED_EMOJIS.includes(emoji); }
 
-function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 5000); }
+// Toast with colors and stacking
+let toastCount = 0;
+function showToast(msg, type = 'info') {
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    t.style.bottom = `${20 + toastCount * 60}px`;
+    document.body.appendChild(t);
+    toastCount++;
+    setTimeout(() => { t.remove(); toastCount = Math.max(0, toastCount - 1); }, 4000);
+}
+
 function setLoading(btn, on) { if (!btn) return; const loader = btn.querySelector('.loader'); const txt = btn.querySelector('span:first-child'); if (loader) loader.style.display = on ? 'inline-block' : 'none'; if (txt) txt.style.display = on ? 'none' : 'inline'; }
 
 function formatDateWithoutSeconds(iso) { if (!iso) return 'No deadline'; const d = new Date(iso); return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' }); }
@@ -38,7 +49,7 @@ if (DOM.weeklyOracleMessage) DOM.weeklyOracleMessage.textContent = getWeeklyMess
 function updateHypeMessage() { if (!DOM.hypeMessage) return; DOM.hypeMessage.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)]; }
 
 function applyBlindVoting(container = document) { container.querySelectorAll('.vote-stats').forEach(el => { if (blindVotingEnabled) { el.style.filter = 'blur(8px)'; el.style.transition = 'filter 0.3s ease'; el.style.userSelect = 'none'; } else { el.style.filter = 'none'; el.style.userSelect = ''; } }); }
-function toggleBlindVoting() { blindVotingEnabled = !blindVotingEnabled; applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); if (DOM.revealVotesBtn) { DOM.revealVotesBtn.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes'; DOM.revealVotesBtn.classList.toggle('active-filter', blindVotingEnabled); } showToast(blindVotingEnabled ? '🙈 Votes hidden – click to reveal' : '👁️ Votes visible'); }
+function toggleBlindVoting() { blindVotingEnabled = !blindVotingEnabled; applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); if (DOM.revealVotesBtn) { DOM.revealVotesBtn.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes'; DOM.revealVotesBtn.classList.toggle('active-filter', blindVotingEnabled); } showToast(blindVotingEnabled ? '🙈 Votes hidden – click to reveal' : '👁️ Votes visible', 'info'); }
 
 function updateCountdowns() { document.querySelectorAll('[id^="countdown-"]').forEach(el => { const id = el.id.replace('countdown-', ''); const prediction = currentPredictions.find(p => p.id === id); if (!prediction?.resolution_date) return; const remaining = new Date(prediction.resolution_date) - Date.now(); if (remaining <= 0) { el.textContent = '⏰ Deadline passed'; return; } const days = Math.floor(remaining / 86400000); const hours = Math.floor((remaining % 86400000) / 3600000); const mins = Math.floor((remaining % 3600000) / 60000); el.textContent = `⏰ ${days > 0 ? days + 'd ' : ''}${hours}h ${mins}m remaining`; }); }
 
@@ -61,14 +72,10 @@ window.addEventListener('offline', () => { if (DOM.offlineBanner) DOM.offlineBan
 
 function cleanOldHoroscopeCache() { const today = getUTCDayKey(); try { const keys = Object.keys(localStorage); keys.forEach(key => { if (key.startsWith('horoscope_') && !key.includes(today)) localStorage.removeItem(key); }); } catch (e) {} }
 
-// ============================================================
-// PREDICTION VALIDATION
-// ============================================================
-
 function isValidPrediction(title) {
     if (!title || title.length < 10) return { valid: false, reason: "Title too short. Be more specific." };
     if (title.length > 200) return { valid: false, reason: "Title too long." };
-    const hasVerb = /\b(will|going|shall|must|can|could|would|should|reach|hit|pass|break|win|lose|beat|rise|fall|drop|gain|increase|decrease|announce|launch|release|publish|elect|appoint|resign|die|born|marry|divorce|merge|acquire|bankrupt|default|cut|raise|hold|keep|cross|exceed|below|above|over|under)\b/i.test(title);
+    const hasVerb = /\b(will|going|shall|must|can|could|would|should|reach|hit|pass|break|win|lose|beat|rise|fall|drop|gain|increase|decrease|announce|launch|release|publish|elect|appoint|resign|born|marry|divorce|merge|acquire|bankrupt|default|cut|raise|hold|keep|cross|exceed|below|above|over|under)\b/i.test(title);
     if (!hasVerb) return { valid: false, reason: "Must contain a future event (will, reach, win, etc)." };
     const words = title.split(/\s+/);
     if (words.length < 4) return { valid: false, reason: "Too short. Include subject, event, and timeframe." };
@@ -82,18 +89,9 @@ function isValidPrediction(title) {
 }
 
 function isBlockedTopic(title, description) {
-    const blockedWords = [
-        "assassination", "murder", "kill", "terrorist", "bombing", "massacre",
-        "shooting", "genocide", "torture", "execution", "suicide",
-        "porn", "xxx", "nsfw", "onlyfans", "sex tape", "nude",
-        "racist", "nazi", "holocaust", "hate crime",
-        "drug", "cocaine", "heroin", "meth", "fentanyl",
-        "pump and dump", "ponzi", "pyramid scheme",
-    ];
+    const blockedWords = ["assassination", "murder", "kill", "terrorist", "bombing", "massacre", "shooting", "genocide", "torture", "execution", "suicide", "porn", "xxx", "nsfw", "onlyfans", "sex tape", "nude", "racist", "nazi", "holocaust", "hate crime", "drug", "cocaine", "heroin", "meth", "fentanyl", "pump and dump", "ponzi", "pyramid scheme"];
     const combined = (title + " " + description).toLowerCase();
-    for (const word of blockedWords) {
-        if (combined.includes(word)) return { blocked: true, reason: `Topic not allowed: "${word}"` };
-    }
+    for (const word of blockedWords) { if (combined.includes(word)) return { blocked: true, reason: `Topic not allowed: "${word}"` }; }
     return { blocked: false };
 }
 
@@ -108,32 +106,32 @@ function isValidDisplayName(name) {
     return { valid: true };
 }
 
-// ============================================================
-// AUTO-DETECT RESOLVER
-// ============================================================
-
 function detectAutoSource(title) {
     const t = title.toLowerCase();
-    if (t.includes('btc') || t.includes('bitcoin')) return { source: 'redstone_btc', label: 'Bitcoin Price (RedStone)' };
-    if (t.includes('eth') || t.includes('ethereum')) return { source: 'redstone_eth', label: 'Ethereum Price (RedStone)' };
-    if (t.includes('sol') && !t.includes('solid') && !t.includes('solar')) return { source: 'redstone_sol', label: 'Solana Price (RedStone)' };
-    if (t.includes('doge')) return { source: 'redstone_doge', label: 'Dogecoin Price (RedStone)' };
-    if (t.includes('tesla') || t.includes('tsla')) return { source: 'redstone_tsla', label: 'Tesla Stock (RedStone)' };
-    if (t.includes('apple') || t.includes('aapl')) return { source: 'redstone_aapl', label: 'Apple Stock (RedStone)' };
-    if (t.includes('nvidia') || t.includes('nvda')) return { source: 'redstone_nvda', label: 'Nvidia Stock (RedStone)' };
-    if (t.includes('gold')) return { source: 'redstone_gold', label: 'Gold Price (RedStone)' };
-    if (t.includes('silver')) return { source: 'redstone_silver', label: 'Silver Price (RedStone)' };
+    if (t.includes('btc') || t.includes('bitcoin')) return { source: 'redstone_btc', label: 'Bitcoin Price' };
+    if (t.includes('eth') || t.includes('ethereum')) return { source: 'redstone_eth', label: 'Ethereum Price' };
+    if (t.includes('sol') && !t.includes('solid') && !t.includes('solar')) return { source: 'redstone_sol', label: 'Solana Price' };
+    if (t.includes('doge')) return { source: 'redstone_doge', label: 'Dogecoin Price' };
+    if (t.includes('tesla') || t.includes('tsla')) return { source: 'redstone_tsla', label: 'Tesla Stock' };
+    if (t.includes('apple') || t.includes('aapl')) return { source: 'redstone_aapl', label: 'Apple Stock' };
+    if (t.includes('nvidia') || t.includes('nvda')) return { source: 'redstone_nvda', label: 'Nvidia Stock' };
+    if (t.includes('gold')) return { source: 'redstone_gold', label: 'Gold Price' };
     const weatherMatch = t.match(/(temp|temperature|rain|weather|wind|snow|°c|°f)\s*(in|at|for)?\s*([a-zäöüß\s]+)/i);
-    if (weatherMatch) {
-        const city = weatherMatch[3].trim();
-        const metric = t.includes('rain') ? 'rain' : t.includes('wind') ? 'wind' : t.includes('snow') ? 'snow' : 'temp';
-        return { source: `weather_${metric}:${city}`, label: `${city} Weather`, detail: city };
-    }
-    const sportsMatch = t.match(/(win|won|lose|lost|beat|defeat|champion|final|match|game)\s/i);
-    if (sportsMatch) return { source: 'sports_', label: 'Sports Result', needsDetail: true };
-    if (t.includes('movie') || t.includes('box office') || t.includes('oscar')) return { source: 'movie_', label: 'Movie Box Office', needsDetail: true };
-    if (t.includes('forex') || t.includes('exchange rate') || t.includes('usd') || t.includes('eur')) return { source: 'forex_', label: 'Forex Rate', needsDetail: true };
-    if (t.includes('earthquake') || t.includes('magnitude') || t.includes('quake')) return { source: 'quake_', label: 'Earthquake Magnitude', needsDetail: true };
-    if (t.includes('spacex') || t.includes('launch') || t.includes('rocket')) return { source: 'spacex_', label: 'SpaceX Launch', needsDetail: true };
+    if (weatherMatch) { const city = weatherMatch[3].trim(); const metric = t.includes('rain') ? 'rain' : t.includes('wind') ? 'wind' : t.includes('snow') ? 'snow' : 'temp'; return { source: `weather_${metric}:${city}`, label: `${city} Weather`, detail: city }; }
+    if (t.match(/(win|won|lose|lost|beat|defeat|champion|final|match|game)\s/i)) return { source: 'sports_', label: 'Sports Result', needsDetail: true };
+    if (t.match(/(movie|film|box office|oscar)/i)) return { source: 'movie_', label: 'Box Office', needsDetail: true };
+    if (t.match(/(forex|exchange rate|usd|eur)/i)) return { source: 'forex_', label: 'Forex Rate', needsDetail: true };
+    if (t.match(/(earthquake|quake|magnitude)/i)) return { source: 'quake_', label: 'Earthquake', needsDetail: true };
+    if (t.match(/(spacex|launch|rocket)/i)) return { source: 'spacex_', label: 'SpaceX', needsDetail: true };
     return null;
 }
+
+// Confirmation dialog
+function confirmBet(amount, outcome, payout) { return confirm(`Bet ${amount} PRAE on ${outcome.toUpperCase()}?\n\nPotential payout: ~${payout} shares\n\nThis action cannot be undone.`); }
+
+// Referral tracking
+function trackReferral() { const params = new URLSearchParams(window.location.search); const ref = params.get('ref'); if (ref && ref !== walletAddress && walletAddress) { try { supabaseClient.from('users').update({ referred_by: ref }).eq('address', walletAddress); } catch (e) {} } }
+
+// Skeleton loading
+function showSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'grid'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'none'; }
+function hideSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'none'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'grid'; }

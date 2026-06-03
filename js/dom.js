@@ -83,5 +83,6 @@ function cacheDOM() {
     DOM.emailInput = document.getElementById('emailInput');
     DOM.quickWeather = document.getElementById('quickWeather');
     DOM.weatherCity = document.getElementById('weatherCity');
+    DOM.skeletonContainer = document.getElementById('skeletonContainer');
 }
 cacheDOM();

@@ -70,6 +70,7 @@ async function connectWallet() {
         const email = sanitize(DOM.emailInput?.value || '', 100);
         if (email && email.includes('@') && email.includes('.')) { try { await supabaseClient.from('users').update({ email: email }).eq('address', walletAddress); } catch (e) {} }
         await refreshAll();
+                trackReferral();
     } catch (err) { console.error('Connection error:', err); showToast("Connection failed"); }
     finally { setLoading(DOM.connectBtn, false); }
 }
@@ -121,7 +122,9 @@ async function createPrediction() {
         const predictionId = result.data.id;
         buySharesMock(predictionId, creatorBetOutcome, amount);
         currentPredictions.unshift({ id: predictionId, title, description: desc, category: cat, creator: walletAddress, status: 'active', created_at: new Date().toISOString(), resolution_date: date, auto_source: autoSource, target_value: sanitize(DOM.targetValue?.value || '', 50) || null, source_url: sourceUrl || null, bets: [{ user: walletAddress, outcome: creatorBetOutcome, amount }], reactions: [], suggestions: [], yes_pool: 1000, no_pool: 1000, yesShares: 0, noShares: 0, liquidity: 100 });
-        showToast(`✨ Created & bet ${amount} PRAE on ${creatorBetOutcome.toUpperCase()}!`);
+        showToast(`✨ Created & bet ${amount} PRAE on ${creatorBetOutcome.toUpperCase()}!`, 'success');
+        analyticsData.creations++;
+        sounds.create();
         if (DOM.title) DOM.title.value = ''; if (DOM.description) DOM.description.value = ''; if (DOM.resolutionDate) DOM.resolutionDate.value = ''; if (DOM.targetValue) DOM.targetValue.value = ''; if (DOM.autoSource) DOM.autoSource.value = ''; if (DOM.sourceUrl) DOM.sourceUrl.value = ''; if (DOM.autoSourceDetail) { DOM.autoSourceDetail.value = ''; DOM.autoSourceDetail.style.display = 'none'; }
         creatorBetOutcome = null; if (DOM.creatorBetYes) DOM.creatorBetYes.classList.remove('selected'); if (DOM.creatorBetNo) DOM.creatorBetNo.classList.remove('selected');
         if (DOM.creatorBetDisplay) { DOM.creatorBetDisplay.textContent = 'Select your conviction'; DOM.creatorBetDisplay.style.color = 'var(--text-muted)'; }

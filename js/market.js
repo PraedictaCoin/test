@@ -55,15 +55,37 @@ function buySharesMock(id, outcome, amount) {
 async function buySharesReal(id, outcome, amount) { showToast("⛓️ Real market coming soon!"); return { cost: 0, shares: 0 }; }
 
 async function buyClick(e) {
-    if (actionCooldown) return; const btn = e.currentTarget; const id = btn.dataset.id; const outcome = btn.dataset.outcome;
-    const amountInput = document.getElementById(`amount-${id}`); const amount = parseFloat(amountInput?.value) || CONFIG.MIN_BET;
-    if (amount < CONFIG.MIN_BET) return showToast(`Minimum bet is ${CONFIG.MIN_BET} PRAE.`);
+    if (actionCooldown) return;
+    const btn = e.currentTarget;
+    const id = btn.dataset.id;
+    const outcome = btn.dataset.outcome;
+    const amountInput = document.getElementById(`amount-${id}`);
+    const amount = parseFloat(amountInput?.value) || CONFIG.MIN_BET;
+
+    if (amount < CONFIG.MIN_BET) return showToast(`Minimum bet is ${CONFIG.MIN_BET} PRAE.`, 'error');
     if (!['yes', 'no'].includes(outcome)) return;
+
     const prediction = currentPredictions.find(p => p.id === id);
-    if (prediction && prediction.creator === walletAddress) return showToast("You can't bet on your own prediction");
+    if (prediction && prediction.creator === walletAddress) return showToast("You can't bet on your own prediction", 'error');
+
+    const market = getMarket(id);
+    const price = outcome === 'yes' ? getYesPrice(market.yesShares, market.noShares) : 1 - getYesPrice(market.yesShares, market.noShares);
+    const payout = (amount / (price || 0.5)).toFixed(2);
+
+    // Confirmation dialog
+    if (!confirmBet(amount, outcome, payout)) return;
+
     actionCooldown = true; setLoading(btn, true);
-    try { const result = useRealMarket ? await buySharesReal(id, outcome, amount) : buySharesMock(id, outcome, amount); if (result.error) showToast(result.error); else { showToast(`Bought ${result.shares.toFixed(2)} ${outcome.toUpperCase()} shares for ${result.cost.toFixed(2)} PRAE.`); await refreshAll(); } }
-    catch (err) { console.error('Buy error:', err); showToast('Transaction failed.'); }
+    try {
+        const result = useRealMarket ? await buySharesReal(id, outcome, amount) : buySharesMock(id, outcome, amount);
+        if (result.error) { showToast(result.error, 'error'); }
+        else {
+            showToast(`Bought ${result.shares.toFixed(2)} ${outcome.toUpperCase()} shares for ${result.cost.toFixed(2)} PRAE.`, 'success');
+            sounds.flip();
+            analyticsData.bets++;
+            await refreshAll();
+        }
+    } catch (err) { console.error('Buy error:', err); showToast('Transaction failed.', 'error'); }
     finally { setLoading(btn, false); actionCooldown = false; }
 }
 

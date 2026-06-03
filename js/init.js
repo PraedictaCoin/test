@@ -34,11 +34,11 @@ function init() {
                         renderPraedictions();
                         const activeCount = currentPredictions.filter(p => p.status === 'active').length;
                         if (DOM.totalActive) DOM.totalActive.textContent = activeCount;
-                        const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs(m.yesPool - MOCK_INITIAL_POOL) + Math.abs(m.noPool - MOCK_INITIAL_POOL), 0);
+                        const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs((m.yesShares || 0) - 50) + Math.abs((m.noShares || 0) - 50), 0);
                         if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0);
                         const hottest = getHottestCategory();
                         if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
-                    } catch (e) { /* silent fail on auto-refresh */ }
+                    } catch (e) { /* silent fail */ }
                 }
             }
         }, 30000);
@@ -53,7 +53,7 @@ function init() {
         // Auto-reconnect when tab regains focus
         window.addEventListener('focus', () => {
             if (!walletAddress && window.solana?.isConnected) {
-                showToast("Wallet found! Reconnecting...");
+                showToast("Wallet found! Reconnecting...", 'info');
                 setTimeout(() => DOM.connectBtn?.click(), 500);
             }
         });
@@ -104,6 +104,13 @@ function init() {
         window.addEventListener('appinstalled', () => {
             localStorage.setItem('pwa_installed', 'true');
             deferredPrompt = null;
+        });
+
+        // Analytics persistence
+        window.addEventListener('beforeunload', () => {
+            if (analyticsData.bets > 0 || analyticsData.creations > 0) {
+                try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {}
+            }
         });
 }
 

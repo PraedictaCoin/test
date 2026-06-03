@@ -20,3 +20,6 @@ let blindVotingEnabled = false;
 let creatorBetOutcome = null;
 let predictionsOffset = 0;
 const PREDICTIONS_PER_PAGE = 50;
+
+// Analytics tracking
+let analyticsData = { bets: 0, creations: 0, flips: 0 };
