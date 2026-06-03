@@ -14,35 +14,88 @@ function updateStreakStory(user) { if (!DOM.streakStory || !user) return; const 
 function updateFreezeTimer(user) { if (!DOM.freezeTimer || !user) return; const nextFreeze = user.next_freeze_available; if (nextFreeze) { const remaining = new Date(nextFreeze) - Date.now(); if (remaining > 0) { const hours = Math.floor(remaining / 3600000); const mins = Math.floor((remaining % 3600000) / 60000); DOM.freezeTimer.textContent = `❄️ Next freeze in: ${hours}h ${mins}m`; } else { DOM.freezeTimer.textContent = '❄️ Freeze available!'; } } else { DOM.freezeTimer.textContent = ''; } }
 
 async function renderProfile(userData) {
-    if (!walletAddress) return; const user = userData || await loadUser(walletAddress);
+    if (!walletAddress) return;
+    const user = userData || await loadUser(walletAddress);
     if (!user) { if (DOM.profileStats) DOM.profileStats.innerHTML = '<div>User not found.</div>'; return; }
-    const displayName = user.display_name || `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`; const avatar = user.avatar || '';
-    const seerScore = user.seerscore || 0; const prophetTitle = getProphetTitle(seerScore);
+
+    const displayName = user.display_name || `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`;
+    const avatar = user.avatar || '';
+    const seerScore = user.seerscore || 0;
+    const prophetTitle = getProphetTitle(seerScore);
+
     if (DOM.walletDisplay) DOM.walletDisplay.innerHTML = `${avatar} ${escapeHtml(displayName)}`;
     if (DOM.profileWalletAddress) DOM.profileWalletAddress.textContent = `${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}`;
+
     if (DOM.profileStats) {
-        DOM.profileStats.innerHTML = `<div><span style="color:var(--accent);">💰 PRAE Balance:</span> ${userPRAEBalance.toFixed(2)}</div><div><span style="color:var(--accent);">👁️ Seerscore:</span> ${seerScore}</div><div style="margin-top:8px;"><span style="color:var(--oracle-color);">${prophetTitle.emoji} Rank:</span> ${prophetTitle.title}</div>`;
-        // Accuracy stat
-        const allPredictions = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable);
-        const myCorrectBets = allPredictions.filter(p => { const myBet = (p.bets || []).find(b => b.user === walletAddress); return myBet && myBet.outcome === p.resolved_outcome; });
-        const myTotalBets = allPredictions.filter(p => (p.bets || []).some(b => b.user === walletAddress));
-        if (myTotalBets.length > 0) { const accuracy = ((myCorrectBets.length / myTotalBets.length) * 100).toFixed(0); DOM.profileStats.innerHTML += `<div style="margin-top:4px;">🎯 Accuracy: <strong>${accuracy}%</strong> (${myCorrectBets.length}/${myTotalBets.length})</div>`; }
+        DOM.profileStats.innerHTML = `<div><span style="color:var(--accent);">💰 PRAE Balance:</span> ${userPRAEBalance.toFixed(2)}</div>
+        <div><span style="color:var(--accent);">👁️ Seerscore:</span> ${seerScore}</div>
+        <div style="margin-top:8px;"><span style="color:var(--oracle-color);">${prophetTitle.emoji} Rank:</span> ${prophetTitle.title}</div>`;
+
+        // Accuracy
+        const allResolved = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable);
+        const myCorrect = allResolved.filter(p => { const b = (p.bets || []).find(b => b.user === walletAddress); return b && b.outcome === p.resolved_outcome; });
+        const myTotal = allResolved.filter(p => (p.bets || []).some(b => b.user === walletAddress));
+        if (myTotal.length > 0) {
+            const acc = ((myCorrect.length / myTotal.length) * 100).toFixed(0);
+            DOM.profileStats.innerHTML += `<div style="margin-top:4px;">🎯 Accuracy: <strong>${acc}%</strong> (${myCorrect.length}/${myTotal.length})</div>`;
+        }
+
+        // Profit
+        const myWon = allResolved.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && b.outcome === p.resolved_outcome; });
+        const myLost = allResolved.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && b.outcome !== p.resolved_outcome; });
+        const totalWon = myWon.reduce((s, p) => s + ((p.bets || []).find(b => b.user === walletAddress) || {}).amount || 0, 0);
+        const totalLost = myLost.reduce((s, p) => s + ((p.bets || []).find(b => b.user === walletAddress) || {}).amount || 0, 0);
+        const profit = totalWon - totalLost;
+
+        if (myWon.length > 0 || myLost.length > 0) {
+            const profitColor = profit > 0 ? 'var(--accent)' : profit < 0 ? '#FF8888' : 'var(--text-muted)';
+            const profitIcon = profit > 0 ? '📈' : profit < 0 ? '📉' : '➡️';
+            DOM.profileStats.innerHTML += `
+            <div style="margin-top:12px; padding-top:8px; border-top:1px solid var(--accent-glow);">
+            <div style="text-align:center;">
+            <span style="font-size:1.2rem;">${profitIcon}</span>
+            <span style="color:${profitColor}; font-size:1.2rem; font-weight:600;">${profit > 0 ? '+' : ''}${profit.toFixed(1)} PRAE</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.8rem;color:var(--text-muted);">
+            <span>🏆 ${myWon.length} won</span>
+            <span>💸 ${myLost.length} lost</span>
+            <span>📊 ${myCorrect.length + myLost.length} bets</span>
+            </div>
+            </div>`;
+        }
     }
+
     if (DOM.dailyDigest) {
         const today = getUTCDayKey();
         const todayResolved = currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at && p.resolved_at.startsWith(today) && (p.bets || []).some(b => b.user === walletAddress));
         if (todayResolved.length > 0) {
-            const won = todayResolved.filter(p => { const myBet = p.bets.find(b => b.user === walletAddress); return myBet && myBet.outcome === p.resolved_outcome; });
+            const won = todayResolved.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && b.outcome === p.resolved_outcome; });
             DOM.dailyDigest.innerHTML = `📊 Today: ${won.length}/${todayResolved.length} correct`;
             if (won.length === todayResolved.length) DOM.dailyDigest.innerHTML += '<br>🏆 Perfect day!';
-        } else { const horo = user.zodiac ? await fetchHoroscopeForZodiac(user.zodiac) : null; DOM.dailyDigest.innerHTML = '📊 Yesterday: you traded wisely.'; if (horo?.luckyNumber) DOM.dailyDigest.innerHTML += `<br>🍀 Lucky Number: <strong>${horo.luckyNumber}</strong>`; }
+        } else {
+            const horo = user.zodiac ? await fetchHoroscopeForZodiac(user.zodiac) : null;
+            DOM.dailyDigest.innerHTML = '📊 Yesterday: you traded wisely.';
+            if (horo?.luckyNumber) DOM.dailyDigest.innerHTML += `<br>🍀 Lucky Number: <strong>${horo.luckyNumber}</strong>`;
+        }
     }
+
     const moon = getLunarPhase(); if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji} ${moon.name}`;
-    const hasZodiac = !!user.zodiac; if (DOM.zodiacSelectorWrapper) DOM.zodiacSelectorWrapper.style.display = hasZodiac ? 'none' : 'flex'; if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.style.display = hasZodiac ? 'block' : 'none';
-    if (hasZodiac) { if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.textContent = signSymbols[user.zodiac] || ''; const horo = await fetchHoroscopeForZodiac(user.zodiac); if (horo && DOM.zodiacRealHeadline && DOM.zodiacHoroscopeDisplay) { DOM.zodiacRealHeadline.style.display = 'block'; DOM.zodiacHoroscopeDisplay.innerHTML = `${escapeHtml(horo.description)}<br><br>🍀 Lucky: ${horo.luckyNumber}<br>😌 ${horo.mood}`; } }
-    if (user.display_name) { if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'none'; } else { if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'flex'; if (DOM.displayNameInput) DOM.displayNameInput.value = ''; }
+    const hasZodiac = !!user.zodiac;
+    if (DOM.zodiacSelectorWrapper) DOM.zodiacSelectorWrapper.style.display = hasZodiac ? 'none' : 'flex';
+    if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.style.display = hasZodiac ? 'block' : 'none';
+    if (hasZodiac) {
+        if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.textContent = signSymbols[user.zodiac] || '';
+        const horo = await fetchHoroscopeForZodiac(user.zodiac);
+        if (horo && DOM.zodiacRealHeadline && DOM.zodiacHoroscopeDisplay) {
+            DOM.zodiacRealHeadline.style.display = 'block';
+            DOM.zodiacHoroscopeDisplay.innerHTML = `${escapeHtml(horo.description)}<br><br>🍀 Lucky: ${horo.luckyNumber}<br>😌 ${horo.mood}`;
+        }
+    }
+    if (user.display_name) { if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'none'; }
+    else { if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'flex'; if (DOM.displayNameInput) DOM.displayNameInput.value = ''; }
     updateStreakDisplay(user); updateStreakStory(user); updateFreezeTimer(user); updateHypeMessage();
-    if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || ''; if (DOM.referralLink) DOM.referralLink.textContent = `${window.location.origin}?ref=${walletAddress}`;
+    if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
+    if (DOM.referralLink) DOM.referralLink.textContent = `${window.location.origin}?ref=${walletAddress}`;
 }
 
 async function renderLeaderboard(period = 'all', category = null) {
