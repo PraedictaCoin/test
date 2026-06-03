@@ -4,19 +4,46 @@
 
 async function callSecureRpc(action, params = {}) {
     if (sessionToken && sessionExpiresAt > Date.now()) {
-        try { const res = await fetch(CONFIG.SECURE_RPC_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'session_action', params:{ action, params }, token:sessionToken }) }); if (res.ok) return await res.json(); sessionToken = null; sessionExpiresAt = null; } catch (e) {} }
-}
-if (!walletAddress) throw new Error("Wallet not connected");
-if (!window.solana || !window.solana.signMessage) throw new Error("Phantom wallet required");
-const { data: nonce, error: nonceErr } = await supabaseClient.rpc('get_auth_nonce', { p_wallet: walletAddress });
-if (nonceErr || !nonce) throw new Error("Authentication failed.");
-const message = `Login to PRAEDICTA at praedictacoin.github.io`;
-const encoded = new TextEncoder().encode(message);
-let signed; try { signed = await window.solana.signMessage(encoded); } catch (e) { throw new Error("Signature rejected"); }
-const signature = Array.from(signed.signature).map(b => b.toString(16).padStart(2, '0')).join('');
-const res = await fetch(CONFIG.SECURE_RPC_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action, params, signature, wallet: walletAddress, nonce, message }) });
-if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Request failed'); }
-return await res.json();
+        try {
+            const res = await fetch(CONFIG.SECURE_RPC_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'session_action', params: { action, params }, token: sessionToken })
+            });
+            if (res.ok) return await res.json();
+            sessionToken = null;
+            sessionExpiresAt = null;
+        } catch (e) {}
+    }
+
+    if (!walletAddress) throw new Error("Wallet not connected");
+    if (!window.solana || !window.solana.signMessage) throw new Error("Phantom wallet required");
+
+    const { data: nonce, error: nonceErr } = await supabaseClient.rpc('get_auth_nonce', { p_wallet: walletAddress });
+    if (nonceErr || !nonce) throw new Error("Authentication failed.");
+
+    const message = `Login to PRAEDICTA at praedictacoin.github.io`;
+    const encoded = new TextEncoder().encode(message);
+    let signed;
+    try {
+        signed = await window.solana.signMessage(encoded);
+    } catch (e) {
+        throw new Error("Signature rejected");
+    }
+    const signature = Array.from(signed.signature).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const res = await fetch(CONFIG.SECURE_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, params, signature, wallet: walletAddress, nonce, message })
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Request failed');
+    }
+
+    return await res.json();
 }
 
 async function loginBonus() { const result = await callSecureRpc('login_bonus'); if (result.token) { sessionToken = result.token; sessionExpiresAt = Date.now() + (CONFIG.SESSION_DURATION_MINUTES * 60 * 1000); } if (result.balance !== undefined) { userPRAEBalance = result.balance; saveBalance(); } return result; }
