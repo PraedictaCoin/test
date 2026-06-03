@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions
+// PRAEDICTA – Utility Functions (utils.js)
 // ============================================================
 
 let cachedDayKey = ''; let cachedDayKeyDate = 0;
@@ -42,38 +42,44 @@ function toggleBlindVoting() { blindVotingEnabled = !blindVotingEnabled; applyBl
 
 function updateCountdowns() { document.querySelectorAll('[id^="countdown-"]').forEach(el => { const id = el.id.replace('countdown-', ''); const prediction = currentPredictions.find(p => p.id === id); if (!prediction?.resolution_date) return; const remaining = new Date(prediction.resolution_date) - Date.now(); if (remaining <= 0) { el.textContent = '⏰ Deadline passed'; return; } const days = Math.floor(remaining / 86400000); const hours = Math.floor((remaining % 86400000) / 3600000); const mins = Math.floor((remaining % 3600000) / 60000); el.textContent = `⏰ ${days > 0 ? days + 'd ' : ''}${hours}h ${mins}m remaining`; }); }
 
-// Horoscope fetching
 async function fetchHoroscopeForZodiac(sign) { if (!sign || !signToNumber[sign]) return null; const today = getUTCDayKey(); const cacheKey = `horoscope_${sign}_${today}`; if (sessionHoroscopeCache[cacheKey]) return sessionHoroscopeCache[cacheKey]; try { const cached = JSON.parse(localStorage.getItem(cacheKey)); if (cached) { sessionHoroscopeCache[cacheKey] = cached; return cached; } } catch (e) {} const { data, error } = await supabaseClient.from('daily_horoscopes').select('horoscope, lucky_number, mood').eq('sign', sign).eq('date', today).maybeSingle(); const result = (error || !data) ? { description: "The stars are quiet today.", luckyNumber: 7, mood: "reflective" } : { description: data.horoscope, luckyNumber: parseInt(data.lucky_number) || 7, mood: data.mood || "inspired" }; try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {} sessionHoroscopeCache[cacheKey] = result; return result; }
 
-// URL Validation
 function isValidSourceUrl(url) { if (!url) return false; if (!url.startsWith('http://') && !url.startsWith('https://')) return false; try { const parsed = new URL(url); const hostname = parsed.hostname.toLowerCase(); if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return false; if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false; if (parsed.protocol === 'data:' || parsed.protocol === 'javascript:' || parsed.protocol === 'vbscript:') return false; const validTlds = ['.com', '.org', '.net', '.io', '.gov', '.edu', '.news', '.co', '.app', '.page', '.blog', '.finance', '.markets']; if (!validTlds.some(tld => hostname.endsWith(tld))) return false; const suspicious = ['<script', 'javascript:', 'onerror=', 'onload=', 'data:', '%3C', '%3E', '&#x']; if (suspicious.some(p => url.toLowerCase().includes(p))) return false; if (url.length > 500) return false; return true; } catch { return false; } }
 
-// Filter persistence
 function saveFilters() { try { localStorage.setItem('praedicta_filters', JSON.stringify(currentFilter)); } catch (e) {} }
 function loadFilters() { try { const stored = localStorage.getItem('praedicta_filters'); if (stored) { const parsed = JSON.parse(stored); if (parsed.category) currentFilter.category = parsed.category; if (parsed.status) currentFilter.status = parsed.status; if (parsed.search) currentFilter.search = parsed.search; } } catch (e) {} }
 
-// Fetch with retry
 async function fetchWithRetry(fn, maxRetries = 3) { for (let i = 0; i < maxRetries; i++) { try { return await fn(); } catch (err) { if (i === maxRetries - 1) throw err; await new Promise(r => setTimeout(r, 1000 * (i + 1))); } } }
 
-function cleanOldHoroscopeCache() {
-    const today = getUTCDayKey();
-    try {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-            if (key.startsWith('horoscope_') && !key.includes(today)) {
-                localStorage.removeItem(key);
-            }
-        });
-    } catch (e) { /* storage restricted */ }
-}
-
-// Notification
 function showNotification(message) { if (!DOM.notificationBadge || !DOM.notificationText) return; DOM.notificationBadge.style.display = 'block'; DOM.notificationText.textContent = '🔔 ' + message; setTimeout(() => { if (DOM.notificationBadge) DOM.notificationBadge.style.display = 'none'; }, 10000); }
 
-// Volume trend
 let _lastVolume = 0;
 function getVolumeTrend(volume) { if (_lastVolume === 0) { _lastVolume = volume; return ''; } const trend = volume > _lastVolume ? ' 📈' : volume < _lastVolume ? ' 📉' : ''; _lastVolume = volume; return trend; }
 
-// Online/Offline
 window.addEventListener('online', () => { if (DOM.offlineBanner) DOM.offlineBanner.style.display = 'none'; refreshAll(); });
 window.addEventListener('offline', () => { if (DOM.offlineBanner) DOM.offlineBanner.style.display = 'block'; });
+
+function cleanOldHoroscopeCache() { const today = getUTCDayKey(); try { const keys = Object.keys(localStorage); keys.forEach(key => { if (key.startsWith('horoscope_') && !key.includes(today)) localStorage.removeItem(key); }); } catch (e) {} }
+
+// Auto-detect best resolver from prediction title
+function detectAutoSource(title) {
+    const t = title.toLowerCase();
+    if (t.includes('btc') || t.includes('bitcoin')) return { source: 'redstone_btc', label: 'Bitcoin Price (RedStone)' };
+    if (t.includes('eth') || t.includes('ethereum')) return { source: 'redstone_eth', label: 'Ethereum Price (RedStone)' };
+    if (t.includes('sol') && !t.includes('solid') && !t.includes('solar')) return { source: 'redstone_sol', label: 'Solana Price (RedStone)' };
+    if (t.includes('doge')) return { source: 'redstone_doge', label: 'Dogecoin Price (RedStone)' };
+    if (t.includes('tesla') || t.includes('tsla')) return { source: 'redstone_tsla', label: 'Tesla Stock (RedStone)' };
+    if (t.includes('apple') || t.includes('aapl')) return { source: 'redstone_aapl', label: 'Apple Stock (RedStone)' };
+    if (t.includes('nvidia') || t.includes('nvda')) return { source: 'redstone_nvda', label: 'Nvidia Stock (RedStone)' };
+    if (t.includes('gold')) return { source: 'redstone_gold', label: 'Gold Price (RedStone)' };
+    if (t.includes('silver')) return { source: 'redstone_silver', label: 'Silver Price (RedStone)' };
+    const weatherMatch = t.match(/(temp|temperature|rain|weather|wind|snow|°c|°f)\s*(in|at|for)?\s*([a-zäöüß\s]+)/i);
+    if (weatherMatch) {
+        const city = weatherMatch[3].trim();
+        const metric = t.includes('rain') ? 'rain' : t.includes('wind') ? 'wind' : t.includes('snow') ? 'snow' : 'temp';
+        return { source: `weather_${metric}:${city}`, label: `${city} Weather`, detail: city };
+    }
+    const sportsMatch = t.match(/(win|won|lose|lost|beat|defeat|champion|final|match|game)\s/i);
+    if (sportsMatch) return { source: 'sports_', label: 'Sports Result', needsDetail: true };
+    return null;
+}

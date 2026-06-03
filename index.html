@@ -299,15 +299,44 @@
             </select>
             <input type="datetime-local" id="resolutionDate" aria-label="Resolution date">
             <select id="autoSource" aria-label="Auto-resolve source">
-                <option value="">No auto‑resolve (Oracle resolves)</option>
-                <option value="coingecko_btc">CoinGecko BTC (USD)</option>
-                <option value="coingecko_eth">CoinGecko ETH (USD)</option>
-                <option value="coingecko_sol">CoinGecko SOL (USD)</option>
-                <option value="coingecko_doge">CoinGecko DOGE (USD)</option>
-                <option value="coingecko_matic">CoinGecko MATIC (USD)</option>
-                <option value="coingecko_avax">CoinGecko AVAX (USD)</option>
-                <option value="coingecko_link">CoinGecko LINK (USD)</option>
-            </select>
+    <option value="">No auto‑resolve (Oracle resolves)</option>
+    <optgroup label="📊 Crypto (CoinGecko)">
+        <option value="coingecko_btc">BTC (USD)</option>
+        <option value="coingecko_eth">ETH (USD)</option>
+        <option value="coingecko_sol">SOL (USD)</option>
+        <option value="coingecko_doge">DOGE (USD)</option>
+        <option value="coingecko_avax">AVAX (USD)</option>
+        <option value="coingecko_link">LINK (USD)</option>
+    </optgroup>
+    <optgroup label="📊 Crypto & Stocks (RedStone)">
+        <option value="redstone_btc">BTC</option>
+        <option value="redstone_eth">ETH</option>
+        <option value="redstone_sol">SOL</option>
+        <option value="redstone_doge">DOGE</option>
+        <option value="redstone_tsla">Tesla (TSLA)</option>
+        <option value="redstone_aapl">Apple (AAPL)</option>
+        <option value="redstone_nvda">Nvidia (NVDA)</option>
+        <option value="redstone_gold">Gold (XAU)</option>
+    </optgroup>
+    <optgroup label="📊 Crypto (Binance)">
+        <option value="binance_btc">BTC</option>
+        <option value="binance_eth">ETH</option>
+        <option value="binance_sol">SOL</option>
+    </optgroup>
+    <optgroup label="🌤️ Weather (Global)">
+        <option value="weather_temp">Temperature (°C) - enter city</option>
+        <option value="weather_rain">Rain (mm) - enter city</option>
+        <option value="weather_wind">Wind (km/h) - enter city</option>
+        <option value="weather_snow">Snow (cm) - enter city</option>
+    </optgroup>
+    <optgroup label="⚽ Sports">
+        <option value="sports_">Team Win - enter team name</option>
+    </optgroup>
+    <optgroup label="📚 Wikipedia">
+        <option value="wiki_">Event Occurred - enter page title</option>
+    </optgroup>
+</select>
+                        <input type="text" id="autoSourceDetail" placeholder="City, team, or Wikipedia page name" maxlength="100" style="display:none; width:100%; padding:10px; margin-bottom:12px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:12px; color:var(--text); font-family:inherit;">
             <input type="text" id="targetValue" placeholder="Target price (only for auto-resolve)" maxlength="50" autocomplete="off">
             <input type="url" id="sourceUrl" placeholder="Proof URL - where will the result be verifiable? (required)" maxlength="500" style="width:100%; padding:10px; margin-bottom:12px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:12px; color:var(--text); font-family:inherit;">
 

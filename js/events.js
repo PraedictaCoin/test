@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Event Listeners
+// PRAEDICTA – Event Listeners (events.js)
 // ============================================================
 
 function initOracleAsk() {
@@ -41,7 +41,7 @@ function initEventListeners() {
         if (DOM.creatorBetDisplay) { DOM.creatorBetDisplay.innerHTML = '❌ You believe <strong>NO</strong> – 7 PRAE will be staked'; DOM.creatorBetDisplay.style.color = '#FF8888'; }
     });
 
-    // Edit prediction (delegated)
+    // Edit prediction
     document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.edit-prediction-btn');
         if (!btn) return;
@@ -58,40 +58,78 @@ function initEventListeners() {
         } catch (err) { showToast("Edit failed"); }
     });
 
-    // Category carousel
-    document.querySelectorAll('.category-carousel-btn').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.category-carousel-btn').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.category = this.dataset.category; saveFilters(); renderPraedictions(); }); });
-
-    // Status filters (including ending-soon)
-    document.querySelectorAll('.status-filter-btn[data-status]').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.status-filter-btn[data-status]').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.status = this.dataset.status; saveFilters(); renderPraedictions(); }); });
-
-    // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => { btn.addEventListener('click', async function() { const tab = this.dataset.tab; document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(`tab-${tab}`)?.classList.add('active'); if (tab === 'profile') await renderProfile(); else if (tab === 'leaderboard') await renderLeaderboard(leaderboardPeriod); else if (tab === 'halloffame') await renderHallOfFame(); }); });
-
-    // Profile
-    DOM.saveProfileBtn?.addEventListener('click', async () => { const name = sanitize(DOM.displayNameInput.value, 20); const avatar = DOM.avatarSelect.value; if (!name && !avatar) return showToast("Enter a name"); setLoading(DOM.saveProfileBtn, true); try { await callSecureRpc('update_profile', { display_name: name || null, avatar: avatar || null }); showToast("Profile updated!"); await refreshAll(); } catch (e) { showToast(e.message || 'Update failed'); } finally { setLoading(DOM.saveProfileBtn, false); } });
-    DOM.saveZodiacBtn?.addEventListener('click', async () => { const sign = DOM.zodiacSelect.value; if (!sign) return; setLoading(DOM.saveZodiacBtn, true); try { await callSecureRpc('zodiac', { sign }); showToast("Zodiac saved!"); await renderProfile(); } catch (e) { showToast(e.message || 'Save failed'); } finally { setLoading(DOM.saveZodiacBtn, false); } });
-    DOM.copyReferralBtn?.addEventListener('click', () => { const link = DOM.referralLink?.textContent; if (link) navigator.clipboard.writeText(link).then(() => showToast("Copied!")); });
-    DOM.donateBtn?.addEventListener('click', () => { window.open('https://ko-fi.com/yourusername', '_blank', 'noopener'); });
-
-    // Flip coin
-    DOM.flipCoinBtn?.addEventListener('click', async () => { if (!walletAddress) return; try { const result = await callSecureRpc('flip_coin'); if (result.data?.error) { showToast("🪙 Already flipped today!"); DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)'; return; } const today = getUTCDayKey(); const stored = JSON.parse(localStorage.getItem('prae_last_flip') || '{}'); stored[walletAddress] = today; localStorage.setItem('prae_last_flip', JSON.stringify(stored)); DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)'; if (result.data?.won) { userPRAEBalance += 0.1; saveBalance(); showToast("You won 0.1 PRAE! 🎉"); } else { showToast("Better luck next time."); } await renderProfile(); } catch (e) { showToast("Flip failed"); } });
-
-    // Show My Praedictions
-    DOM.showMyPraedictionsBtn?.addEventListener('click', () => { const c = DOM.myPraedictionsList; if (!c) return; if (c.style.display === 'none' || !c.style.display) { const myCreated = currentPredictions.filter(p => p.creator === walletAddress); const myBets = currentPredictions.filter(p => (p.bets || []).some(b => b.user === walletAddress) && p.creator !== walletAddress); let html = ''; if (myCreated.length > 0) { html += '<h4 style="color:var(--accent);">✨ Created by you</h4>'; html += myCreated.map(p => `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">Status: ${p.status.toUpperCase()}</span></div>`).join(''); } if (myBets.length > 0) { html += '<h4 style="color:var(--accent);margin-top:12px;">💰 Your bets</h4>'; html += myBets.map(p => { const bet = p.bets.find(b => b.user === walletAddress); return `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${bet.outcome.toUpperCase()} • ${p.status}</span></div>`; }).join(''); } c.innerHTML = html || 'No praedictions yet.'; c.style.display = 'block'; } else { c.style.display = 'none'; } });
-
-    // Clear Local Data (safe version)
-    document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
-        e.preventDefault();
-        if (!confirm("⚠️ Clear all user data?\n\nYour on-chain PRAE is safe.\n\nType CLEAR to confirm.")) return;
-        const input = prompt("Type CLEAR to confirm:");
-        if (input !== 'CLEAR') return showToast("Cancelled");
-        localStorage.clear();
-        disconnectWallet();
-        showToast("User data cleared. Reconnect anytime!");
+    // Auto-detect resolver when typing title
+    DOM.title?.addEventListener('input', () => {
+        const detected = detectAutoSource(DOM.title.value);
+        if (detected && !DOM.autoSource.value) {
+            DOM.autoSource.value = detected.source;
+            if (detected.detail && DOM.autoSourceDetail) {
+                DOM.autoSourceDetail.value = detected.detail;
+                DOM.autoSourceDetail.style.display = 'block';
+            }
+            showToast(`🤖 Auto-detected: ${detected.label}`);
+        }
     });
 
-    // Leaderboard period
-    document.querySelectorAll('[data-period]').forEach(btn => { btn.addEventListener('click', async function() { document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); await renderLeaderboard(this.dataset.period, DOM.leaderboardCategoryFilter?.value || null); }); });
+    // Show/hide detail input based on source selection
+    DOM.autoSource?.addEventListener('change', () => {
+        const val = DOM.autoSource.value;
+        const needsDetail = val.startsWith('weather_') || val === 'sports_' || val === 'wiki_';
+        if (DOM.autoSourceDetail) DOM.autoSourceDetail.style.display = needsDetail ? 'block' : 'none';
+    });
 
-    initOracleAsk();
+        // Quick weather bet
+        DOM.quickWeather?.addEventListener('click', () => {
+            const city = prompt("City name:", "Berlin");
+            const temp = prompt("Temperature in °C:", "30");
+            if (city && temp) {
+                DOM.title.value = `Temperature in ${city} will be above ${temp}°C tomorrow`;
+                DOM.description.value = `Open-Meteo weather data for ${city}`;
+                DOM.category.value = 'wildcard';
+                DOM.autoSource.value = `weather_temp:${city}`;
+                if (DOM.autoSourceDetail) { DOM.autoSourceDetail.value = city; DOM.autoSourceDetail.style.display = 'block'; }
+                DOM.targetValue.value = temp;
+                DOM.sourceUrl.value = 'https://open-meteo.com/';
+                const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(23, 59, 0, 0);
+                DOM.resolutionDate.value = tomorrow.toISOString().slice(0, 16);
+                showToast("🌤️ Weather bet template filled! Choose YES or NO.");
+            }
+        });
+
+        // Category carousel
+        document.querySelectorAll('.category-carousel-btn').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.category-carousel-btn').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.category = this.dataset.category; saveFilters(); renderPraedictions(); }); });
+
+        // Status filters
+        document.querySelectorAll('.status-filter-btn[data-status]').forEach(btn => { btn.addEventListener('click', function() { document.querySelectorAll('.status-filter-btn[data-status]').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); currentFilter.status = this.dataset.status; saveFilters(); renderPraedictions(); }); });
+
+        // Tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => { btn.addEventListener('click', async function() { const tab = this.dataset.tab; document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(`tab-${tab}`)?.classList.add('active'); if (tab === 'profile') await renderProfile(); else if (tab === 'leaderboard') await renderLeaderboard(leaderboardPeriod); else if (tab === 'halloffame') await renderHallOfFame(); }); });
+
+        // Profile
+        DOM.saveProfileBtn?.addEventListener('click', async () => { const name = sanitize(DOM.displayNameInput.value, 20); const avatar = DOM.avatarSelect.value; if (!name && !avatar) return showToast("Enter a name"); setLoading(DOM.saveProfileBtn, true); try { await callSecureRpc('update_profile', { display_name: name || null, avatar: avatar || null }); showToast("Profile updated!"); await refreshAll(); } catch (e) { showToast(e.message || 'Update failed'); } finally { setLoading(DOM.saveProfileBtn, false); } });
+        DOM.saveZodiacBtn?.addEventListener('click', async () => { const sign = DOM.zodiacSelect.value; if (!sign) return; setLoading(DOM.saveZodiacBtn, true); try { await callSecureRpc('zodiac', { sign }); showToast("Zodiac saved!"); await renderProfile(); } catch (e) { showToast(e.message || 'Save failed'); } finally { setLoading(DOM.saveZodiacBtn, false); } });
+        DOM.copyReferralBtn?.addEventListener('click', () => { const link = DOM.referralLink?.textContent; if (link) navigator.clipboard.writeText(link).then(() => showToast("Copied!")); });
+        DOM.donateBtn?.addEventListener('click', () => { window.open('https://ko-fi.com/yourusername', '_blank', 'noopener'); });
+
+        // Flip coin
+        DOM.flipCoinBtn?.addEventListener('click', async () => { if (!walletAddress) return; try { const result = await callSecureRpc('flip_coin'); if (result.data?.error) { showToast("🪙 Already flipped today!"); DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)'; return; } const today = getUTCDayKey(); const stored = JSON.parse(localStorage.getItem('prae_last_flip') || '{}'); stored[walletAddress] = today; localStorage.setItem('prae_last_flip', JSON.stringify(stored)); DOM.flipCoinBtn.textContent = '🪙 Flip Coin (done for today)'; if (result.data?.won) { userPRAEBalance += 0.1; saveBalance(); showToast("You won 0.1 PRAE! 🎉"); } else { showToast("Better luck next time."); } await renderProfile(); } catch (e) { showToast("Flip failed"); } });
+
+        // Show My Praedictions
+        DOM.showMyPraedictionsBtn?.addEventListener('click', () => { const c = DOM.myPraedictionsList; if (!c) return; if (c.style.display === 'none' || !c.style.display) { const myCreated = currentPredictions.filter(p => p.creator === walletAddress); const myBets = currentPredictions.filter(p => (p.bets || []).some(b => b.user === walletAddress) && p.creator !== walletAddress); let html = ''; if (myCreated.length > 0) { html += '<h4 style="color:var(--accent);">✨ Created by you</h4>'; html += myCreated.map(p => `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">Status: ${p.status.toUpperCase()}</span></div>`).join(''); } if (myBets.length > 0) { html += '<h4 style="color:var(--accent);margin-top:12px;">💰 Your bets</h4>'; html += myBets.map(p => { const bet = p.bets.find(b => b.user === walletAddress); return `<div style="background:var(--card-bg);border-radius:12px;padding:12px;margin-bottom:8px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${bet.outcome.toUpperCase()} • ${p.status}</span></div>`; }).join(''); } c.innerHTML = html || 'No praedictions yet.'; c.style.display = 'block'; } else { c.style.display = 'none'; } });
+
+        // Clear Local Data
+        document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
+            e.preventDefault();
+            if (!confirm("⚠️ Clear all local data?\n\nYour on-chain PRAE is safe.\n\nType CLEAR to confirm.")) return;
+            const input = prompt("Type CLEAR to confirm:");
+            if (input !== 'CLEAR') return showToast("Cancelled");
+            localStorage.clear();
+            disconnectWallet();
+            showToast("Local data cleared. Reconnect anytime!");
+        });
+
+        // Leaderboard period
+        document.querySelectorAll('[data-period]').forEach(btn => { btn.addEventListener('click', async function() { document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active-filter')); this.classList.add('active-filter'); await renderLeaderboard(this.dataset.period, DOM.leaderboardCategoryFilter?.value || null); }); });
+
+        initOracleAsk();
 }

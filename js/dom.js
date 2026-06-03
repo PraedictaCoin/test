@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – DOM Cache
+// PRAEDICTA – DOM Cache (dom.js)
 // ============================================================
 
 const DOM = {};
@@ -51,6 +51,7 @@ function cacheDOM() {
     DOM.category = document.getElementById('category');
     DOM.resolutionDate = document.getElementById('resolutionDate');
     DOM.autoSource = document.getElementById('autoSource');
+    DOM.autoSourceDetail = document.getElementById('autoSourceDetail');
     DOM.targetValue = document.getElementById('targetValue');
     DOM.sourceUrl = document.getElementById('sourceUrl');
     DOM.zodiacSelect = document.getElementById('zodiacSelect');
@@ -79,5 +80,8 @@ function cacheDOM() {
     DOM.creatorBetYes = document.getElementById('creatorBetYes');
     DOM.creatorBetNo = document.getElementById('creatorBetNo');
     DOM.creatorBetDisplay = document.getElementById('creatorBetDisplay');
+    DOM.emailInput = document.getElementById('emailInput');
+    DOM.quickWeather = document.getElementById('quickWeather');
+    DOM.weatherCity = document.getElementById('weatherCity');
 }
 cacheDOM();
