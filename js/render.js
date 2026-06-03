@@ -96,6 +96,7 @@ function renderPredictionCard(p, isOracle) {
     ${isCreator && active ? `<div style="font-size:.65rem;color:var(--oracle-color);margin-bottom:4px;">🏆 Earn 10 SeerScore when resolved</div>` : ''}
     ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
     ${renderResolutionInfo(p)}
+    ${active ? renderPriceChart(market, p.id) : ''}
     ${!active ? renderVoteStats(yesPrice, noPrice) : ''}${active ? renderVoteStats(yesPrice, noPrice) : ''}
     ${p.bets && p.bets.length > 0 ? `<div style="margin-top:8px; font-size:.7rem; color:var(--text-muted); display:flex; gap:12px; padding-top:4px; border-top:1px solid var(--border);"><span>💰 ${p.bets.reduce((s,b) => s + (b.amount||0), 0)} PRAE bet</span><span>👥 ${new Set((p.bets||[]).map(b => b.user)).size} bettors</span></div>` : ''}
     ${active && !isCreator ? renderActiveActions(p, yesPrice) : active && isCreator ? '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:.8rem;">You staked on this prediction</div>' : ''}
@@ -139,7 +140,7 @@ function renderResolutionInfo(p) {
     return `<div class="resolution-info"><div style="color:var(--accent);font-weight:500;margin-bottom:6px;">🔮 Resolution Info</div><div class="resolution-info-grid"><span style="color:var(--text-muted);">📊 Source:</span><span>${sourceLabel}</span><span style="color:var(--text-muted);">🎯 Condition:</span><span>${condition}</span><span style="color:var(--text-muted);">⏰ Deadline:</span><span>${deadline}</span><span style="color:var(--text-muted);">🤖 Auto-resolve:</span><span>${autoResolve}</span><span style="color:var(--text-muted);">⏱️ Timeline:</span><span>Resolves within 24h</span></div></div>`;
 }
 
-function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: ${yesPrice.toFixed(4)} PRAE</span><span>❌ NO: ${noPrice.toFixed(4)} PRAE</span><span title="LMSR market maker price" style="cursor:help;font-size:.65rem;">ℹ️</span></div>`; }
+function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: ${yesPrice.toFixed(4)} PRAE</span><span>❌ NO: ${noPrice.toFixed(4)} PRAE</span><span title="Order book market price" style="cursor:help;font-size:.65rem;">ℹ️</span></div>`; }
 
 function renderActiveActions(p, yesPrice) {
     const market = getMarket(p.id);
@@ -178,26 +179,19 @@ function renderOracleResolveButtons(p) {
     <button class="oracle-resolve" data-id="${p.id}" data-outcome="no">❌ NO</button>
     <button class="oracle-resolve" data-id="${p.id}" data-outcome="unresolvable" style="background:#FF4444;">🚫 Unresolvable</button>
     </div>
-    ${p.status === 'resolved' && !p.unresolvable ? `
-        <div style="margin-top:8px;text-align:center;font-size:.7rem;">
-        <button class="dispute-btn" data-id="${p.id}" style="background:transparent;border:1px solid var(--oracle-color);color:var(--oracle-color);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;">⚠️ Dispute (${disputeCount})</button>
-        </div>` : ''}`;
+    ${p.status === 'resolved' && !p.unresolvable ? `<div style="margin-top:8px;text-align:center;font-size:.7rem;"><button class="dispute-btn" data-id="${p.id}" style="background:transparent;border:1px solid var(--oracle-color);color:var(--oracle-color);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;">⚠️ Dispute (${disputeCount})</button></div>` : ''}`;
 }
 
-// Activity Feed
 function renderActivityFeed() {
     if (!DOM.activityFeed) return;
     const recent = []; const now = Date.now();
-    currentPredictions.forEach(p => {
-        (p.bets || []).forEach(b => { recent.push({ time: now - Math.random() * 3600000, text: `💰 Someone bet ${b.amount} PRAE on ${b.outcome.toUpperCase()} for "${p.title.slice(0, 30)}..."`, type: 'bet' }); });
-    });
+    currentPredictions.forEach(p => { (p.bets || []).forEach(b => { recent.push({ time: now - Math.random() * 3600000, text: `💰 Someone bet ${b.amount} PRAE on ${b.outcome.toUpperCase()} for "${p.title.slice(0, 30)}..."`, type: 'bet' }); }); });
     currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at).forEach(p => { recent.push({ time: new Date(p.resolved_at).getTime(), text: `✅ "${p.title.slice(0, 40)}..." resolved ${p.resolved_outcome === 'yes' ? 'YES' : 'NO'}`, type: 'resolve' }); });
     currentPredictions.filter(p => p.created_at).forEach(p => { recent.push({ time: new Date(p.created_at).getTime(), text: `🆕 "${p.title.slice(0, 40)}..."`, type: 'create' }); });
     recent.sort((a, b) => b.time - a.time);
     DOM.activityFeed.innerHTML = recent.slice(0, 10).length > 0 ? '<h4 style="color:var(--accent);margin-bottom:8px;">📡 Live Activity</h4>' + recent.slice(0, 10).map(r => `<div style="font-size:.75rem;padding:4px 0;color:var(--text-muted);border-bottom:1px solid var(--border);">${r.text}</div>`).join('') : '';
 }
 
-// Recent Winners
 function renderRecentWinners() {
     if (!DOM.recentWinners) return;
     const resolved = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable && p.resolved_at).sort((a, b) => new Date(b.resolved_at) - new Date(a.resolved_at)).slice(0, 5);
@@ -207,4 +201,26 @@ function renderRecentWinners() {
         const top = ((p.bets || []).filter(b => b.outcome === p.resolved_outcome).sort((a, b) => b.amount - a.amount)[0] || {}).amount || 0;
         return `<div style="font-size:.75rem;padding:4px 0;color:var(--accent);border-bottom:1px solid var(--border);">🏆 ${escapeHtml(p.title.slice(0, 35))}... ${w}${top ? `<span style="color:var(--text-muted);">· ${top} PRAE won</span>` : ''}</div>`;
     }).join('');
+}
+
+function renderPriceChart(market, id) {
+    const history = market.priceHistory;
+    if (!history || history.length < 2) return '';
+    const data = history.slice(-20);
+    const max = Math.max(...data.map(h => h.price));
+    const min = Math.min(...data.map(h => h.price));
+    const range = max - min || 0.01;
+    const height = 40;
+    const width = data.length * 8;
+    const points = data.map((h, i) => { const x = i * 8; const y = height - ((h.price - min) / range) * height; return `${x},${y}`; }).join(' ');
+    const change = data.length >= 2 ? data[data.length - 1].price - data[0].price : 0;
+    const changeColor = change > 0 ? 'var(--success-color)' : change < 0 ? 'var(--error-color)' : 'var(--text-muted)';
+    const changeIcon = change > 0 ? '📈' : change < 0 ? '📉' : '➡️';
+    return `<div style="margin-top:8px; padding:8px; background:var(--card-bg); border-radius:8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+    <span style="font-size:.7rem; color:var(--text-muted);">Price History</span>
+    <span style="font-size:.7rem; color:${changeColor};">${changeIcon} ${change > 0 ? '+' : ''}${change.toFixed(4)}</span>
+    </div>
+    <svg width="${width}" height="${height}" style="display:block;"><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </div>`;
 }
