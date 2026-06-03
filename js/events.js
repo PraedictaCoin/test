@@ -60,7 +60,7 @@ function initEventListeners() {
             if (detected.detail && DOM.autoSourceDetail) { DOM.autoSourceDetail.value = detected.detail; DOM.autoSourceDetail.style.display = 'block'; }
             DOM.autoSource.style.opacity = '0.6'; DOM.autoSource.style.pointerEvents = 'none';
             if (DOM.sourceUrl) { DOM.sourceUrl.placeholder = 'Auto-resolve selected - no URL needed'; DOM.sourceUrl.style.opacity = '0.5'; DOM.sourceUrl.required = false; }
-            const placeholders: Record<string, string> = { 'weather_temp': 'Target temperature (°C)', 'weather_rain': 'Target rain (mm)', 'weather_wind': 'Target wind (km/h)', 'weather_snow': 'Target snow (cm)', 'redstone_': 'Target price (USD)', 'coingecko_': 'Target price (USD)', 'binance_': 'Target price (USD)', 'forex_': 'Target exchange rate', 'movie_': 'Target box office ($)', 'quake_': 'Target magnitude', 'spacex_': 'Success? (yes/no)', 'sports_': 'Win? (yes/no)', 'wiki_': 'Event occurred? (yes/no)' };
+            const placeholders: { 'weather_temp': 'Target temperature (°C)', 'weather_rain': 'Target rain (mm)', 'weather_wind': 'Target wind (km/h)', 'weather_snow': 'Target snow (cm)', 'redstone_': 'Target price (USD)', 'coingecko_': 'Target price (USD)', 'binance_': 'Target price (USD)', 'forex_': 'Target exchange rate', 'movie_': 'Target box office ($)', 'quake_': 'Target magnitude', 'spacex_': 'Success? (yes/no)', 'sports_': 'Win? (yes/no)', 'wiki_': 'Event occurred? (yes/no)' };
             for (const [key, placeholder] of Object.entries(placeholders)) { if (detected.source.startsWith(key)) { if (DOM.targetValue) DOM.targetValue.placeholder = placeholder; break; } }
             showToast(`🤖 Auto-resolve enabled: ${detected.label}`);
         } else {
