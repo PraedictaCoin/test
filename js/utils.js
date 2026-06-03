@@ -61,7 +61,57 @@ window.addEventListener('offline', () => { if (DOM.offlineBanner) DOM.offlineBan
 
 function cleanOldHoroscopeCache() { const today = getUTCDayKey(); try { const keys = Object.keys(localStorage); keys.forEach(key => { if (key.startsWith('horoscope_') && !key.includes(today)) localStorage.removeItem(key); }); } catch (e) {} }
 
-// Auto-detect best resolver from prediction title
+// ============================================================
+// PREDICTION VALIDATION
+// ============================================================
+
+function isValidPrediction(title) {
+    if (!title || title.length < 10) return { valid: false, reason: "Title too short. Be more specific." };
+    if (title.length > 200) return { valid: false, reason: "Title too long." };
+    const hasVerb = /\b(will|going|shall|must|can|could|would|should|reach|hit|pass|break|win|lose|beat|rise|fall|drop|gain|increase|decrease|announce|launch|release|publish|elect|appoint|resign|die|born|marry|divorce|merge|acquire|bankrupt|default|cut|raise|hold|keep|cross|exceed|below|above|over|under)\b/i.test(title);
+    if (!hasVerb) return { valid: false, reason: "Must contain a future event (will, reach, win, etc)." };
+    const words = title.split(/\s+/);
+    if (words.length < 4) return { valid: false, reason: "Too short. Include subject, event, and timeframe." };
+    if (title === title.toUpperCase() && title.length > 30) return { valid: false, reason: "Please don't use ALL CAPS." };
+    if (/(.)\1{4,}/.test(title)) return { valid: false, reason: "Please remove repeated characters." };
+    const lettersOnly = title.replace(/[^a-zA-Z]/g, '');
+    if (lettersOnly.length < 5) return { valid: false, reason: "Must contain actual words." };
+    const hasTimeframe = /\b(today|tomorrow|this week|this month|this year|next|by|before|after|in \d{4}|on \w+day|january|february|march|april|may|june|july|august|september|october|november|december|q[1-4]|20\d{2})\b/i.test(title);
+    if (!hasTimeframe) return { valid: false, reason: "Include a timeframe (by July, this week, in 2026, etc)." };
+    return { valid: true };
+}
+
+function isBlockedTopic(title, description) {
+    const blockedWords = [
+        "assassination", "murder", "kill", "terrorist", "bombing", "massacre",
+        "shooting", "genocide", "torture", "execution", "suicide",
+        "porn", "xxx", "nsfw", "onlyfans", "sex tape", "nude",
+        "racist", "nazi", "holocaust", "hate crime",
+        "drug", "cocaine", "heroin", "meth", "fentanyl",
+        "pump and dump", "ponzi", "pyramid scheme",
+    ];
+    const combined = (title + " " + description).toLowerCase();
+    for (const word of blockedWords) {
+        if (combined.includes(word)) return { blocked: true, reason: `Topic not allowed: "${word}"` };
+    }
+    return { blocked: false };
+}
+
+function isValidDisplayName(name) {
+    if (!name) return { valid: true };
+    if (name.length < 2) return { valid: false, reason: "Name too short (min 2 characters)" };
+    if (name.length > 20) return { valid: false, reason: "Name too long (max 20 characters)" };
+    const blockedPatterns = [/admin/i, /oracle/i, /praedicta/i, /mod/i, /support/i, /staff/i, /official/i, /system/i, /null/i, /undefined/i];
+    for (const pattern of blockedPatterns) { if (pattern.test(name.trim())) return { valid: false, reason: "This name is not allowed" }; }
+    const validPattern = /^[\p{L}\p{N}\s\p{Emoji_Presentation}\p{Emoji}._-]+$/u;
+    if (!validPattern.test(name)) return { valid: false, reason: "Name contains invalid characters" };
+    return { valid: true };
+}
+
+// ============================================================
+// AUTO-DETECT RESOLVER
+// ============================================================
+
 function detectAutoSource(title) {
     const t = title.toLowerCase();
     if (t.includes('btc') || t.includes('bitcoin')) return { source: 'redstone_btc', label: 'Bitcoin Price (RedStone)' };
@@ -81,5 +131,9 @@ function detectAutoSource(title) {
     }
     const sportsMatch = t.match(/(win|won|lose|lost|beat|defeat|champion|final|match|game)\s/i);
     if (sportsMatch) return { source: 'sports_', label: 'Sports Result', needsDetail: true };
+    if (t.includes('movie') || t.includes('box office') || t.includes('oscar')) return { source: 'movie_', label: 'Movie Box Office', needsDetail: true };
+    if (t.includes('forex') || t.includes('exchange rate') || t.includes('usd') || t.includes('eur')) return { source: 'forex_', label: 'Forex Rate', needsDetail: true };
+    if (t.includes('earthquake') || t.includes('magnitude') || t.includes('quake')) return { source: 'quake_', label: 'Earthquake Magnitude', needsDetail: true };
+    if (t.includes('spacex') || t.includes('launch') || t.includes('rocket')) return { source: 'spacex_', label: 'SpaceX Launch', needsDetail: true };
     return null;
 }

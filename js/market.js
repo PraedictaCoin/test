@@ -1,21 +1,55 @@
 // ============================================================
-// PRAEDICTA – Market & Trading Logic
+// PRAEDICTA – Market & Trading Logic (LMSR Bookmaker)
 // ============================================================
 
-const mockMarkets = {}; const MOCK_INITIAL_POOL = 1000;
+const mockMarkets = {};
+const MOCK_LIQUIDITY = 100;
 
-function getMarket(id) { if (!mockMarkets[id]) { const keys = Object.keys(mockMarkets); if (keys.length >= CONFIG.MAX_CACHED_MARKETS) delete mockMarkets[keys[0]]; mockMarkets[id] = { yesPool: MOCK_INITIAL_POOL, noPool: MOCK_INITIAL_POOL }; } return mockMarkets[id]; }
-function getYesPrice(yes, no) { return (yes + no === 0) ? 0.5 : no / (yes + no); }
+function getMarket(id) {
+    if (!mockMarkets[id]) {
+        const keys = Object.keys(mockMarkets);
+        if (keys.length >= CONFIG.MAX_CACHED_MARKETS) delete mockMarkets[keys[0]];
+        mockMarkets[id] = { yesShares: 0, noShares: 0, liquidity: MOCK_LIQUIDITY };
+    }
+    return mockMarkets[id];
+}
+
+function getYesPrice(yesShares, noShares, liquidity = MOCK_LIQUIDITY) {
+    const expYes = Math.exp(yesShares / liquidity);
+    const expNo = Math.exp(noShares / liquidity);
+    return expYes / (expYes + expNo);
+}
+
+function getCost(currentYes, currentNo, newYes, newNo, liquidity = MOCK_LIQUIDITY) {
+    const oldCost = liquidity * Math.log(Math.exp(currentYes / liquidity) + Math.exp(currentNo / liquidity));
+    const newCost = liquidity * Math.log(Math.exp(newYes / liquidity) + Math.exp(newNo / liquidity));
+    return newCost - oldCost;
+}
 
 function buySharesMock(id, outcome, amount) {
     const market = getMarket(id);
-    const price = outcome === 'yes' ? getYesPrice(market.yesPool, market.noPool) : 1 - getYesPrice(market.yesPool, market.noPool);
-    const cost = amount * price;
-    if (userPRAEBalance < cost) return { error: 'Insufficient PRAE balance.' };
-    userPRAEBalance -= cost; saveBalance();
-    if (outcome === 'yes') { market.yesPool += amount; market.noPool = (market.yesPool * market.noPool) / market.yesPool; }
-    else { market.noPool += amount; market.yesPool = (market.yesPool * market.noPool) / market.noPool; }
-    return { cost, shares: amount };
+    const price = outcome === 'yes'
+    ? getYesPrice(market.yesShares, market.noShares)
+    : 1 - getYesPrice(market.yesShares, market.noShares);
+
+    const newYes = outcome === 'yes' ? market.yesShares + amount : market.yesShares;
+    const newNo = outcome === 'no' ? market.noShares + amount : market.noShares;
+    const cost = getCost(market.yesShares, market.noShares, newYes, newNo);
+    const fee = cost * CONFIG.FEE_PER_TRADE;
+    const totalCost = cost + fee;
+
+    if (userPRAEBalance < totalCost) return { error: `Insufficient PRAE. Need ${totalCost.toFixed(2)} PRAE.` };
+
+    userPRAEBalance -= totalCost;
+    saveBalance();
+
+    if (outcome === 'yes') market.yesShares += amount;
+    else market.noShares += amount;
+
+    const newPrice = getYesPrice(market.yesShares, market.noShares);
+    const payoutEstimate = amount / (outcome === 'yes' ? newPrice : (1 - newPrice));
+
+    return { cost: totalCost, shares: amount, fee: fee, priceBefore: price, priceAfter: newPrice, payoutEstimate: payoutEstimate };
 }
 
 async function buySharesReal(id, outcome, amount) { showToast("⛓️ Real market coming soon!"); return { cost: 0, shares: 0 }; }
@@ -58,4 +92,4 @@ async function reactClick(e) {
 function updateReactionDisplay(prediction, card) { if (!card) return; const grouped = {}; (prediction.reactions || []).filter(r => isValidReaction(r.emoji)).forEach(r => { grouped[r.emoji] = (grouped[r.emoji] || 0) + 1; }); CONFIG.ALLOWED_EMOJIS.forEach(emoji => { const btn = card.querySelector(`.react-btn[data-emoji="${emoji}"]`); if (btn) { const count = grouped[emoji] || 0; btn.innerHTML = count > 0 ? `${emoji} <span style="font-size:.7rem;color:var(--accent);">${count}</span>` : emoji; } }); }
 
 function shareClick(e) { navigator.clipboard.writeText(e.target.dataset.url).then(() => showToast("Link copied!")); }
-function updatePayout(e) { const id = e.target.id.split('-')[1]; const amount = parseFloat(e.target.value) || CONFIG.MIN_BET; const market = getMarket(id); const price = getYesPrice(market.yesPool, market.noPool); const el = document.getElementById(`payout-${id}`); if (el) el.textContent = `${(amount / (price || 0.5)).toFixed(2)} YES`; }
+function updatePayout(e) { const id = e.target.id.split('-')[1]; const amount = parseFloat(e.target.value) || CONFIG.MIN_BET; const market = getMarket(id); const price = getYesPrice(market.yesShares, market.noShares); const el = document.getElementById(`payout-${id}`); if (el) el.textContent = `${(amount / (price || 0.5)).toFixed(2)} YES`; }
