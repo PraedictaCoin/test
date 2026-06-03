@@ -135,3 +135,24 @@ function trackReferral() { const params = new URLSearchParams(window.location.se
 // Skeleton loading
 function showSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'grid'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'none'; }
 function hideSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'none'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'grid'; }
+
+// Time ago format
+function timeAgo(iso) {
+    if (!iso) return '';
+    const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return formatDateWithoutSeconds(iso);
+}
+
+// Tab title flash
+let originalTitle = document.title;
+function flashTitle(text) {
+    document.title = text;
+    setTimeout(() => { document.title = originalTitle; }, 3000);
+}
+
+
+

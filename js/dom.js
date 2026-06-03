@@ -84,5 +84,10 @@ function cacheDOM() {
     DOM.quickWeather = document.getElementById('quickWeather');
     DOM.weatherCity = document.getElementById('weatherCity');
     DOM.skeletonContainer = document.getElementById('skeletonContainer');
+    DOM.activityFeed = document.getElementById('activityFeed');
+    DOM.recentWinners = document.getElementById('recentWinners');
+    DOM.totalPredictions = document.getElementById('totalPredictions');
+    DOM.totalUsers = document.getElementById('totalUsers');
+
 }
 cacheDOM();

@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Initialization (init.js)
+// PRAEDICTA – Initialization (init.js) - FINAL
 // ============================================================
 
 function initTheme() { if (localStorage.getItem('praedicta_theme') === 'light') document.body.classList.add('light'); }
@@ -21,7 +21,15 @@ function init() {
 
     if (window.solana?.isConnected) setTimeout(() => DOM.connectBtn?.click(), 100);
 
-    // Auto-refresh predictions only when visible and on predictions tab
+    // Supabase Realtime subscription
+    supabaseClient
+    .channel('predictions-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => {
+        loadPredictions().then(p => { currentPredictions = p; renderPraedictions(); }).catch(() => {});
+    })
+    .subscribe();
+
+    // Auto-refresh predictions
     let autoRefreshInterval;
     function startAutoRefresh() {
         autoRefreshInterval = setInterval(async () => {
@@ -32,13 +40,12 @@ function init() {
                     try {
                         currentPredictions = await loadPredictions();
                         renderPraedictions();
-                        const activeCount = currentPredictions.filter(p => p.status === 'active').length;
-                        if (DOM.totalActive) DOM.totalActive.textContent = activeCount;
+                        if (DOM.totalActive) DOM.totalActive.textContent = currentPredictions.filter(p => p.status === 'active').length;
                         const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs((m.yesShares || 0) - 50) + Math.abs((m.noShares || 0) - 50), 0);
                         if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0);
                         const hottest = getHottestCategory();
                         if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
-                    } catch (e) { /* silent fail */ }
+                    } catch (e) {}
                 }
             }
         }, 30000);
@@ -50,7 +57,7 @@ function init() {
     });
         startAutoRefresh();
 
-        // Auto-reconnect when tab regains focus
+        // Auto-reconnect
         window.addEventListener('focus', () => {
             if (!walletAddress && window.solana?.isConnected) {
                 showToast("Wallet found! Reconnecting...", 'info');
@@ -60,9 +67,7 @@ function init() {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            if (document.activeElement?.tagName === 'INPUT' ||
-                document.activeElement?.tagName === 'TEXTAREA' ||
-                document.activeElement?.tagName === 'SELECT') return;
+            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT') return;
             switch(e.key.toLowerCase()) {
                 case '1': document.querySelector('[data-tab="praedictions"]')?.click(); break;
                 case '2': document.querySelector('[data-tab="profile"]')?.click(); break;
@@ -75,36 +80,26 @@ function init() {
             }
         });
 
-        // PWA Install prompt
+        // PWA Install
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
+            e.preventDefault(); deferredPrompt = e;
             setTimeout(() => {
                 if (deferredPrompt && !localStorage.getItem('pwa_installed')) {
-                    const installToast = document.createElement('div');
-                    installToast.className = 'toast';
-                    installToast.style.cssText = 'bottom:80px; cursor:pointer; background:var(--accent); color:var(--bg);';
-                    installToast.textContent = '📱 Install this app? Tap here!';
-                    installToast.addEventListener('click', async () => {
-                        if (deferredPrompt) {
-                            await deferredPrompt.prompt();
-                            const result = await deferredPrompt.userChoice;
-                            if (result.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true');
-                            deferredPrompt = null;
-                        }
-                        installToast.remove();
+                    const toast = document.createElement('div');
+                    toast.className = 'toast toast-info';
+                    toast.style.cssText = 'bottom:80px; cursor:pointer;';
+                    toast.textContent = '📱 Install this app? Tap here!';
+                    toast.addEventListener('click', async () => {
+                        if (deferredPrompt) { await deferredPrompt.prompt(); const r = await deferredPrompt.userChoice; if (r.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true'); deferredPrompt = null; }
+                        toast.remove();
                     });
-                    document.body.appendChild(installToast);
-                    setTimeout(() => installToast.remove(), 15000);
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 15000);
                 }
             }, 30000);
         });
-
-        window.addEventListener('appinstalled', () => {
-            localStorage.setItem('pwa_installed', 'true');
-            deferredPrompt = null;
-        });
+        window.addEventListener('appinstalled', () => { localStorage.setItem('pwa_installed', 'true'); });
 
         // Analytics persistence
         window.addEventListener('beforeunload', () => {
@@ -112,6 +107,10 @@ function init() {
                 try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {}
             }
         });
+
+        // Global error handlers
+        window.addEventListener('error', (e) => { console.error('Global error:', e.error); });
+        window.addEventListener('unhandledrejection', (e) => { console.error('Unhandled:', e.reason); });
 }
 
 init();

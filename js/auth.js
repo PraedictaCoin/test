@@ -70,8 +70,11 @@ async function connectWallet() {
         const email = sanitize(DOM.emailInput?.value || '', 100);
         if (email && email.includes('@') && email.includes('.')) { try { await supabaseClient.from('users').update({ email: email }).eq('address', walletAddress); } catch (e) {} }
         await refreshAll();
-                trackReferral();
-    } catch (err) { console.error('Connection error:', err); showToast("Connection failed"); }
+        try { trackReferral(); } catch(e) {}
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('ref')) {
+            showToast("🎁 You were referred! Both earn rewards.", 'success');
+        }    } catch (err) { console.error('Connection error:', err); showToast("Connection failed"); }
     finally { setLoading(DOM.connectBtn, false); }
 }
 

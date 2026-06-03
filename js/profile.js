@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js)
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL
 // ============================================================
 
 async function loadPredictions() { try { return await fetchWithRetry(async () => { const { data, error } = await supabaseClient.from('predictions').select('*').order('created_at', { ascending: false }).limit(100); if (error) throw error; return data || []; }); } catch (err) { console.error('Load predictions error:', err); showToast('Failed to load predictions.', 'error'); return []; } }
@@ -61,6 +61,38 @@ async function renderProfile(userData) {
             </div>
             </div>`;
         }
+
+        // Check for unclaimed winnings
+        const myWonUnclaimed = allResolved.filter(p => {
+            const b = (p.bets || []).find(b => b.user === walletAddress);
+            return b && b.outcome === p.resolved_outcome && !p.claimed && p.payouts;
+        });
+
+        if (myWonUnclaimed.length > 0) {
+            const totalUnclaimed = myWonUnclaimed.reduce((s, p) => {
+                const payout = (p.payouts || []).find(pay => pay.user === walletAddress);
+                return s + (payout ? payout.amount : 0);
+            }, 0);
+
+            if (totalUnclaimed > 0) {
+                DOM.profileStats.innerHTML += `
+                <div style="margin-top:12px;padding:12px;background:var(--success-color);border-radius:12px;text-align:center;color:#000;">
+                <strong>💰 ${totalUnclaimed.toFixed(2)} PRAE to claim!</strong>
+                <button id="claimWinningsBtn" style="display:block;width:100%;margin-top:8px;padding:8px;border-radius:20px;background:#000;color:var(--success-color);border:none;cursor:pointer;font-weight:bold;">Claim Winnings</button>
+                </div>`;
+
+                setTimeout(() => {
+                    document.getElementById('claimWinningsBtn')?.addEventListener('click', async () => {
+                        userPRAEBalance += totalUnclaimed;
+                        saveBalance();
+                        myWonUnclaimed.forEach(p => p.claimed = true);
+                        showToast(`✅ Claimed ${totalUnclaimed.toFixed(2)} PRAE!`, 'success');
+                        sounds.win();
+                        await renderProfile();
+                    });
+                }, 100);
+            }
+        }
     }
 
     if (DOM.dailyDigest) {
@@ -102,7 +134,15 @@ async function renderLeaderboard(period = 'all', category = null) {
     if (previousLeaderboard.length > 0) { data.forEach((entry, i) => { const prevIndex = previousLeaderboard.findIndex(p => p.address === entry.address); if (prevIndex >= 0 && prevIndex !== i) entry.positionChange = prevIndex - i; }); } previousLeaderboard = [...data];
     container.innerHTML = data.length === 0
     ? '<div class="empty-state"><div class="empty-state-icon">🏆</div><p>No Seers yet.</p><p style="font-size:.8rem;">Make your first prediction to appear here!</p></div>'
-    : data.map((u, i) => { const changeIcon = u.positionChange > 0 ? ' 🟢↑' : u.positionChange < 0 ? ' 🔴↓' : ''; const name = u.display_name || `${(u.address || '').slice(0, 6)}...${(u.address || '').slice(-4)}`; const uTitle = getProphetTitle(u.seerscore || 0); return `<div style="display:flex;justify-content:space-between;padding:8px;" class="${u.positionChange !== 0 ? 'leaderboard-glow' : ''}"><div>${i + 1}. ${u.avatar || ''} ${uTitle.emoji} ${escapeHtml(name)}${changeIcon}</div><div>👁️ ${u.seerscore}</div></div>`; }).join('');
+    : data.map((u, i) => {
+        const changeIcon = u.positionChange > 0 ? ' 🟢↑' : u.positionChange < 0 ? ' 🔴↓' : '';
+        const displayName = u.display_name || `${(u.address || '').slice(0, 6)}...${(u.address || '').slice(-4)}`;
+        const uTitle = getProphetTitle(u.seerscore || 0);
+        return `<div style="display:flex;justify-content:space-between;padding:8px;" class="${u.positionChange !== 0 ? 'leaderboard-glow' : ''}">
+        <div>${i + 1}. ${u.avatar || ''} ${uTitle.emoji} <span class="user-profile-link" data-address="${u.address}" style="cursor:pointer;color:var(--accent);">${escapeHtml(displayName)}</span>${changeIcon}</div>
+        <div>👁️ ${u.seerscore}</div>
+        </div>`;
+    }).join('');
     try { const { data: seer } = await supabaseClient.rpc('get_seer_of_the_day'); if (seer && DOM.seerOfTheDay) { const seerTitle = getProphetTitle(seer.seerscore || 0); DOM.seerOfTheDay.innerHTML = `<div style="text-align:center;"><div style="font-size:2rem;">🌟</div><div>👁️ Seer of the Day</div><div style="font-size:1.2rem;color:var(--accent);">${seerTitle.emoji} ${seer.display_name || (seer.address || '').slice(0, 6)}...</div><div style="font-size:.8rem;">${seerTitle.title} • SeerScore: ${seer.seerscore || '???'}</div></div>`; } } catch (err) { console.error('Seer of day error:', err); }
 }
 
@@ -121,14 +161,37 @@ async function refreshAll() {
         const predictions = await loadPredictions(); currentPredictions = predictions; renderPraedictions();
         const user = await loadUser(walletAddress); await renderProfile(user);
         const activeTab = document.querySelector('.tab-content.active'); if (activeTab?.id === 'tab-leaderboard') await renderLeaderboard(leaderboardPeriod, DOM.leaderboardCategoryFilter?.value || null);
+
+        // Stats
         const activeCount = predictions.filter(p => p.status === 'active').length; if (DOM.totalActive) DOM.totalActive.textContent = activeCount;
         const totalBet = Object.values(mockMarkets).reduce((s, m) => s + (m.yesShares || 0) + (m.noShares || 0), 0); if (DOM.totalPraedicts) DOM.totalPraedicts.textContent = totalBet.toFixed(0);
         const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs((m.yesShares || 0) - 50) + Math.abs((m.noShares || 0) - 50), 0); if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0) + getVolumeTrend(totalVolume);
         if (user && DOM.totalSeerscore) DOM.totalSeerscore.textContent = user.seerscore || 0;
+
+        // Global stats
+        if (DOM.totalPredictions) DOM.totalPredictions.textContent = predictions.length;
+        const uniqueUsers = new Set(predictions.map(p => p.creator).filter(Boolean));
+        if (DOM.totalUsers) DOM.totalUsers.textContent = uniqueUsers.size;
+
         const hottest = getHottestCategory(); if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
         const isOracle = (walletAddress === CONFIG.ORACLE_WALLET); if (DOM.oracleIndicatorTop) DOM.oracleIndicatorTop.style.display = isOracle ? 'inline-flex' : 'none'; if (DOM.oracleIndicatorProfile) DOM.oracleIndicatorProfile.style.display = isOracle ? 'inline-block' : 'none';
+
+        // Notifications with sound
         const myResolvedBets = predictions.filter(p => p.status === 'resolved' && (p.bets || []).some(b => b.user === walletAddress) && !p.notified);
-        if (myResolvedBets.length > 0) { showNotification(`${myResolvedBets.length} prediction${myResolvedBets.length > 1 ? 's' : ''} resolved!`); myResolvedBets.forEach(p => p.notified = true); }
+        if (myResolvedBets.length > 0) {
+            const wonBets = myResolvedBets.filter(p => {
+                const myBet = p.bets.find(b => b.user === walletAddress);
+                return myBet && myBet.outcome === p.resolved_outcome;
+            });
+            if (wonBets.length > 0) {
+                sounds.win();
+                flashTitle('🏆 You won PRAE!');
+                wonBets.forEach(p => showWinShare(p, ((p.payouts || []).find(pay => pay.user === walletAddress) || {}).amount || 0));
+            }
+            showNotification(`${myResolvedBets.length} prediction${myResolvedBets.length > 1 ? 's' : ''} resolved!`);
+            myResolvedBets.forEach(p => p.notified = true);
+        }
+
         if (DOM.loadMoreBtn && predictions.length >= 100) DOM.loadMoreBtn.style.display = 'block'; else if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
         updateHypeMessage();
         hideSkeleton();
