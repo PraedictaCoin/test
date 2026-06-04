@@ -48,18 +48,15 @@ const BALANCE_VERIFY_INTERVAL = 30000;
 
 let sessionWarningShown = false;
 let priceAlerts = [];
-let gamePacks = [];
 let userInventory = {};
 let crossTabChannel = null;
 
-let renderCache = {};
-let lastRenderHash = '';
 let consolidatedInterval = null;
 let orderBookCache = {};
 let orderBookCacheTime = {};
 const ORDER_BOOK_CACHE_DURATION = 15000;
 let localStorageDirty = false;
-let domQueryCache = {};
+let lastRenderHash = '';
 let prefetchPromise = null;
 let dailyChallengeCompleted = false;
 let dailyChallengeStreak = 0;
@@ -71,7 +68,8 @@ try {
 try {
     const savedInventory = localStorage.getItem('praedicta_inventory');
     if (savedInventory) userInventory = JSON.parse(savedInventory);
-    try {
+} catch(e) {}
+try {
     const saved = localStorage.getItem('prae_daily_challenge');
     if (saved) {
         const data = JSON.parse(saved);
@@ -80,6 +78,4 @@ try {
             dailyChallengeStreak = data.streak || 0;
         }
     }
-    
 } catch(e) {}
-
