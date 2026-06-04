@@ -255,17 +255,102 @@ function startConsolidatedInterval() {
 }
 function stopAllIntervals() { if (consolidatedInterval) { clearInterval(consolidatedInterval); consolidatedInterval = null; } stopRetryProcessor(); }
 async function autoRefreshLightweight() { try { const newPredictions = await loadPredictions(); const newHash = JSON.stringify(newPredictions.map(p => ({ id: p.id, status: p.status, bets: (p.bets||[]).length }))); if (newHash !== lastRenderHash) { lastRenderHash = newHash; currentPredictions = newPredictions; updateStatsOnly(newPredictions); if (document.visibilityState === 'visible' && document.querySelector('.tab-content.active')?.id === 'tab-praedictions') { renderPraedictionsDiff(newPredictions); } } } catch(e) {} }
-function renderPraedictionsDiff(newPredictions) { const oldPredictions = currentPredictions; currentPredictions = newPredictions; const changedIds = new Set(); newPredictions.forEach(p => { const old = oldPredictions.find(o => o.id === p.id); if (!old || old.status !== p.status || JSON.stringify(old.bets) !== JSON.stringify(p.bets) || (old.reactions || []).length !== (p.reactions || []).length) changedIds.add(p.id); }); oldPredictions.forEach(p => { if (!newPredictions.find(n => n.id === p.id)) changedIds.add(p.id); }); if (changedIds.size > 10 || newPredictions.length !== oldPredictions.length) { renderPraedictions(); return; } changedIds.forEach(id => { const card = document.querySelector(`[data-prediction-id="${id}"]`); if (card) { const p = newPredictions.find(p => p.id === id); if (p) { const isOracle = walletAddress === CONFIG.ORACLE_WALLET; card.outerHTML = renderPredictionCard(p, isOracle); } else card.remove(); } else if (newPredictions.find(p => p.id === id)) { renderPraedictions(); return; } }); bindCardEvents(); }
-function bindCardEvents() { const allContainers = [DOM.praedictionsContainer, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean); allContainers.forEach(cont => { cont.querySelectorAll('.buy-btn').forEach(btn => { if (!btn.dataset.bound) { btn.addEventListener('click', buyClick); btn.dataset.bound = 'true'; } }); cont.querySelectorAll('.buy-amount').forEach(input => { if (!input.dataset.bound) { input.addEventListener('input', updatePayout); input.dataset.bound = 'true'; } }); cont.querySelectorAll('.react-btn').forEach(btn => { if (!btn.dataset.bound) { btn.addEventListener('click', reactClick); btn.dataset.bound = 'true'; } }); }); }
-function updateStatsOnly(predictions) { if (DOM.totalActive) DOM.totalActive.textContent = predictions.filter(p => p.status === 'active').length; if (DOM.totalPredictions) DOM.totalPredictions.textContent = predictions.length; updateCountdowns(); }
-function getCachedOrderBook(id) { const now = Date.now(); if (orderBookCache[id] && orderBookCacheTime[id] && (now - orderBookCacheTime[id]) < ORDER_BOOK_CACHE_DURATION) return orderBookCache[id]; return null; }
-function setCachedOrderBook(id, data) { orderBookCache[id] = data; orderBookCacheTime[id] = Date.now(); }
-async function syncOrderBookIfNeeded(id) { if (!showOrderBook[id]) return; const cached = getCachedOrderBook(id); if (cached) { const market = getMarket(id); market.yesBids = cached.yesBids; market.noBids = cached.noBids; market.fills = cached.fills; return; } await syncOrderBookFromServer(id); setCachedOrderBook(id, { yesBids: [...(mockMarkets[id]?.yesBids || [])], noBids: [...(mockMarkets[id]?.noBids || [])], fills: [...(mockMarkets[id]?.fills || [])] }); }
-function markLocalStorageDirty() { localStorageDirty = true; }
-const originalSaveOrderBooksDirty = saveOrderBooks;
-saveOrderBooks = function() { markLocalStorageDirty(); };
-setInterval(() => { if (localStorageDirty) { originalSaveOrderBooksDirty(); localStorageDirty = false; } }, 30000);
-function cachedQuery(selector) { if (!domQueryCache[selector]) domQueryCache[selector] = document.querySelector(selector); return domQueryCache[selector]; }
-function invalidateQueryCache() { domQueryCache = {}; }
-function batchDOMUpdate(fn) { return requestAnimationFrame(() => { fn(); }); }
-function prefetchPredictions() { if (prefetchPromise) return prefetchPromise; prefetchPromise = loadPredictions().then(data => { prefetchPromise = null; return data; }); return prefetchPromise; }
+function renderPraedictionsDiff(newPredictions) { 
+    const oldPredictions = currentPredictions; 
+    currentPredictions = newPredictions; 
+    const changedIds = new Set(); 
+    newPredictions.forEach(p => { 
+        const old = oldPredictions.find(o => o.id === p.id); 
+        if (!old || old.status !== p.status || JSON.stringify(old.bets) !== JSON.stringify(p.bets) || (old.reactions || []).length !== (p.reactions || []).length) {
+            changedIds.add(p.id); 
+        }
+    }); 
+    oldPredictions.forEach(p => { 
+        if (!newPredictions.find(n => n.id === p.id)) changedIds.add(p.id); 
+    }); 
+    if (changedIds.size > 10 || newPredictions.length !== oldPredictions.length) { 
+        renderPraedictions(); 
+        return; 
+    } 
+    changedIds.forEach(id => { 
+        const card = document.querySelector('[data-prediction-id="' + id + '"]'); 
+        if (card) { 
+            const p = newPredictions.find(p => p.id === id); 
+            if (p) { 
+                const isOracle = walletAddress === CONFIG.ORACLE_WALLET; 
+                card.outerHTML = renderPredictionCard(p, isOracle); 
+            } else {
+                card.remove(); 
+            }
+        } else if (newPredictions.find(p => p.id === id)) { 
+            renderPraedictions(); 
+            return; 
+        } 
+    }); 
+    bindCardEvents(); 
+}
+
+function bindCardEvents() { 
+    const allContainers = [DOM.praedictionsContainer, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean); 
+    allContainers.forEach(function(cont) { 
+        cont.querySelectorAll('.buy-btn').forEach(function(btn) { 
+            if (!btn.dataset.bound) { 
+                btn.addEventListener('click', buyClick); 
+                btn.dataset.bound = 'true'; 
+            } 
+        }); 
+        cont.querySelectorAll('.buy-amount').forEach(function(input) { 
+            if (!input.dataset.bound) { 
+                input.addEventListener('input', updatePayout); 
+                input.dataset.bound = 'true'; 
+            } 
+        }); 
+        cont.querySelectorAll('.react-btn').forEach(function(btn) { 
+            if (!btn.dataset.bound) { 
+                btn.addEventListener('click', reactClick); 
+                btn.dataset.bound = 'true'; 
+            } 
+        }); 
+    }); 
+}
+
+function updateStatsOnly(predictions) { 
+    if (DOM.totalActive) DOM.totalActive.textContent = predictions.filter(function(p) { return p.status === 'active'; }).length; 
+    if (DOM.totalPredictions) DOM.totalPredictions.textContent = predictions.length; 
+    updateCountdowns(); 
+}
+
+function getCachedOrderBook(id) { 
+    var now = Date.now(); 
+    if (orderBookCache[id] && orderBookCacheTime[id] && (now - orderBookCacheTime[id]) < ORDER_BOOK_CACHE_DURATION) {
+        return orderBookCache[id]; 
+    }
+    return null; 
+}
+
+function setCachedOrderBook(id, data) { 
+    orderBookCache[id] = data; 
+    orderBookCacheTime[id] = Date.now(); 
+}
+
+async function syncOrderBookIfNeeded(id) { 
+    if (!showOrderBook[id]) return; 
+    var cached = getCachedOrderBook(id); 
+    if (cached) { 
+        var market = getMarket(id); 
+        market.yesBids = cached.yesBids; 
+        market.noBids = cached.noBids; 
+        market.fills = cached.fills; 
+        return; 
+    } 
+    await syncOrderBookFromServer(id); 
+    setCachedOrderBook(id, { 
+        yesBids: (mockMarkets[id] && mockMarkets[id].yesBids) ? mockMarkets[id].yesBids.slice() : [], 
+        noBids: (mockMarkets[id] && mockMarkets[id].noBids) ? mockMarkets[id].noBids.slice() : [], 
+        fills: (mockMarkets[id] && mockMarkets[id].fills) ? mockMarkets[id].fills.slice() : [] 
+    }); 
+}
+
+function markLocalStorageDirty() { 
+    localStorageDirty = true; 
+}
