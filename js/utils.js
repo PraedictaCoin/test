@@ -225,7 +225,34 @@ function isNewUser() { if (!walletAddress) return true; const myPredictions = cu
 // ============================================================
 // PERFORMANCE: Consolidated Interval Manager
 // ============================================================
-function startConsolidatedInterval() { if (consolidatedInterval) return; consolidatedInterval = setInterval(() => { const now = Date.now(); if (now % 5000 < 1000 && localStorageDirty && typeof saveOrderBooks === 'function') { saveOrderBooks(); localStorageDirty = false; } } if (now % 15000 < 1000) { checkPriceAlerts(); updateLiveCounter(); } if (now % 30000 < 1000) { checkSmartNotifications(); checkSessionExpiry(); if (document.visibilityState === 'visible') autoRefreshLightweight(); } if (now % 60000 < 1000) { syncBalanceFromServer(); syncPendingOrders(); } if (now % 300000 < 1000) { cleanupExpiredOrders(); } }, 5000); }
+function startConsolidatedInterval() {
+    if (consolidatedInterval) return;
+    consolidatedInterval = setInterval(function() {
+        var now = Date.now();
+        if (now % 5000 < 1000 && localStorageDirty && typeof saveOrderBooks === 'function') {
+            saveOrderBooks();
+            localStorageDirty = false;
+        }
+        if (now % 15000 < 1000) {
+            if (typeof checkPriceAlerts === 'function') checkPriceAlerts();
+            if (typeof updateLiveCounter === 'function') updateLiveCounter();
+        }
+        if (now % 30000 < 1000) {
+            if (typeof checkSmartNotifications === 'function') checkSmartNotifications();
+            if (typeof checkSessionExpiry === 'function') checkSessionExpiry();
+            if (document.visibilityState === 'visible' && typeof autoRefreshLightweight === 'function') {
+                autoRefreshLightweight();
+            }
+        }
+        if (now % 60000 < 1000) {
+            if (typeof syncBalanceFromServer === 'function') syncBalanceFromServer();
+            if (typeof syncPendingOrders === 'function') syncPendingOrders();
+        }
+        if (now % 300000 < 1000) {
+            if (typeof cleanupExpiredOrders === 'function') cleanupExpiredOrders();
+        }
+    }, 5000);
+}
 function stopAllIntervals() { if (consolidatedInterval) { clearInterval(consolidatedInterval); consolidatedInterval = null; } stopRetryProcessor(); }
 async function autoRefreshLightweight() { try { const newPredictions = await loadPredictions(); const newHash = JSON.stringify(newPredictions.map(p => ({ id: p.id, status: p.status, bets: (p.bets||[]).length }))); if (newHash !== lastRenderHash) { lastRenderHash = newHash; currentPredictions = newPredictions; updateStatsOnly(newPredictions); if (document.visibilityState === 'visible' && document.querySelector('.tab-content.active')?.id === 'tab-praedictions') { renderPraedictionsDiff(newPredictions); } } } catch(e) {} }
 function renderPraedictionsDiff(newPredictions) { const oldPredictions = currentPredictions; currentPredictions = newPredictions; const changedIds = new Set(); newPredictions.forEach(p => { const old = oldPredictions.find(o => o.id === p.id); if (!old || old.status !== p.status || JSON.stringify(old.bets) !== JSON.stringify(p.bets) || (old.reactions || []).length !== (p.reactions || []).length) changedIds.add(p.id); }); oldPredictions.forEach(p => { if (!newPredictions.find(n => n.id === p.id)) changedIds.add(p.id); }); if (changedIds.size > 10 || newPredictions.length !== oldPredictions.length) { renderPraedictions(); return; } changedIds.forEach(id => { const card = document.querySelector(`[data-prediction-id="${id}"]`); if (card) { const p = newPredictions.find(p => p.id === id); if (p) { const isOracle = walletAddress === CONFIG.ORACLE_WALLET; card.outerHTML = renderPredictionCard(p, isOracle); } else card.remove(); } else if (newPredictions.find(p => p.id === id)) { renderPraedictions(); return; } }); bindCardEvents(); }

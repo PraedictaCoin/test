@@ -6,7 +6,10 @@ function initTheme() { const saved = localStorage.getItem('praedicta_theme'); if
 function toggleTheme() { document.body.classList.toggle('light'); localStorage.setItem('praedicta_theme', document.body.classList.contains('light') ? 'light' : 'dark'); }
 
 function init() {
-    initTheme(); loadFilters(); cleanOldHoroscopeCache(); initEventListeners();
+    initTheme(); loadFilters(); cleanOldHoroscopeCache(); initEvinitTheme(); 
+if (typeof loadFilters === 'function') loadFilters(); 
+if (typeof cleanOldHoroscopeCache === 'function') cleanOldHoroscopeCache(); 
+initEventListeners();entListeners();
     
     // System theme detection
     if (window.matchMedia) { const dmq = window.matchMedia('(prefers-color-scheme: dark)'); dmq.addEventListener('change', (e) => { const saved = localStorage.getItem('praedicta_theme'); if (!saved) { if (e.matches) document.body.classList.remove('light'); else document.body.classList.add('light'); } }); }
