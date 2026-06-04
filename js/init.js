@@ -1,116 +1,43 @@
 // ============================================================
-// PRAEDICTA – Initialization (init.js) - FINAL
+// PRAEDICTA – Initialization (init.js) - FINAL v5
 // ============================================================
 
-function initTheme() { if (localStorage.getItem('praedicta_theme') === 'light') document.body.classList.add('light'); }
+function initTheme() {
+    const saved = localStorage.getItem('praedicta_theme');
+    if (saved === 'light') document.body.classList.add('light');
+    else if (saved === 'dark') document.body.classList.remove('light');
+    else if (window.matchMedia('(prefers-color-scheme: light)').matches) document.body.classList.add('light');
+}
 function toggleTheme() { document.body.classList.toggle('light'); localStorage.setItem('praedicta_theme', document.body.classList.contains('light') ? 'light' : 'dark'); }
 
 function init() {
-    initTheme();
-    loadFilters();
-    cleanOldHoroscopeCache();
-    initEventListeners();
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/test/sw.js')
-            .then(reg => console.log('SW registered:', reg.scope))
-            .catch(err => console.error('SW failed:', err));
-        });
-    }
-
+    initTheme(); loadFilters(); cleanOldHoroscopeCache(); initEventListeners();
+    if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/test/sw.js').then(r => console.log('SW:', r.scope)).catch(e => console.error('SW:', e)); });
     if (window.solana?.isConnected) setTimeout(() => DOM.connectBtn?.click(), 100);
 
-    // Supabase Realtime subscription
-    supabaseClient
-    .channel('predictions-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => {
-        loadPredictions().then(p => { currentPredictions = p; renderPraedictions(); }).catch(() => {});
-    })
-    .subscribe();
+    supabaseClient.channel('predictions-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, () => { loadPredictions().then(p => { currentPredictions = p; renderPraedictions(); }).catch(() => {}); }).subscribe();
 
-    // Auto-refresh predictions
     let autoRefreshInterval;
-    function startAutoRefresh() {
-        autoRefreshInterval = setInterval(async () => {
-            updateCountdowns();
-            if (document.visibilityState === 'visible') {
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab?.id === 'tab-praedictions') {
-                    try {
-                        currentPredictions = await loadPredictions();
-                        renderPraedictions();
-                        if (DOM.totalActive) DOM.totalActive.textContent = currentPredictions.filter(p => p.status === 'active').length;
-                        const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs((m.yesShares || 0) - 50) + Math.abs((m.noShares || 0) - 50), 0);
-                        if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0);
-                        const hottest = getHottestCategory();
-                        if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
-                    } catch (e) {}
-                }
-            }
-        }, 30000);
-    }
+    function startAutoRefresh() { autoRefreshInterval = setInterval(async () => { updateCountdowns(); if (document.visibilityState === 'visible' && document.querySelector('.tab-content.active')?.id === 'tab-praedictions') { try { currentPredictions = await loadPredictions(); renderPraedictions(); if (DOM.totalActive) DOM.totalActive.textContent = currentPredictions.filter(p => p.status === 'active').length; const tv = Object.values(mockMarkets).reduce((s,m) => s+Math.abs((m.yesShares||0)-50)+Math.abs((m.noShares||0)-50), 0); if (DOM.totalVolume) DOM.totalVolume.textContent = tv.toFixed(0); const hot = getHottestCategory(); if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hot.icon} Hottest: <strong>${hot.name}</strong> (${hot.count})`; } catch(e) {} } }, 30000); }
     function stopAutoRefresh() { if (autoRefreshInterval) clearInterval(autoRefreshInterval); }
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') { startAutoRefresh(); refreshAll(); }
-        else stopAutoRefresh();
-    });
-        startAutoRefresh();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { startAutoRefresh(); refreshAll(); } else stopAutoRefresh(); });
+    startAutoRefresh();
 
-        // Auto-reconnect
-        window.addEventListener('focus', () => {
-            if (!walletAddress && window.solana?.isConnected) {
-                showToast("Wallet found! Reconnecting...", 'info');
-                setTimeout(() => DOM.connectBtn?.click(), 500);
-            }
-        });
+    window.addEventListener('focus', () => { if (!walletAddress && window.solana?.isConnected) { showToast("Reconnecting...", 'info'); setTimeout(() => DOM.connectBtn?.click(), 500); } });
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT') return;
-            switch(e.key.toLowerCase()) {
-                case '1': document.querySelector('[data-tab="praedictions"]')?.click(); break;
-                case '2': document.querySelector('[data-tab="profile"]')?.click(); break;
-                case '3': document.querySelector('[data-tab="oracle"]')?.click(); break;
-                case '4': document.querySelector('[data-tab="leaderboard"]')?.click(); break;
-                case '5': document.querySelector('[data-tab="halloffame"]')?.click(); break;
-                case 'b': toggleBlindVoting(); break;
-                case 't': toggleTheme(); break;
-                case 'escape': if (DOM.tutorialOverlay?.style.display === 'flex') DOM.tutorialOverlay.style.display = 'none'; break;
-            }
-        });
+    document.addEventListener('keydown', e => { if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return; switch(e.key.toLowerCase()) { case '1': document.querySelector('[data-tab="praedictions"]')?.click(); break; case '2': document.querySelector('[data-tab="profile"]')?.click(); break; case '3': document.querySelector('[data-tab="leaderboard"]')?.click(); break; case '4': document.querySelector('[data-tab="support"]')?.click(); break; case 'b': toggleBlindVoting(); break; case 't': toggleTheme(); break; } });
 
-        // PWA Install
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault(); deferredPrompt = e;
-            setTimeout(() => {
-                if (deferredPrompt && !localStorage.getItem('pwa_installed')) {
-                    const toast = document.createElement('div');
-                    toast.className = 'toast toast-info';
-                    toast.style.cssText = 'bottom:80px; cursor:pointer;';
-                    toast.textContent = '📱 Install this app? Tap here!';
-                    toast.addEventListener('click', async () => {
-                        if (deferredPrompt) { await deferredPrompt.prompt(); const r = await deferredPrompt.userChoice; if (r.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true'); deferredPrompt = null; }
-                        toast.remove();
-                    });
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 15000);
-                }
-            }, 30000);
-        });
-        window.addEventListener('appinstalled', () => { localStorage.setItem('pwa_installed', 'true'); });
+    let touchStart = 0;
+    document.addEventListener('touchstart', e => { touchStart = e.touches[0].clientY; });
+    document.addEventListener('touchend', e => { if (window.scrollY === 0 && e.changedTouches[0].clientY - touchStart > 80) { refreshAll(); showToast('🔄 Refreshed!', 'info'); } });
+    window.addEventListener('scroll', () => { const btn = document.getElementById('backToTop'); if (btn) btn.style.display = window.scrollY > 500 ? 'block' : 'none'; });
 
-        // Analytics persistence
-        window.addEventListener('beforeunload', () => {
-            if (analyticsData.bets > 0 || analyticsData.creations > 0) {
-                try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {}
-            }
-        });
-
-        // Global error handlers
-        window.addEventListener('error', (e) => { console.error('Global error:', e.error); });
-        window.addEventListener('unhandledrejection', (e) => { console.error('Unhandled:', e.reason); });
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; setTimeout(() => { if (deferredPrompt && !localStorage.getItem('pwa_installed')) { const t = document.createElement('div'); t.className = 'toast toast-info'; t.style.cssText = 'bottom:80px;cursor:pointer;'; t.textContent = '📱 Install app?'; t.addEventListener('click', async () => { if (deferredPrompt) { await deferredPrompt.prompt(); const r = await deferredPrompt.userChoice; if (r.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true'); deferredPrompt = null; } t.remove(); }); document.body.appendChild(t); setTimeout(() => t.remove(), 15000); } }, 30000); });
+    window.addEventListener('appinstalled', () => { localStorage.setItem('pwa_installed', 'true'); });
+    window.addEventListener('beforeunload', () => { if (analyticsData.bets > 0 || analyticsData.creations > 0) try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {} });
+    window.addEventListener('error', e => { console.error('Error:', e.error); });
+    window.addEventListener('unhandledrejection', e => { console.error('Rejection:', e.reason); });
 }
 
 init();

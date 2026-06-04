@@ -77,7 +77,7 @@ function renderPredictionCard(p, isOracle) {
     const badgeClass = p.status === 'resolved' ? (p.unresolvable ? 'badge-expired' : 'badge-resolved') : p.status === 'expired' ? 'badge-expired' : 'badge-active';
     const badgeText = p.unresolvable ? 'UNRESOLVABLE' : p.status.toUpperCase();
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
-    const displayCat = p.category === 'crypto' ? 'Finance' : p.category;
+    const displayCat = p.category;
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
@@ -140,7 +140,7 @@ function renderResolutionInfo(p) {
     return `<div class="resolution-info"><div style="color:var(--accent);font-weight:500;margin-bottom:6px;">🔮 Resolution Info</div><div class="resolution-info-grid"><span style="color:var(--text-muted);">📊 Source:</span><span>${sourceLabel}</span><span style="color:var(--text-muted);">🎯 Condition:</span><span>${condition}</span><span style="color:var(--text-muted);">⏰ Deadline:</span><span>${deadline}</span><span style="color:var(--text-muted);">🤖 Auto-resolve:</span><span>${autoResolve}</span><span style="color:var(--text-muted);">⏱️ Timeline:</span><span>Resolves within 24h</span></div></div>`;
 }
 
-function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: ${yesPrice.toFixed(4)} PRAE</span><span>❌ NO: ${noPrice.toFixed(4)} PRAE</span><span title="Order book market price" style="cursor:help;font-size:.65rem;">ℹ️</span></div>`; }
+function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: <span class="price-highlight">${yesPrice.toFixed(4)}</span> PRAE</span><span>❌ NO: <span class="price-highlight">${noPrice.toFixed(4)}</span> PRAE</span><span title="Order book market price" style="cursor:help;font-size:.65rem;">ℹ️</span></div>`; }
 
 function renderActiveActions(p, yesPrice) {
     const market = getMarket(p.id);

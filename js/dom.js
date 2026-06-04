@@ -88,6 +88,8 @@ function cacheDOM() {
     DOM.recentWinners = document.getElementById('recentWinners');
     DOM.totalPredictions = document.getElementById('totalPredictions');
     DOM.totalUsers = document.getElementById('totalUsers');
+    DOM.dailyChallenge = document.getElementById('dailyChallenge');
+    DOM.progressBars = document.getElementById('progressBars');
 
 }
 cacheDOM();

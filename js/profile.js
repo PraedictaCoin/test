@@ -62,25 +62,22 @@ async function renderProfile(userData) {
             </div>`;
         }
 
-        // Check for unclaimed winnings
+        // Unclaimed winnings
         const myWonUnclaimed = allResolved.filter(p => {
             const b = (p.bets || []).find(b => b.user === walletAddress);
             return b && b.outcome === p.resolved_outcome && !p.claimed && p.payouts;
         });
-
         if (myWonUnclaimed.length > 0) {
             const totalUnclaimed = myWonUnclaimed.reduce((s, p) => {
                 const payout = (p.payouts || []).find(pay => pay.user === walletAddress);
                 return s + (payout ? payout.amount : 0);
             }, 0);
-
             if (totalUnclaimed > 0) {
                 DOM.profileStats.innerHTML += `
                 <div style="margin-top:12px;padding:12px;background:var(--success-color);border-radius:12px;text-align:center;color:#000;">
                 <strong>💰 ${totalUnclaimed.toFixed(2)} PRAE to claim!</strong>
                 <button id="claimWinningsBtn" style="display:block;width:100%;margin-top:8px;padding:8px;border-radius:20px;background:#000;color:var(--success-color);border:none;cursor:pointer;font-weight:bold;">Claim Winnings</button>
                 </div>`;
-
                 setTimeout(() => {
                     document.getElementById('claimWinningsBtn')?.addEventListener('click', async () => {
                         userPRAEBalance += totalUnclaimed;
@@ -154,6 +151,23 @@ async function renderHallOfFame() {
     : predictions.map((p, i) => { const correct = (p.bets || []).filter(b => b.outcome === p.resolved_outcome).length; const total = (p.bets || []).length; const acc = total ? ((correct / total) * 100).toFixed(0) : 0; return `<div class="praediction-card hall-of-fame"><div class="praediction-title">#${i + 1} – ${escapeHtml(p.title)}</div><div class="meta-row"><span>✅ Resolved: ${(p.resolved_outcome || '').toUpperCase()}</span><span>Correct: ${correct}/${total} (${acc}%)</span></div></div>`; }).join('');
 }
 
+function animateValue(el, end, duration = 600) {
+    if (!el) return;
+    const start = parseInt(el.textContent) || 0;
+    const range = end - start;
+    const increment = range / (duration / 16);
+    let current = start;
+    const timer = setInterval(() => {
+        current += increment;
+        if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+            el.textContent = Math.round(end);
+            clearInterval(timer);
+        } else {
+            el.textContent = Math.round(current);
+        }
+    }, 16);
+}
+
 async function refreshAll() {
     try {
         showSkeleton();
@@ -162,32 +176,23 @@ async function refreshAll() {
         const user = await loadUser(walletAddress); await renderProfile(user);
         const activeTab = document.querySelector('.tab-content.active'); if (activeTab?.id === 'tab-leaderboard') await renderLeaderboard(leaderboardPeriod, DOM.leaderboardCategoryFilter?.value || null);
 
-        // Stats
-        const activeCount = predictions.filter(p => p.status === 'active').length; if (DOM.totalActive) DOM.totalActive.textContent = activeCount;
+        const activeCount = predictions.filter(p => p.status === 'active').length;
+        if (DOM.totalActive) animateValue(DOM.totalActive, activeCount);
         const totalBet = Object.values(mockMarkets).reduce((s, m) => s + (m.yesShares || 0) + (m.noShares || 0), 0); if (DOM.totalPraedicts) DOM.totalPraedicts.textContent = totalBet.toFixed(0);
         const totalVolume = Object.values(mockMarkets).reduce((s, m) => s + Math.abs((m.yesShares || 0) - 50) + Math.abs((m.noShares || 0) - 50), 0); if (DOM.totalVolume) DOM.totalVolume.textContent = totalVolume.toFixed(0) + getVolumeTrend(totalVolume);
         if (user && DOM.totalSeerscore) DOM.totalSeerscore.textContent = user.seerscore || 0;
 
-        // Global stats
         if (DOM.totalPredictions) DOM.totalPredictions.textContent = predictions.length;
         const uniqueUsers = new Set(predictions.map(p => p.creator).filter(Boolean));
-        if (DOM.totalUsers) DOM.totalUsers.textContent = uniqueUsers.size;
+        if (DOM.totalUsers) animateValue(DOM.totalUsers, uniqueUsers.size);
 
         const hottest = getHottestCategory(); if (DOM.hottestCategory) DOM.hottestCategory.innerHTML = `${hottest.icon} Hottest: <strong>${hottest.name}</strong> (${hottest.count} active)`;
         const isOracle = (walletAddress === CONFIG.ORACLE_WALLET); if (DOM.oracleIndicatorTop) DOM.oracleIndicatorTop.style.display = isOracle ? 'inline-flex' : 'none'; if (DOM.oracleIndicatorProfile) DOM.oracleIndicatorProfile.style.display = isOracle ? 'inline-block' : 'none';
 
-        // Notifications with sound
         const myResolvedBets = predictions.filter(p => p.status === 'resolved' && (p.bets || []).some(b => b.user === walletAddress) && !p.notified);
         if (myResolvedBets.length > 0) {
-            const wonBets = myResolvedBets.filter(p => {
-                const myBet = p.bets.find(b => b.user === walletAddress);
-                return myBet && myBet.outcome === p.resolved_outcome;
-            });
-            if (wonBets.length > 0) {
-                sounds.win();
-                flashTitle('🏆 You won PRAE!');
-                wonBets.forEach(p => showWinShare(p, ((p.payouts || []).find(pay => pay.user === walletAddress) || {}).amount || 0));
-            }
+            const wonBets = myResolvedBets.filter(p => { const myBet = p.bets.find(b => b.user === walletAddress); return myBet && myBet.outcome === p.resolved_outcome; });
+            if (wonBets.length > 0) { sounds.win(); flashTitle('🏆 You won PRAE!'); wonBets.forEach(p => showWinShare(p, ((p.payouts || []).find(pay => pay.user === walletAddress) || {}).amount || 0)); }
             showNotification(`${myResolvedBets.length} prediction${myResolvedBets.length > 1 ? 's' : ''} resolved!`);
             myResolvedBets.forEach(p => p.notified = true);
         }
