@@ -28,8 +28,7 @@ const CATEGORY_ICONS = {
     politics:"🏛️", worldevents:"🌍", conflict:"⚔️", health:"🦠",
     weather:"🌡️", earthquake:"🌋", hurricane:"🌀", wildfire:"🔥", airquality:"💨", space:"🚀",
     sports:"⚽", esports:"🎮", movies:"🎬", music:"🎵", gaming:"🎲", social:"📱",
-    tech:"💻", ai:"🤖",
-    people:"👤", wildcard:"🎲"
+    tech:"💻", ai:"🤖", people:"👤", wildcard:"🎲"
 };
 const COMPLIMENTS = ["The Oracle nods approvingly.","Your insight shines!","A true Seer move.","The stars whisper your name.","Wisdom flows through you.","You move before the noise.","A praediction well made.","The crowd feels your presence.","Destiny favours the bold.","Your vote has shifted the tides."];
 const ORACLE_VOICES = ["The veil is thin today…","Beware the false prophet.","A whisper from the beyond: YES.","The stars tremble.","In the shadows, a truth awaits.","The Oracle stirs…","A forgotten prediction will come true.","Patience, Seer. The answer is near.","The wind carries a warning.","A great shift is coming.","The Oracle sees all.","Your next vote may change fate.","A dark horse rises in the East.","The numbers whisper a secret.","Tonight, the moon favours the bold."];

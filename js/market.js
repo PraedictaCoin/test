@@ -1,15 +1,14 @@
 // ============================================================
-// PRAEDICTA – Market & Trading (market.js) - FINAL v10
-// Full Order Book Market Maker with Server Sync
+// PRAEDICTA – Market & Trading (market.js) - FINAL v15
+// Full Order Book + All Features + Performance
 // ============================================================
 
 const mockMarkets = {};
 const MAX_PRICE_HISTORY = 100;
-const ORDER_BOOK_DEPTH = 5;
-
-// ============================================================
-// ORDER BOOK PERSISTENCE
-// ============================================================
+const ORDER_BOARD_DEPTH = 5;
+let serverSyncInProgress = {};
+let lastOrderBookSync = {};
+let orderBookLastUpdated = {};
 
 function saveOrderBooks() {
     try {
@@ -22,11 +21,13 @@ function saveOrderBooks() {
                 totalNo: mockMarkets[id].totalNo,
                 totalVolume: mockMarkets[id].totalVolume,
                 priceHistory: mockMarkets[id].priceHistory.slice(-50),
-                firstBetUser: mockMarkets[id].firstBetUser
+                firstBetUser: mockMarkets[id].firstBetUser,
+                fills: (mockMarkets[id].fills || []).slice(-50),
+                snapshot: mockMarkets[id].snapshot || null
             };
         });
-        localStorage.setItem('praedicta_orderbooks', JSON.stringify(data));
-    } catch (e) { console.debug('Save orderbooks failed:', e); }
+        safeLocalStorageSet('praedicta_orderbooks', JSON.stringify(data));
+    } catch (e) {}
 }
 
 function loadOrderBooks() {
@@ -34,352 +35,426 @@ function loadOrderBooks() {
         const stored = localStorage.getItem('praedicta_orderbooks');
         if (stored) {
             const data = JSON.parse(stored);
-            Object.keys(data).forEach(id => {
-                mockMarkets[id] = data[id];
-            });
+            Object.keys(data).forEach(id => { mockMarkets[id] = data[id]; });
         }
-    } catch (e) { console.debug('Load orderbooks failed:', e); }
+    } catch (e) {}
 }
 
-setInterval(saveOrderBooks, 5000);
+async function syncOrderBookFromServer(id) {
+    if (serverSyncInProgress[id]) return;
+    const now = Date.now();
+    if (lastOrderBookSync[id] && (now - lastOrderBookSync[id]) < 5000) return;
+    serverSyncInProgress[id] = true;
+    try {
+        const result = await callSecureRpc('get_orderbook', { predictionId: id });
+        if (result && !result.error) {
+            const market = getMarket(id);
+            if (result.yesBids) {
+                const localYesOrders = market.yesBids.filter(b => (b.id || '').toString().startsWith('local_'));
+                market.yesBids = result.yesBids.filter(o => o.status === 'open' || o.status === 'partial').map(o => ({ id: o.id.toString(), user: o.user_wallet, amount: parseFloat(o.remaining || o.amount), price: parseFloat(o.price), time: new Date(o.created_at).getTime(), originalAmount: parseFloat(o.amount), filled: parseFloat(o.filled || 0) })).sort((a, b) => b.price - a.price);
+                localYesOrders.forEach(o => { if (!market.yesBids.find(b => b.id === o.id)) market.yesBids.push(o); });
+                market.yesBids.sort((a, b) => b.price - a.price);
+            }
+            if (result.noBids) {
+                const localNoOrders = market.noBids.filter(b => (b.id || '').toString().startsWith('local_'));
+                market.noBids = result.noBids.filter(o => o.status === 'open' || o.status === 'partial').map(o => ({ id: o.id.toString(), user: o.user_wallet, amount: parseFloat(o.remaining || o.amount), price: parseFloat(o.price), time: new Date(o.created_at).getTime(), originalAmount: parseFloat(o.amount), filled: parseFloat(o.filled || 0) })).sort((a, b) => b.price - a.price);
+                localNoOrders.forEach(o => { if (!market.noBids.find(b => b.id === o.id)) market.noBids.push(o); });
+                market.noBids.sort((a, b) => b.price - a.price);
+            }
+            if (result.fills) {
+                const existingFillTimes = new Set((market.fills || []).map(f => f.time));
+                result.fills.forEach(f => {
+                    const fillTime = new Date(f.created_at).getTime();
+                    if (!existingFillTimes.has(fillTime)) {
+                        market.fills = market.fills || [];
+                        market.fills.push({ time: fillTime, amount: parseFloat(f.amount), price: parseFloat(f.price), yesUser: f.yes_user, noUser: f.no_user });
+                        market.priceHistory.push({ price: parseFloat(f.price), time: fillTime });
+                    }
+                });
+                if (market.priceHistory.length > MAX_PRICE_HISTORY) market.priceHistory = market.priceHistory.slice(-MAX_PRICE_HISTORY);
+            }
+            orderBookLastUpdated[id] = now;
+            saveOrderBooks();
+        }
+    } catch (err) {}
+    finally { serverSyncInProgress[id] = false; }
+}
 
-// ============================================================
-// MARKET FUNCTIONS
-// ============================================================
+async function syncBalanceFromServer() {
+    if (!walletAddress) return;
+    try {
+        const { data: user } = await supabaseClient.from('users').select('prae_balance').eq('address', walletAddress).single();
+        if (user && user.prae_balance !== undefined) {
+            const serverBalance = parseFloat(user.prae_balance);
+            if (Math.abs(serverBalance - userPRAEBalance) > 0.01) {
+                if (Math.abs(serverBalance - userPRAEBalance) > 100) showToast('⚠️ Balance corrected from server.', 'info');
+                userPRAEBalance = serverBalance; saveBalance();
+            }
+        }
+    } catch (err) {}
+}
 
 function getMarket(id) {
     if (!mockMarkets[id]) {
         const keys = Object.keys(mockMarkets);
         if (keys.length >= CONFIG.MAX_CACHED_MARKETS) delete mockMarkets[keys[0]];
-        mockMarkets[id] = { 
-            yesBids: [], noBids: [], totalYes: 0, totalNo: 0, totalVolume: 0, 
-            priceHistory: [{ price: 0.5, time: Date.now() }], firstBetUser: null, fills: [] 
-        };
+        mockMarkets[id] = { yesBids: [], noBids: [], totalYes: 0, totalNo: 0, totalVolume: 0, priceHistory: [{ price: 0.5, time: Date.now() }], firstBetUser: null, fills: [], snapshot: null };
     }
     return mockMarkets[id];
 }
 
 function getYesPrice(market) {
-    if (market.yesBids.length === 0 && market.noBids.length === 0) { 
-        const h = market.priceHistory; return h.length > 0 ? h[h.length-1].price : 0.5; 
-    }
-    const bestYesBid = market.yesBids[0]?.price || 0.5;
-    const bestNoBid = market.noBids[0]?.price || 0.5;
-    return (bestYesBid + (1 - bestNoBid)) / 2;
+    if (market.yesBids.length === 0 && market.noBids.length === 0) { const h = market.priceHistory; return h.length > 0 ? h[h.length-1].price : 0.5; }
+    return ((market.yesBids[0]?.price || 0.5) + (1 - (market.noBids[0]?.price || 0.5))) / 2;
 }
 
 function getBestBid(market) { return market.yesBids.length > 0 ? market.yesBids[0].price : null; }
 function getBestAsk(market) { return market.noBids.length > 0 ? 1 - market.noBids[0].price : null; }
-
-function getSpread(market) {
-    const bid = getBestBid(market), ask = getBestAsk(market);
-    if (bid === null || ask === null) return null;
-    return { bid, ask, spread: ask - bid, spreadPercent: ((ask - bid) / ask * 100) };
-}
-
+function getSpread(market) { const bid = getBestBid(market), ask = getBestAsk(market); if (bid === null || ask === null) return null; return { bid, ask, spread: ask - bid, spreadPercent: ((ask - bid) / ask * 100) }; }
 function getMaxBet(balance, price) { return price <= 0 ? 0 : Math.floor(balance / (price * (1 + CONFIG.FEE_PER_TRADE))); }
-
-function getPositionValue(id, user) {
-    const m = getMarket(id); const p = getYesPrice(m);
-    return m.yesBids.filter(b => b.user === user).reduce((s, b) => s + b.amount * p, 0) + 
-           m.noBids.filter(b => b.user === user).reduce((s, b) => s + b.amount * (1 - p), 0);
-}
-
-function getUserOpenOrders(id, user) {
-    if (!user) return { yes: [], no: [] };
-    const m = getMarket(id);
-    return { yes: m.yesBids.filter(b => b.user === user), no: m.noBids.filter(b => b.user === user) };
-}
-
-function getOrderBookDepth(market, depth = ORDER_BOOK_DEPTH) {
-    const aggregateYes = {}, aggregateNo = {};
-    market.yesBids.forEach(b => { const price = b.price.toFixed(4); aggregateYes[price] = (aggregateYes[price] || 0) + b.amount; });
-    market.noBids.forEach(b => { const price = b.price.toFixed(4); aggregateNo[price] = (aggregateNo[price] || 0) + b.amount; });
-    const bids = Object.entries(aggregateYes).map(([price, amount]) => ({ price: parseFloat(price), amount })).sort((a, b) => b.price - a.price).slice(0, depth);
-    const asks = Object.entries(aggregateNo).map(([price, amount]) => ({ price: parseFloat(price), amount })).sort((a, b) => a.price - b.price).slice(0, depth).map(a => ({ price: 1 - a.price, amount: a.amount }));
-    return { bids, asks };
-}
-
-function getWinStreak() {
-    let streak = 0;
-    const resolved = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable);
-    for (let i = resolved.length - 1; i >= 0; i--) {
-        const b = (resolved[i].bets || []).find(b => b.user === walletAddress);
-        if (b && b.outcome === resolved[i].resolved_outcome) streak++; else break;
-    }
-    return streak;
-}
-
+function getLastPrice(market) { const fills = market.fills || []; return fills.length > 0 ? fills[fills.length - 1].price : null; }
+function getLastPriceChange(market) { const fills = market.fills || []; if (fills.length < 2) return null; const last = fills[fills.length - 1].price; const prev = fills[fills.length - 2].price; return { price: last, change: last - prev, direction: last >= prev ? 'up' : 'down' }; }
+function getPositionValue(id, user) { const m = getMarket(id); const p = getYesPrice(m); return m.yesBids.filter(b => b.user === user).reduce((s, b) => s + b.amount * p, 0) + m.noBids.filter(b => b.user === user).reduce((s, b) => s + b.amount * (1 - p), 0); }
+function getUserOpenOrders(id, user) { if (!user) return { yes: [], no: [] }; const m = getMarket(id); return { yes: m.yesBids.filter(b => b.user === user), no: m.noBids.filter(b => b.user === user) }; }
+function getMyAveragePrice(id, outcome) { const orders = getUserOpenOrders(id, walletAddress); const relevant = outcome === 'yes' ? orders.yes : orders.no; if (relevant.length === 0) return null; const totalAmount = relevant.reduce((s, o) => s + o.amount, 0); const totalValue = relevant.reduce((s, o) => s + (o.amount * o.price), 0); return totalAmount > 0 ? { price: totalValue / totalAmount, amount: totalAmount } : null; }
+function getVWAP(market, lookback = 20) { const fills = (market.fills || []).slice(-lookback); if (fills.length === 0) return null; const totalVolume = fills.reduce((s, f) => s + f.amount, 0); const totalValue = fills.reduce((s, f) => s + (f.amount * f.price), 0); return totalVolume > 0 ? totalValue / totalVolume : null; }
+function getOrderBookDepth(market, depth = ORDER_BOARD_DEPTH) { const aggregateYes = {}, aggregateNo = {}; market.yesBids.forEach(b => { const price = b.price.toFixed(4); aggregateYes[price] = (aggregateYes[price] || 0) + b.amount; }); market.noBids.forEach(b => { const price = b.price.toFixed(4); aggregateNo[price] = (aggregateNo[price] || 0) + b.amount; }); const bids = Object.entries(aggregateYes).map(([price, amount]) => ({ price: parseFloat(price), amount })).sort((a, b) => b.price - a.price).slice(0, depth); const asks = Object.entries(aggregateNo).map(([price, amount]) => ({ price: parseFloat(price), amount })).sort((a, b) => a.price - b.price).slice(0, depth).map(a => ({ price: 1 - a.price, amount: a.amount })); const totalBidVolume = bids.reduce((s, b) => s + b.amount, 0); const totalAskVolume = asks.reduce((s, a) => s + a.amount, 0); return { bids, asks, totalBidVolume, totalAskVolume }; }
+function getWinStreak() { let streak = 0; const resolved = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable); for (let i = resolved.length - 1; i >= 0; i--) { const b = (resolved[i].bets || []).find(b => b.user === walletAddress); if (b && b.outcome === resolved[i].resolved_outcome) streak++; else break; } return streak; }
 function getStreakMultiplier(streak) { if (streak >= 5) return 2.0; if (streak >= 3) return 1.5; if (streak >= 2) return 1.25; return 1.0; }
+function spawnConfetti() { for (let i = 0; i < 50; i++) { const c = document.createElement('div'); c.style.cssText = `position:fixed;top:-10px;left:${Math.random()*100}%;width:8px;height:8px;background:hsl(${Math.random()*360},80%,60%);border-radius:2px;z-index:9999;animation:confettiFall ${1+Math.random()*2}s ease-in forwards;animation-delay:${Math.random()*0.5}s;`; document.body.appendChild(c); setTimeout(() => c.remove(), 3000); } }
+function animateReaction(emoji, x, y) { const el = document.createElement('div'); el.textContent = emoji; el.style.cssText = `position:fixed;left:${x}px;top:${y}px;font-size:1.5rem;z-index:9999;pointer-events:none;animation:floatUp 1.5s ease-out forwards;`; document.body.appendChild(el); setTimeout(() => el.remove(), 1500); }
+function getPriceChange(id) { const market = getMarket(id); const currentPrice = getYesPrice(market); const previous = previousPrices[id] || currentPrice; const change = currentPrice - previous; const changePercent = previous !== 0 ? ((change / previous) * 100) : 0; previousPrices[id] = currentPrice; return { price: currentPrice, change, changePercent, direction: change > 0.0001 ? 'up' : change < -0.0001 ? 'down' : 'flat' }; }
+function calculateROI(amount, price, outcome, marketPrice) { const cost = amount * price; const potentialWin = outcome === 'yes' ? (amount / price) : (amount / (1 - price)); const profit = potentialWin - cost; const roi = cost > 0 ? ((profit / cost) * 100) : 0; return { cost, potentialWin, profit, roi }; }
 
-function spawnConfetti() {
-    for (let i = 0; i < 50; i++) {
-        const c = document.createElement('div');
-        c.style.cssText = `position:fixed;top:-10px;left:${Math.random()*100}%;width:8px;height:8px;background:hsl(${Math.random()*360},80%,60%);border-radius:2px;z-index:9999;animation:confettiFall ${1+Math.random()*2}s ease-in forwards;animation-delay:${Math.random()*0.5}s;`;
-        document.body.appendChild(c); setTimeout(() => c.remove(), 3000);
+// ============================================================
+// MINI ORDER BOOK (Shown directly on card - no click needed)
+// ============================================================
+
+function renderMiniOrderBook(p) {
+    const market = getMarket(p.id);
+    const bestBid = getBestBid(market);
+    const bestAsk = getBestAsk(market);
+    const spread = getSpread(market);
+    const lastPrice = getLastPrice(market);
+    const currentPrice = getYesPrice(market);
+    const userOrders = getUserOpenOrders(p.id, walletAddress);
+    const hasOrders = userOrders.yes.length > 0 || userOrders.no.length > 0;
+    
+    let html = `<div style="margin-top:8px;padding:8px 12px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border);">`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">`;
+    html += `<span style="font-size:.65rem;color:var(--text-muted);">Best Bid</span>`;
+    html += `<span style="font-size:.75rem;font-weight:700;color:var(--accent);">${currentPrice.toFixed(4)}</span>`;
+    html += `<span style="font-size:.65rem;color:var(--text-muted);">Best Ask</span></div>`;
+    
+    html += `<div style="display:flex;gap:0;height:6px;border-radius:3px;overflow:hidden;margin-bottom:4px;">`;
+    if (bestBid) {
+        const bidPct = spread ? ((bestBid / (bestBid + bestAsk)) * 100) : 50;
+        html += `<div style="width:${bidPct}%;background:var(--success-color);opacity:0.6;"></div>`;
+        html += `<div style="width:${100 - bidPct}%;background:var(--error-color);opacity:0.6;"></div>`;
+    } else { html += `<div style="width:100%;background:var(--border);"></div>`; }
+    html += `</div>`;
+    
+    html += `<div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--text-muted);">`;
+    html += `<span>${bestBid ? bestBid.toFixed(4) : '--'}</span>`;
+    if (spread) html += `<span>Spread: ${spread.spread.toFixed(4)}</span>`;
+    if (lastPrice) {
+        const lpChange = getLastPriceChange(market);
+        const lpColor = lpChange && lpChange.direction === 'up' ? 'var(--success-color)' : lpChange && lpChange.direction === 'down' ? 'var(--error-color)' : 'var(--text-muted)';
+        html += `<span>Last: <span style="color:${lpColor};">${lastPrice.toFixed(4)}</span></span>`;
     }
-}
-
-function animateReaction(emoji, x, y) {
-    const el = document.createElement('div'); el.textContent = emoji;
-    el.style.cssText = `position:fixed;left:${x}px;top:${y}px;font-size:1.5rem;z-index:9999;pointer-events:none;animation:floatUp 1.5s ease-out forwards;`;
-    document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
+    html += `<span>${bestAsk ? bestAsk.toFixed(4) : '--'}</span></div>`;
+    
+    if (hasOrders) {
+        const totalYes = userOrders.yes.reduce((s, o) => s + o.amount, 0);
+        const totalNo = userOrders.no.reduce((s, o) => s + o.amount, 0);
+        html += `<div style="margin-top:4px;font-size:.6rem;color:var(--oracle-color);text-align:center;">👤 You: ${totalYes > 0 ? `YES ${totalYes.toFixed(0)} PRAE` : ''}${totalYes > 0 && totalNo > 0 ? ' · ' : ''}${totalNo > 0 ? `NO ${totalNo.toFixed(0)} PRAE` : ''}</div>`;
+    }
+    
+    html += `<div style="text-align:center;margin-top:4px;">`;
+    html += `<button onclick="event.stopPropagation();toggleOrderBook('${p.id}')" style="background:transparent;border:1px solid var(--accent-glow);color:var(--text-muted);padding:3px 12px;border-radius:12px;cursor:pointer;font-size:.6rem;">${showOrderBook[p.id] ? '▲ Hide Depth' : '▼ View Depth'}</button>`;
+    if (p.status === 'active') html += `<button onclick="event.stopPropagation();showPriceAlertModal('${p.id}', ${currentPrice})" style="background:transparent;border:1px solid var(--accent-glow);color:var(--text-muted);padding:3px 10px;border-radius:12px;cursor:pointer;font-size:.6rem;margin-left:4px;">🔔 Alert</button>`;
+    html += `</div></div>`;
+    return html;
 }
 
 // ============================================================
-// ORDER PLACEMENT WITH SERVER SYNC
+// CUSTOM BET CONFIRMATION MODAL
 // ============================================================
 
-function placeLimitOrder(id, outcome, amount, price) {
+function showBetConfirmation(prediction, outcome, amount, price, fee, totalCost, roi, streak, multiplier, isUnderdog, onConfirm) {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:5000;display:flex;align-items:center;justify-content:center;';
+    const outcomeColor = outcome === 'yes' ? 'var(--success-color)' : 'var(--error-color)';
+    const roiColor = roi.roi >= 0 ? 'var(--success-color)' : 'var(--error-color)';
+    modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--accent);border-radius:24px;max-width:420px;width:90%;padding:28px;text-align:center;animation:floatUp 0.3s ease-out;">
+    <div style="font-size:1rem;color:var(--text-muted);margin-bottom:4px;">${escapeHtml(prediction?.title || '').slice(0, 80)}</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin:16px 0;"><span style="font-size:2.5rem;font-weight:700;color:${outcomeColor};">${outcome.toUpperCase()}</span><span style="font-size:2rem;color:var(--text-muted);">·</span><span style="font-size:2rem;font-weight:700;color:var(--accent);">${amount} PRAE</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.8rem;text-align:left;margin:16px 0;padding:12px;background:var(--card-bg);border-radius:12px;">
+    <span style="color:var(--text-muted);">Price</span><span style="text-align:right;">${price.toFixed(4)}</span>
+    <span style="color:var(--text-muted);">Fee (0.5%)</span><span style="text-align:right;">${fee.toFixed(3)}</span>
+    <span style="color:var(--text-muted);">Total Cost</span><span style="text-align:right;font-weight:600;">${totalCost.toFixed(2)} PRAE</span>
+    <span style="color:var(--text-muted);">Potential Win</span><span style="text-align:right;color:var(--success-color);font-weight:600;">~${roi.potentialWin.toFixed(2)} PRAE</span>
+    <span style="color:var(--text-muted);">ROI</span><span style="text-align:right;color:${roiColor};font-weight:600;">${roi.roi >= 0 ? '+' : ''}${roi.roi.toFixed(1)}%</span></div>
+    ${multiplier > 1 ? `<div style="padding:8px;background:var(--accent-glow);border-radius:8px;margin-bottom:8px;font-size:.8rem;color:var(--accent);">🔥 ${streak}-day streak: ${multiplier}x multiplier!</div>` : ''}
+    ${isUnderdog ? `<div style="padding:8px;background:rgba(245,158,11,0.1);border-radius:8px;margin-bottom:8px;font-size:.8rem;color:var(--oracle-color);">🐺 Underdog: +50% bonus if you win!</div>` : ''}
+    ${amount >= 100 ? `<div style="padding:8px;background:rgba(239,68,68,0.1);border-radius:8px;margin-bottom:8px;font-size:.8rem;color:var(--error-color);">⚠️ Large position: ${amount} PRAE</div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:16px;">
+    <button id="confirmBetBtn" style="flex:1;padding:14px;border-radius:16px;background:${outcomeColor};color:#FFF;border:none;cursor:pointer;font-weight:600;font-size:.9rem;">✅ Confirm ${outcome.toUpperCase()}</button>
+    <button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="flex:1;padding:14px;border-radius:16px;background:var(--card-bg);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;font-size:.9rem;">Cancel</button></div>
+    <p style="font-size:.65rem;color:var(--text-muted);margin-top:12px;">10 second undo window after confirming.</p></div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    setTimeout(() => { const confirmBtn = document.getElementById('confirmBetBtn'); if (confirmBtn) confirmBtn.addEventListener('click', () => { modal.remove(); onConfirm(); }); }, 100);
+}
+
+// ============================================================
+// ORDER PLACEMENT - SERVER AUTHORITATIVE
+// ============================================================
+
+async function placeLimitOrder(id, outcome, amount, price) {
     const market = getMarket(id);
     if (price <= 0.01 || price >= 0.99) return { error: 'Price must be between 0.02 and 0.98' };
     if (amount < CONFIG.MIN_BET) return { error: `Minimum is ${CONFIG.MIN_BET} PRAE` };
-    
-    let bonus = 0, discount = 0;
-    if (!market.firstBetUser || market.firstBetUser === walletAddress) { market.firstBetUser = walletAddress; bonus = 1; userPRAEBalance += bonus; showToast('🩸 First Blood! +1 PRAE!', 'success'); }
-    
+    price = parseFloat(price.toFixed(4));
+    let discount = 0;
     const prediction = currentPredictions.find(p => p.id === id);
     if (prediction?.created_at && (Date.now() - new Date(prediction.created_at).getTime()) < 3600000) discount = amount * price * 0.001;
-    
     const fee = (amount * price * CONFIG.FEE_PER_TRADE) - discount;
     const totalCost = (amount * price) + fee;
     if (userPRAEBalance < totalCost) return { error: `Need ${totalCost.toFixed(2)} PRAE. You have ${userPRAEBalance.toFixed(2)}.` };
-    
+    let bonus = 0;
+    if (!market.firstBetUser || market.firstBetUser === walletAddress) { market.firstBetUser = walletAddress; bonus = 1; userPRAEBalance += bonus; showToast('🩸 First Blood! +1 PRAE!', 'success'); }
+    try {
+        const serverResult = await callSecureRpc('place_order', { predictionId: id, outcome, amount, price, wallet: walletAddress });
+        if (serverResult.error) return { error: serverResult.error };
+        if (serverResult.success) {
+            if (serverResult.newBalance !== undefined) userPRAEBalance = parseFloat(serverResult.newBalance); else userPRAEBalance -= totalCost;
+            saveBalance();
+            const localOrder = { id: serverResult.orderId ? serverResult.orderId.toString() : ('server_' + Date.now()), user: walletAddress, amount: parseFloat(serverResult.remaining || amount), price: price, time: Date.now(), originalAmount: amount, filled: parseFloat(serverResult.filled || 0) };
+            if (outcome === 'yes') { const i = market.yesBids.findIndex(b => b.price < price); if (i === -1) market.yesBids.push(localOrder); else market.yesBids.splice(i, 0, localOrder); }
+            else { const i = market.noBids.findIndex(b => b.price < price); if (i === -1) market.noBids.push(localOrder); else market.noBids.splice(i, 0, localOrder); }
+            const fillResult = matchOrders(market);
+            const cp = getYesPrice(market); market.priceHistory.push({ price: cp, time: Date.now() }); if (market.priceHistory.length > MAX_PRICE_HISTORY) market.priceHistory.shift();
+            orderBookLastUpdated[id] = Date.now(); broadcastChange('order_placed', { predictionId: id });
+            return { success: true, cost: totalCost, fee, price, amount, discount, bonus, filled: fillResult.filled, remaining: amount - fillResult.filled, serverSynced: true, orderId: serverResult.orderId };
+        }
+    } catch (err) {}
     userPRAEBalance -= totalCost; saveBalance();
-    
-    const order = { user: walletAddress, amount, price, time: Date.now(), originalAmount: amount, filled: 0, id: 'local_' + Date.now() + Math.random() };
-    
-    if (outcome === 'yes') { const i = market.yesBids.findIndex(b => b.price < price); if (i === -1) market.yesBids.push(order); else market.yesBids.splice(i, 0, order); }
-    else { const i = market.noBids.findIndex(b => b.price < price); if (i === -1) market.noBids.push(order); else market.noBids.splice(i, 0, order); }
-    
+    const localOrder = { id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5), user: walletAddress, amount: amount, price: price, time: Date.now(), originalAmount: amount, filled: 0, pendingSync: true };
+    if (outcome === 'yes') { const i = market.yesBids.findIndex(b => b.price < price); if (i === -1) market.yesBids.push(localOrder); else market.yesBids.splice(i, 0, localOrder); }
+    else { const i = market.noBids.findIndex(b => b.price < price); if (i === -1) market.noBids.push(localOrder); else market.noBids.splice(i, 0, localOrder); }
     const fillResult = matchOrders(market);
     const cp = getYesPrice(market); market.priceHistory.push({ price: cp, time: Date.now() }); if (market.priceHistory.length > MAX_PRICE_HISTORY) market.priceHistory.shift();
-    if (amount >= 50) { showToast(`🤯 BIG ORDER: ${amount} PRAE on ${outcome.toUpperCase()}!`, 'info'); }
-    saveOrderBooks();
-    
-    // Server sync
-    try {
-        callSecureRpc('place_order', { predictionId: id, outcome, amount, price, wallet: walletAddress }).catch(e => console.debug('Server order sync:', e.message));
-    } catch (err) { console.debug('Server sync skipped'); }
-    
-    return { success: true, cost: totalCost, fee, price, amount, discount, bonus, filled: fillResult.filled, remaining: amount - fillResult.filled };
+    orderBookLastUpdated[id] = Date.now();
+    addToRetryQueue({ type: 'place_order', params: { predictionId: id, outcome, amount, price, wallet: walletAddress }, localOrderId: localOrder.id });
+    return { success: true, cost: totalCost, fee, price, amount, discount, bonus, filled: fillResult.filled, remaining: amount - fillResult.filled, serverSynced: false, pendingSync: true, orderId: localOrder.id };
 }
 
-// ============================================================
-// ORDER MATCHING WITH PARTIAL FILLS
-// ============================================================
+async function syncPendingOrders() { if (!walletAddress) return; for (const [id, market] of Object.entries(mockMarkets)) { const allOrders = [...market.yesBids, ...market.noBids]; const pendingOrders = allOrders.filter(o => o.user === walletAddress && o.pendingSync); for (const order of pendingOrders) { const outcome = market.yesBids.includes(order) ? 'yes' : 'no'; try { const result = await callSecureRpc('place_order', { predictionId: id, outcome, amount: order.originalAmount, price: order.price, wallet: walletAddress }); if (result.success) { order.id = result.orderId ? result.orderId.toString() : order.id; order.pendingSync = false; if (result.newBalance !== undefined) { userPRAEBalance = parseFloat(result.newBalance); saveBalance(); } } } catch (err) {} } } await syncBalanceFromServer(); }
 
-function matchOrders(market) {
-    let totalFilled = 0, fillEvents = [], yi = 0, ni = 0;
-    while (yi < market.yesBids.length && ni < market.noBids.length) {
-        const yb = market.yesBids[yi], nb = market.noBids[ni];
-        if (yb.price + nb.price >= 1) {
-            const matchAmount = Math.min(yb.amount, nb.amount), matchPrice = (yb.price + (1 - nb.price)) / 2;
-            market.totalYes += matchAmount; market.totalNo += matchAmount; market.totalVolume += matchAmount * matchPrice;
-            const fill = { time: Date.now(), amount: matchAmount, price: matchPrice, yesUser: yb.user, noUser: nb.user };
-            market.fills = market.fills || []; market.fills.push(fill); fillEvents.push(fill);
-            yb.amount -= matchAmount; yb.filled = (yb.filled || 0) + matchAmount;
-            nb.amount -= matchAmount; nb.filled = (nb.filled || 0) + matchAmount;
-            totalFilled += matchAmount;
-            if (yb.amount <= 0) market.yesBids.splice(yi, 1); else yi++;
-            if (nb.amount <= 0) market.noBids.splice(ni, 1); else ni++;
-        } else if (yb.price > nb.price) yi++; else ni++;
-    }
-    return { filled: totalFilled, events: fillEvents };
-}
+function matchOrders(market) { let totalFilled = 0, fillEvents = [], yi = 0, ni = 0; while (yi < market.yesBids.length && ni < market.noBids.length) { const yb = market.yesBids[yi], nb = market.noBids[ni]; if (yb.user === nb.user) { if (yb.price > nb.price) yi++; else ni++; continue; } if (yb.price + nb.price >= 1) { const matchAmount = Math.min(yb.amount, nb.amount), matchPrice = (yb.price + (1 - nb.price)) / 2; market.totalYes += matchAmount; market.totalNo += matchAmount; market.totalVolume += matchAmount * matchPrice; const fill = { time: Date.now(), amount: matchAmount, price: matchPrice, yesUser: yb.user, noUser: nb.user }; market.fills = market.fills || []; market.fills.push(fill); fillEvents.push(fill); yb.amount -= matchAmount; yb.filled = (yb.filled || 0) + matchAmount; nb.amount -= matchAmount; nb.filled = (nb.filled || 0) + matchAmount; totalFilled += matchAmount; if (yb.amount <= 0) market.yesBids.splice(yi, 1); else yi++; if (nb.amount <= 0) market.noBids.splice(ni, 1); else ni++; } else if (yb.price > nb.price) yi++; else ni++; } if (totalFilled > 0 && typeof sounds !== 'undefined' && sounds.flip) { try { sounds.flip(); } catch(e) {} } return { filled: totalFilled, events: fillEvents }; }
 
-// ============================================================
-// CANCEL ORDER
-// ============================================================
+async function cancelOrder(id, outcome, index) { const market = getMarket(id), orders = outcome === 'yes' ? market.yesBids : market.noBids; if (index < 0 || index >= orders.length) return { error: 'Order not found' }; const order = orders[index]; if (order.user !== walletAddress) return { error: 'Not your order' }; const refundAmount = order.amount * order.price; let serverCancelled = false; if (order.id && !order.id.toString().startsWith('local_')) { try { const result = await callSecureRpc('cancel_order', { orderId: order.id, wallet: walletAddress }); if (result.success) { serverCancelled = true; userPRAEBalance = result.newBalance !== undefined ? parseFloat(result.newBalance) : userPRAEBalance + refundAmount; saveBalance(); } } catch (err) {} } if (!serverCancelled) { userPRAEBalance += refundAmount; saveBalance(); } const cancelledOrder = { ...order, predictionId: id, outcome }; cancelledOrders.push(cancelledOrder); const undoTimeout = setTimeout(() => { cancelledOrders = cancelledOrders.filter(o => o !== cancelledOrder); }, 10000); orders.splice(index, 1); broadcastChange('order_cancelled', { predictionId: id }); return { success: true, refunded: refundAmount, undoTimeout, cancelledOrder, serverCancelled }; }
 
-function cancelOrder(id, outcome, index) {
-    const market = getMarket(id), orders = outcome === 'yes' ? market.yesBids : market.noBids;
-    if (index < 0 || index >= orders.length) return { error: 'Order not found' };
-    const order = orders[index];
-    if (order.user !== walletAddress) return { error: 'Not your order' };
-    const refundAmount = order.amount * order.price;
-    userPRAEBalance += refundAmount; saveBalance();
-    orders.splice(index, 1); saveOrderBooks();
-    
-    // Server sync
-    try {
-        callSecureRpc('cancel_order', { orderId: order.id, wallet: walletAddress }).catch(e => console.debug('Server cancel sync:', e.message));
-    } catch (err) { console.debug('Server cancel skipped'); }
-    
-    return { success: true, refunded: refundAmount };
-}
+async function cancelAllOrders(id) { const market = getMarket(id); const userOrders = getUserOpenOrders(id, walletAddress); const totalOrders = userOrders.yes.length + userOrders.no.length; if (totalOrders === 0) return showToast('No open orders.', 'info'); if (!confirm(`Cancel all ${totalOrders} orders?`)) return; let totalRefunded = 0, cancelled = 0; for (let i = userOrders.yes.length - 1; i >= 0; i--) { const idx = market.yesBids.indexOf(userOrders.yes[i]); if (idx >= 0) { const result = await cancelOrder(id, 'yes', idx); if (result.success) { totalRefunded += result.refunded; cancelled++; } } } for (let i = userOrders.no.length - 1; i >= 0; i--) { const idx = market.noBids.indexOf(userOrders.no[i]); if (idx >= 0) { const result = await cancelOrder(id, 'no', idx); if (result.success) { totalRefunded += result.refunded; cancelled++; } } } if (cancelled > 0) { showToast(`✅ ${cancelled} orders cancelled. ${totalRefunded.toFixed(2)} PRAE refunded.`, 'success'); await refreshAll(); } }
 
-// ============================================================
-// MARKET BUY
-// ============================================================
+async function cancelMyOrder(id, outcome, index) { if (!confirm(`Cancel this ${outcome.toUpperCase()} order?`)) return; const result = await cancelOrder(id, outcome, index); if (result.error) { showToast(result.error, 'error'); } else { showToastWithUndo(`Order cancelled. ${result.refunded.toFixed(2)} PRAE refunded.`, () => { clearTimeout(result.undoTimeout); cancelledOrders = cancelledOrders.filter(o => o !== result.cancelledOrder); placeLimitOrder(id, outcome, result.cancelledOrder.originalAmount || result.cancelledOrder.amount, result.cancelledOrder.price).then(r => { if (r.success) { showToast('✅ Order restored!', 'success'); refreshAll(); } }); }, 8000); await refreshAll(); } }
 
 function marketBuy(id, outcome, amount) { return placeLimitOrder(id, outcome, amount, outcome === 'yes' ? 0.98 : 0.02); }
 function buySharesMock(id, outcome, amount) { return marketBuy(id, outcome, amount); }
 async function buySharesReal(id, outcome, amount) { showToast("⛓️ Real market coming soon!", 'info'); return { cost: 0 }; }
 
 // ============================================================
-// BUY CLICK HANDLER
+// BUY CLICK - Custom modal + undo window
 // ============================================================
 
 async function buyClick(e) {
     if (actionCooldown) return;
-    const btn = e.currentTarget, id = btn.dataset.id, outcome = btn.dataset.outcome;
-    const amount = parseFloat(document.getElementById(`amount-${id}`)?.value) || CONFIG.MIN_BET;
-    if (amount < CONFIG.MIN_BET) return showToast(`Minimum ${CONFIG.MIN_BET} PRAE`, 'error');
-    if (!['yes', 'no'].includes(outcome)) return;
-    const prediction = currentPredictions.find(p => p.id === id);
-    if (prediction?.creator === walletAddress) return showToast("Can't bet on your own", 'error');
-    
-    const market = getMarket(id), price = outcome === 'yes' ? getYesPrice(market) : 1 - getYesPrice(market);
-    const fee = (amount * price * CONFIG.FEE_PER_TRADE), totalCost = (amount * price) + fee;
-    if (amount > getMaxBet(userPRAEBalance, price)) return showToast(`Max: ${getMaxBet(userPRAEBalance, price)} PRAE`, 'error');
-    
-    const streak = getWinStreak(), multiplier = getStreakMultiplier(streak);
-    const isUnderdog = (outcome === 'yes' ? price : 1 - price) < 0.3;
-    let msg = `Bet ${amount} PRAE on ${outcome.toUpperCase()}?\n\nPrice: ${price.toFixed(4)}\nFee: ${fee.toFixed(3)}\nTotal: ${totalCost.toFixed(2)}`;
-    if (multiplier > 1) msg += `\n\n🔥 Streak: ${streak} (${multiplier}x payout!)`;
-    if (isUnderdog) msg += `\n\n🐺 Underdog! +50% bonus if you win!`;
-    if (!confirm(msg)) return;
-    
-    actionCooldown = true; const orig = btn.innerHTML; btn.innerHTML = '<span class="loader"></span>'; btn.disabled = true;
+    actionCooldown = true;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="loader"></span>';
     try {
-        const result = useRealMarket ? await buySharesReal(id, outcome, amount) : marketBuy(id, outcome, amount);
-        if (result.error) { showToast(result.error, 'error'); }
-        else {
+        const id = btn.dataset.id, outcome = btn.dataset.outcome;
+        const amount = parseFloat(document.getElementById(`amount-${id}`)?.value) || CONFIG.MIN_BET;
+        if (isNaN(amount) || amount <= 0) { showToast("Enter valid amount", 'error'); return; }
+        if (amount < CONFIG.MIN_BET) { showToast(`Minimum ${CONFIG.MIN_BET} PRAE`, 'error'); return; }
+        if (!['yes', 'no'].includes(outcome)) return;
+        const prediction = currentPredictions.find(p => p.id === id);
+        if (prediction?.creator === walletAddress) { showToast("Can't bet on your own", 'error'); return; }
+        const market = getMarket(id), price = outcome === 'yes' ? getYesPrice(market) : 1 - getYesPrice(market);
+        const fee = (amount * price * CONFIG.FEE_PER_TRADE), totalCost = (amount * price) + fee;
+        if (amount > getMaxBet(userPRAEBalance, price)) { showToast(`Max: ${getMaxBet(userPRAEBalance, price)} PRAE`, 'error'); return; }
+        const streak = getWinStreak(), multiplier = getStreakMultiplier(streak);
+        const isUnderdog = (outcome === 'yes' ? price : 1 - price) < 0.3;
+        const roi = calculateROI(amount, price, outcome, getYesPrice(market));
+        showBetConfirmation(prediction, outcome, amount, price, fee, totalCost, roi, streak, multiplier, isUnderdog, async () => {
+            btn.innerHTML = '<span class="loader"></span>';
+            const result = useRealMarket ? await buySharesReal(id, outcome, amount) : await marketBuy(id, outcome, amount);
+            if (result.error) { showToast(result.error, 'error'); btn.innerHTML = orig; btn.disabled = false; actionCooldown = false; return; }
             const pw = (amount / price) * (outcome === 'yes' ? 1 : (1 - price));
             showToast(`✅ ${outcome.toUpperCase()} · ${price.toFixed(4)} · ${totalCost.toFixed(2)} PRAE`, 'success');
             if (result.bonus) showToast(`🩸 +${result.bonus} PRAE bonus!`, 'success');
-            if (result.filled > 0) showToast(`⚡ ${result.filled} PRAE filled instantly!`, 'info');
-            showBetReceipt(prediction, outcome, amount, price, fee, totalCost, pw, result.remaining);
+            if (result.filled > 0) showToast(`⚡ ${result.filled} PRAE filled!`, 'info');
+            if (!result.serverSynced) showToast('⚠️ Saved locally.', 'info');
             analyticsData.bets++;
             if (navigator.vibrate) navigator.vibrate(50);
             const card = btn.closest('.praediction-card');
             if (card) { card.classList.add('bet-pulse'); setTimeout(() => card.classList.remove('bet-pulse'), 600); }
+            const undoOrderId = result.orderId;
+            showToastWithUndo(`Bet placed. Undo within 10s.`, async () => {
+                if (undoOrderId) { const m = getMarket(id); const allOrders = [...m.yesBids, ...m.noBids]; const order = allOrders.find(o => o.id === undoOrderId); if (order) { const idx = outcome === 'yes' ? m.yesBids.indexOf(order) : m.noBids.indexOf(order); if (idx >= 0) { await cancelOrder(id, outcome, idx); showToast('✅ Bet undone.', 'success'); await refreshAll(); } } }
+            }, 10000);
+            syncOrderBookFromServer(id);
             await refreshAll();
-        }
-    } catch (err) { showToast('Failed', 'error'); }
-    finally { btn.innerHTML = orig; btn.disabled = false; actionCooldown = false; }
+            btn.innerHTML = orig; btn.disabled = false; actionCooldown = false;
+        });
+        btn.innerHTML = orig; btn.disabled = false; actionCooldown = false;
+    } catch (err) { showToast('Failed', 'error'); btn.innerHTML = orig; btn.disabled = false; actionCooldown = false; }
 }
 
-// ============================================================
-// BET RECEIPT
-// ============================================================
-
-function showBetReceipt(prediction, outcome, amount, price, fee, totalCost, potentialWin, remaining) {
-    const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;';
-    modal.innerHTML = `<div style="background:var(--bg);border:1px solid var(--accent);border-radius:20px;max-width:400px;width:90%;padding:24px;text-align:center;">
-    <div style="font-size:2rem;">✅</div><h3 style="color:var(--accent);margin:8px 0;">Order Confirmed!</h3>
-    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;">${escapeHtml((prediction?.title || '').slice(0, 60))}...</div>
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.8rem;text-align:left;margin-bottom:16px;">
-    <span style="color:var(--text-muted);">Side:</span><span><strong>${outcome.toUpperCase()}</strong></span>
-    <span style="color:var(--text-muted);">Amount:</span><span><strong>${amount} PRAE</strong></span>
-    <span style="color:var(--text-muted);">Price:</span><span>${price.toFixed(4)}</span>
-    <span style="color:var(--text-muted);">Fee:</span><span>${fee.toFixed(3)}</span>
-    <span style="color:var(--text-muted);">Total:</span><span>${totalCost.toFixed(2)} PRAE</span>
-    <span style="color:var(--text-muted);">Est. Win:</span><span style="color:var(--success-color);">~${potentialWin.toFixed(2)} PRAE</span>
-    ${remaining > 0 ? `<span style="color:var(--text-muted);">Status:</span><span style="color:var(--oracle-color);">🕒 ${remaining.toFixed(0)} PRAE waiting in order book</span>` : '<span style="color:var(--text-muted);">Status:</span><span style="color:var(--success-color);">✅ Fully filled</span>'}
-    </div>
-    <div style="display:flex;gap:8px;">
-    <button onclick="navigator.clipboard.writeText('I just bet ${amount} PRAE on ${outcome.toUpperCase()}! ${window.location.origin}/test/#pred-${prediction?.id}')" style="flex:1;padding:8px;border-radius:20px;background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent);cursor:pointer;font-size:.75rem;">📋 Share</button>
-    <button onclick="this.closest('div[style*=z-index\\:5000]').remove()" style="flex:1;padding:8px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.75rem;">👁️ Close</button></div></div>`;
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-    document.body.appendChild(modal);
-}
+function copyTrade(predictionId, outcome, amount) { const amountInput = document.getElementById(`amount-${predictionId}`); if (amountInput) amountInput.value = amount; const buyBtn = document.querySelector(`.buy-btn[data-id="${predictionId}"][data-outcome="${outcome}"]`); if (buyBtn) { buyBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); buyBtn.style.boxShadow = '0 0 20px var(--accent)'; setTimeout(() => buyBtn.style.boxShadow = '', 2000); showToast(`📋 ${outcome.toUpperCase()} ${amount} PRAE loaded.`, 'info'); } }
 
 // ============================================================
-// ORDER BOOK RENDERER
+// FULL ORDER BOOK RENDERER
 // ============================================================
 
 function renderOrderBook(p) {
-    const market = getMarket(p.id), depth = getOrderBookDepth(market), spread = getSpread(market);
-    const currentPrice = getYesPrice(market);
+    const market = getMarket(p.id); const depth = getOrderBookDepth(market); const spread = getSpread(market);
+    const priceInfo = getPriceChange(p.id); const vwap = getVWAP(market); const lastPrice = getLastPrice(market);
+    const lastPriceChange = getLastPriceChange(market); const userOrders = getUserOpenOrders(p.id, walletAddress);
+    const userYesPrices = new Set(userOrders.yes.map(o => o.price.toFixed(4)));
+    const userNoPrices = new Set(userOrders.no.map(o => o.price.toFixed(4)));
+    const avgYesPrice = getMyAveragePrice(p.id, 'yes'); const avgNoPrice = getMyAveragePrice(p.id, 'no');
+    const isActive = p.status === 'active'; const lastUpdate = orderBookLastUpdated[p.id];
+    const timeSinceUpdate = lastUpdate ? Math.floor((Date.now() - lastUpdate) / 1000) : null;
+    const totalUserOrders = userOrders.yes.length + userOrders.no.length;
+    
+    if (depth.bids.length === 0 && depth.asks.length === 0) {
+        return `<div style="margin-top:8px;padding:16px;text-align:center;background:var(--card-bg);border-radius:12px;border:1px solid var(--border);"><div style="font-size:1.5rem;">📊</div><p style="color:var(--text-muted);font-size:.7rem;">${isActive ? 'No orders yet.' : 'No data.'}</p>${isActive ? `<button onclick="event.stopPropagation();const inp=document.getElementById('amount-${p.id}');if(inp)inp.focus();" style="margin-top:4px;padding:6px 16px;border-radius:16px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.7rem;">Place Order</button>` : ''}</div>`;
+    }
+    
     const maxVolume = Math.max(...depth.bids.map(b => b.amount), ...depth.asks.map(a => a.amount), 1);
+    const totalLiquidity = depth.totalBidVolume + depth.totalAskVolume;
+    const directionIcon = priceInfo.direction === 'up' ? '🟢 ▲' : priceInfo.direction === 'down' ? '🔴 ▼' : '⚪ ▬';
+    const directionColor = priceInfo.direction === 'up' ? 'var(--success-color)' : priceInfo.direction === 'down' ? 'var(--error-color)' : 'var(--text-muted)';
     
-    let html = `<div style="margin-top:12px;padding:12px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border);">`;
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:.75rem;color:var(--accent);font-weight:600;">📊 Order Book</span><span style="font-size:.65rem;color:var(--text-muted);cursor:pointer;" onclick="event.stopPropagation();toggleOrderBook('${p.id}')">Hide</span></div>`;
-    
-    if (spread) {
-        html += `<div style="text-align:center;margin-bottom:8px;font-size:.7rem;color:var(--text-muted);">Spread: <span style="color:var(--accent);">${spread.spread.toFixed(4)}</span> (${spread.spreadPercent.toFixed(2)}%)</div>`;
-    }
-    
-    html += `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--text-muted);padding:2px 0;"><span>Price</span><span>Amount</span><span>Total</span></div>`;
-    
-    let askCumulative = 0;
-    [...depth.asks].reverse().forEach(a => { askCumulative += a.amount; const barWidth = (a.amount / maxVolume) * 100; html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.65rem;padding:2px 0;position:relative;"><div style="position:absolute;right:0;top:0;bottom:0;background:rgba(239,68,68,0.1);width:${barWidth}%;border-radius:2px;"></div><span style="color:var(--error-color);z-index:1;">${a.price.toFixed(4)}</span><span style="z-index:1;">${a.amount.toFixed(0)}</span><span style="color:var(--text-muted);z-index:1;">${askCumulative.toFixed(0)}</span></div>`; });
-    
-    html += `<div style="text-align:center;padding:4px 0;border-top:2px solid var(--accent);border-bottom:2px solid var(--accent);margin:4px 0;"><span style="font-size:.8rem;font-weight:700;color:var(--accent);">${currentPrice.toFixed(4)} PRAE</span></div>`;
-    
-    let bidCumulative = 0;
-    depth.bids.forEach(b => { bidCumulative += b.amount; const barWidth = (b.amount / maxVolume) * 100; html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.65rem;padding:2px 0;position:relative;"><div style="position:absolute;right:0;top:0;bottom:0;background:rgba(16,185,129,0.1);width:${barWidth}%;border-radius:2px;"></div><span style="color:var(--success-color);z-index:1;">${b.price.toFixed(4)}</span><span style="z-index:1;">${b.amount.toFixed(0)}</span><span style="color:var(--text-muted);z-index:1;">${bidCumulative.toFixed(0)}</span></div>`; });
-    html += `</div>`;
-    
-    const userOrders = getUserOpenOrders(p.id, walletAddress);
-    if (userOrders.yes.length > 0 || userOrders.no.length > 0) {
-        html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">📋 Your Open Orders</div>`;
-        userOrders.yes.forEach((o, i) => { const origIdx = market.yesBids.indexOf(o); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.65rem;padding:2px 0;"><span style="color:var(--success-color);">YES</span><span>${o.amount.toFixed(1)} @ ${o.price.toFixed(4)}</span><button onclick="event.stopPropagation();cancelMyOrder('${p.id}','yes',${origIdx})" style="background:transparent;border:1px solid var(--error-color);color:var(--error-color);border-radius:10px;padding:1px 6px;cursor:pointer;font-size:.6rem;">✕</button></div>`; });
-        userOrders.no.forEach((o, i) => { const origIdx = market.noBids.indexOf(o); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.65rem;padding:2px 0;"><span style="color:var(--error-color);">NO</span><span>${o.amount.toFixed(1)} @ ${o.price.toFixed(4)}</span><button onclick="event.stopPropagation();cancelMyOrder('${p.id}','no',${origIdx})" style="background:transparent;border:1px solid var(--error-color);color:var(--error-color);border-radius:10px;padding:1px 6px;cursor:pointer;font-size:.6rem;">✕</button></div>`; });
-        html += `</div>`;
-    }
+    let html = `<div class="order-book-container" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:12px;border:1px solid var(--border);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:.7rem;color:var(--accent);font-weight:600;">📊 Depth ${!isActive ? '(Resolved)' : ''}</span>
+    <div style="display:flex;align-items:center;gap:6px;">${serverSyncInProgress[p.id] ? '<span style="color:var(--oracle-color);animation:pulse 1s infinite;font-size:.55rem;">⬤</span>' : ''}${timeSinceUpdate !== null ? `<span style="font-size:.55rem;color:var(--text-muted);">${timeSinceUpdate < 60 ? timeSinceUpdate + 's' : Math.floor(timeSinceUpdate/60) + 'm'}</span>` : ''}<span style="font-size:.6rem;color:var(--text-muted);cursor:pointer;" onclick="event.stopPropagation();toggleOrderBook('${p.id}')">Hide</span></div></div>`;
+    if (lastPrice) { const lpChange = lastPriceChange; const lpColor = lpChange && lpChange.direction === 'up' ? 'var(--success-color)' : lpChange && lpChange.direction === 'down' ? 'var(--error-color)' : 'var(--text-muted)'; html += `<div style="text-align:center;font-size:.6rem;color:var(--text-muted);margin-bottom:2px;">Last: <span style="color:${lpColor};">${lastPrice.toFixed(4)}</span></div>`; }
+    html += `<div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--text-muted);margin-bottom:2px;"><span>Bid: ${depth.totalBidVolume.toFixed(0)}</span><span>Ask: ${depth.totalAskVolume.toFixed(0)}</span></div>`;
+    if (spread) html += `<div style="text-align:center;margin-bottom:2px;font-size:.65rem;color:var(--text-muted);">Spread: <span style="color:var(--accent);">${spread.spread.toFixed(4)}</span></div>`;
+    html += `<div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--text-muted);padding:1px 0;"><span>Price</span><span>Amount</span></div>`;
+    let askCum = 0; [...depth.asks].reverse().forEach(a => { askCum += a.amount; const barW = (a.amount / maxVolume) * 100; const pk = a.price.toFixed(4); const isU = userNoPrices.has(pk); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.6rem;padding:1px 0;position:relative;${isU ? 'background:rgba(245,158,11,0.2);border-radius:2px;box-shadow:inset 2px 0 0 var(--oracle-color);' : ''}"><div style="position:absolute;right:0;top:0;bottom:0;background:rgba(239,68,68,0.1);width:${barW}%;border-radius:2px;"></div><span style="color:var(--error-color);z-index:1;">${a.price.toFixed(4)}${isU ? ' 👤' : ''}</span><span style="z-index:1;">${a.amount.toFixed(0)}</span></div>`; });
+    html += `<div style="text-align:center;padding:2px 0;border-top:2px solid var(--accent);border-bottom:2px solid var(--accent);margin:2px 0;"><span style="font-size:.6rem;color:${directionColor};">${directionIcon}</span><span style="font-size:.75rem;font-weight:700;color:var(--accent);"> ${priceInfo.price.toFixed(4)}</span>${vwap ? `<span style="font-size:.5rem;color:var(--text-muted);"> VWAP:${vwap.toFixed(4)}</span>` : ''}</div>`;
+    let bidCum = 0; depth.bids.forEach(b => { bidCum += b.amount; const barW = (b.amount / maxVolume) * 100; const pk = b.price.toFixed(4); const isU = userYesPrices.has(pk); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.6rem;padding:1px 0;position:relative;${isU ? 'background:rgba(245,158,11,0.2);border-radius:2px;box-shadow:inset 2px 0 0 var(--oracle-color);' : ''}"><div style="position:absolute;right:0;top:0;bottom:0;background:rgba(16,185,129,0.1);width:${barW}%;border-radius:2px;"></div><span style="color:var(--success-color);z-index:1;">${b.price.toFixed(4)}${isU ? ' 👤' : ''}</span><span style="z-index:1;">${b.amount.toFixed(0)}</span></div>`; });
+    if (avgYesPrice || avgNoPrice) { html += `<div style="margin-top:6px;padding:6px;background:var(--accent-glow);border-radius:6px;font-size:.6rem;"><div style="color:var(--accent);margin-bottom:2px;">📊 My Average</div>`; if (avgYesPrice) html += `<div style="display:flex;justify-content:space-between;"><span style="color:var(--success-color);">YES</span><span>${avgYesPrice.amount.toFixed(0)} @ ${avgYesPrice.price.toFixed(4)}</span></div>`; if (avgNoPrice) html += `<div style="display:flex;justify-content:space-between;"><span style="color:var(--error-color);">NO</span><span>${avgNoPrice.amount.toFixed(0)} @ ${avgNoPrice.price.toFixed(4)}</span></div>`; html += `</div>`; }
+    if (totalUserOrders > 0) { html += `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;"><span style="font-size:.6rem;color:var(--text-muted);">📋 Your Orders (${totalUserOrders})</span>${isActive && totalUserOrders > 1 ? `<button onclick="event.stopPropagation();cancelAllOrders('${p.id}')" style="background:transparent;border:1px solid var(--error-color);color:var(--error-color);border-radius:8px;padding:1px 6px;cursor:pointer;font-size:.55rem;">Cancel All</button>` : ''}</div>`; userOrders.yes.forEach((o, i) => { const oi = market.yesBids.indexOf(o); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.6rem;padding:1px 0;"><span style="color:var(--success-color);">YES${o.pendingSync ? ' ⚠️' : ''}</span><span>${o.amount.toFixed(1)} @ ${o.price.toFixed(4)}</span>${isActive ? `<button onclick="event.stopPropagation();cancelMyOrder('${p.id}','yes',${oi})" style="background:transparent;border:1px solid var(--error-color);color:var(--error-color);border-radius:6px;padding:0 4px;cursor:pointer;font-size:.55rem;">✕</button>` : ''}</div>`; }); userOrders.no.forEach((o, i) => { const oi = market.noBids.indexOf(o); html += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.6rem;padding:1px 0;"><span style="color:var(--error-color);">NO${o.pendingSync ? ' ⚠️' : ''}</span><span>${o.amount.toFixed(1)} @ ${o.price.toFixed(4)}</span>${isActive ? `<button onclick="event.stopPropagation();cancelMyOrder('${p.id}','no',${oi})" style="background:transparent;border:1px solid var(--error-color);color:var(--error-color);border-radius:6px;padding:0 4px;cursor:pointer;font-size:.55rem;">✕</button>` : ''}</div>`; }); html += `</div>`; }
     html += `</div>`;
     return html;
 }
 
-function toggleOrderBook(id) { showOrderBook[id] = !showOrderBook[id]; renderPraedictions(); }
-
-async function cancelMyOrder(id, outcome, index) {
-    if (!confirm(`Cancel this ${outcome.toUpperCase()} order?`)) return;
-    const result = cancelOrder(id, outcome, index);
-    if (result.error) { showToast(result.error, 'error'); }
-    else { showToast(`✅ Order cancelled. ${result.refunded.toFixed(2)} PRAE refunded.`, 'success'); await refreshAll(); }
-}
+function toggleOrderBook(id) { showOrderBook[id] = !showOrderBook[id]; if (showOrderBook[id]) { syncOrderBookIfNeeded(id).then(() => renderPraedictions()); } else { renderPraedictions(); } }
 
 // ============================================================
 // ORACLE & RESOLVE
 // ============================================================
 
-async function oracleDecide(e) { const id = e.currentTarget.dataset.id; const o = Math.random() < 0.5 ? 'yes' : 'no'; const r = useRealMarket ? await buySharesReal(id, o, CONFIG.MIN_BET) : marketBuy(id, o, CONFIG.MIN_BET); if (r.error) showToast(r.error, 'error'); else showToast(`Oracle chose ${o.toUpperCase()}`, 'info'); await refreshAll(); }
+async function oracleDecide(e) { const id = e.currentTarget.dataset.id; const o = Math.random() < 0.5 ? 'yes' : 'no'; const r = useRealMarket ? await buySharesReal(id, o, CONFIG.MIN_BET) : await marketBuy(id, o, CONFIG.MIN_BET); if (r.error) showToast(r.error, 'error'); else showToast(`Oracle chose ${o.toUpperCase()}`, 'info'); await refreshAll(); }
+async function resolveClick(e) { if (walletAddress !== CONFIG.ORACLE_WALLET) return showToast("Only Oracle", 'error'); const id = e.currentTarget.dataset.id, outcome = e.currentTarget.dataset.outcome; if (!confirm(`Resolve to ${outcome?.toUpperCase()}?`)) return; try { const market = getMarket(id); market.snapshot = { yesBids: [...market.yesBids], noBids: [...market.noBids], fills: [...(market.fills || [])], finalPrice: getYesPrice(market), resolvedAt: Date.now() }; if (outcome === 'unresolvable') await callSecureRpc('unresolvable', { predictionId: id }); else { await resolveAndPayout(id, outcome); await callSecureRpc('resolve', { predictionId: id, outcome }); } showToast(`Resolved!`, 'success'); broadcastChange('prediction_resolved', { predictionId: id }); await refreshAll(); } catch (err) { showToast('Failed', 'error'); } }
+async function resolveAndPayout(id, outcome) { const prediction = currentPredictions.find(p => p.id === id); if (!prediction) return; const bets = prediction.bets || [], winners = bets.filter(b => b.outcome === outcome), losers = bets.filter(b => b.outcome !== outcome); if (winners.length === 0) return; const pool = losers.reduce((s, b) => s + (b.amount || 0), 0), fee = pool * CONFIG.FEE_PER_TRADE, wp = pool - fee; const tws = winners.reduce((s, b) => s + (b.amount || 0), 0); if (tws === 0) return; const price = outcome === 'yes' ? getYesPrice(getMarket(id)) : 1 - getYesPrice(getMarket(id)); const payouts = winners.map(w => { let amt = wp * ((w.amount || 0) / tws); if (w.user === walletAddress) { const mult = getStreakMultiplier(getWinStreak() + 1); if (mult > 1) { amt *= mult; showToast(`🔥 ${getWinStreak()+1} streak! ${mult}x!`, 'success'); } const bp = w.outcome === 'yes' ? price : 1 - price; if (bp < 0.3) { amt *= 1.5; showToast('🐺 Underdog +50%!', 'success'); } if (amt >= 50) { spawnConfetti(); showToast(`🎉 +${amt.toFixed(0)} PRAE!`, 'success'); } } return { user: w.user, amount: amt }; }); payouts.forEach(p => { if (p.user === walletAddress) { userPRAEBalance += p.amount; saveBalance(); } }); prediction.payouts = payouts; prediction.claimed = false; const myBet = bets.find(b => b.user === walletAddress); if (myBet && myBet.outcome === outcome && !localStorage.getItem('prae_first_win_shown')) { localStorage.setItem('prae_first_win_shown', 'true'); showFirstWinCelebration(payouts.find(p => p.user === walletAddress)?.amount || 0); } }
 
-async function resolveClick(e) {
-    if (walletAddress !== CONFIG.ORACLE_WALLET) return showToast("Only Oracle", 'error');
-    const id = e.currentTarget.dataset.id, outcome = e.currentTarget.dataset.outcome;
-    if (!confirm(`Resolve to ${outcome?.toUpperCase()}?`)) return;
-    try { if (outcome === 'unresolvable') await callSecureRpc('unresolvable', { predictionId: id }); else { await resolveAndPayout(id, outcome); await callSecureRpc('resolve', { predictionId: id, outcome }); } showToast(`Resolved!`, 'success'); await refreshAll(); } catch (err) { showToast('Failed', 'error'); }
+// ============================================================
+// DAILY CHALLENGE - Dynamic targets, rewards, streaks
+// ============================================================
+
+function getDailyChallenge() {
+    const now = Date.now();
+    const daySeed = getUTCDayKey().split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
+    const challenges = [
+        { getConfig: () => { const basePrice = 95000 + (daySeed % 20000); return { title: `Bitcoin above $${(basePrice).toLocaleString()} by tomorrow?`, category: 'finance', autoSource: 'redstone_btc', targetValue: basePrice.toString(), reward: 15, icon: '₿' }; } },
+        { getConfig: () => { const cities = ['Berlin', 'London', 'Tokyo', 'New York', 'Dubai']; const city = cities[daySeed % cities.length]; const temp = 20 + (daySeed % 15); return { title: `${city} above ${temp}°C tomorrow?`, category: 'weather', autoSource: `weather_temp:${city}`, targetValue: temp.toString(), reward: 10, icon: '🌤️' }; } },
+        { getConfig: () => { const stocks = [{ name: 'Tesla', source: 'redstone_tsla', base: 300 },{ name: 'Apple', source: 'redstone_aapl', base: 220 },{ name: 'Nvidia', source: 'redstone_nvda', base: 130 }]; const stock = stocks[daySeed % stocks.length]; const target = stock.base + (daySeed % 50); return { title: `${stock.name} above $${target} by Friday?`, category: 'finance', autoSource: stock.source, targetValue: target.toString(), reward: 12, icon: '📈' }; } },
+        { getConfig: () => { const target = 2300 + (daySeed % 300); return { title: `Gold above $${target} this week?`, category: 'finance', autoSource: 'redstone_gold', targetValue: target.toString(), reward: 10, icon: '🥇' }; } },
+        { getConfig: () => { const events = [{ team: 'Lakers', opponent: 'Celtics' },{ team: 'Chiefs', opponent: '49ers' }]; const event = events[daySeed % events.length]; return { title: `${event.team} beat ${event.opponent}?`, category: 'sports', autoSource: 'sports_', targetValue: '', reward: 15, icon: '⚽' }; } }
+    ];
+    return challenges[daySeed % challenges.length].getConfig();
 }
 
-async function resolveAndPayout(id, outcome) {
-    const prediction = currentPredictions.find(p => p.id === id); if (!prediction) return;
-    const bets = prediction.bets || [], winners = bets.filter(b => b.outcome === outcome), losers = bets.filter(b => b.outcome !== outcome);
-    if (winners.length === 0) return;
-    const pool = losers.reduce((s, b) => s + (b.amount || 0), 0), fee = pool * CONFIG.FEE_PER_TRADE, wp = pool - fee;
-    const tws = winners.reduce((s, b) => s + (b.amount || 0), 0); if (tws === 0) return;
-    const price = outcome === 'yes' ? getYesPrice(getMarket(id)) : 1 - getYesPrice(getMarket(id));
-    const payouts = winners.map(w => {
-        let amt = wp * ((w.amount || 0) / tws);
-        if (w.user === walletAddress) { const mult = getStreakMultiplier(getWinStreak() + 1); if (mult > 1) { amt *= mult; showToast(`🔥 ${getWinStreak()+1} streak! ${mult}x!`, 'success'); } const bp = w.outcome === 'yes' ? price : 1 - price; if (bp < 0.3) { amt *= 1.5; showToast('🐺 Underdog +50%!', 'success'); } if (amt >= 50) { spawnConfetti(); showToast(`🎉 +${amt.toFixed(0)} PRAE!`, 'success'); } }
-        return { user: w.user, amount: amt };
-    });
-    payouts.forEach(p => { if (p.user === walletAddress) { userPRAEBalance += p.amount; saveBalance(); } });
-    prediction.payouts = payouts; prediction.claimed = false;
+function renderDailyChallenge() {
+    if (!DOM.dailyChallenge) return;
+    const challenge = getDailyChallenge();
+    if (dailyChallengeCompleted) {
+        DOM.dailyChallenge.innerHTML = `<div style="padding:12px;background:var(--success-color);border-radius:12px;margin-bottom:16px;text-align:center;color:#000;"><div>✅ Daily Challenge Complete!</div><div style="font-size:.8rem;opacity:0.8;">Come back tomorrow · 🔥 ${dailyChallengeStreak} day streak</div></div>`;
+        return;
+    }
+    DOM.dailyChallenge.innerHTML = `<div style="padding:12px;background:linear-gradient(135deg,var(--accent-glow),rgba(245,158,11,0.1));border-radius:12px;margin-bottom:16px;border:1px solid var(--oracle-color);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:1.5rem;">${challenge.icon}</span><div><strong style="color:var(--oracle-color);">Daily Challenge</strong><span style="font-size:.65rem;color:var(--accent);margin-left:6px;">+${challenge.reward} SeerScore</span></div></div>
+    <div style="font-size:.9rem;margin-bottom:10px;">"${challenge.title}"</div>
+    <div style="display:flex;gap:8px;"><button onclick="acceptDailyChallenge()" style="flex:1;padding:8px;border-radius:20px;background:var(--oracle-color);color:#000;border:none;cursor:pointer;font-size:.75rem;font-weight:600;">🎯 Accept (7 PRAE)</button><button onclick="dismissDailyChallenge()" style="padding:8px 12px;border-radius:20px;background:transparent;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:.7rem;">Dismiss</button></div>
+    ${dailyChallengeStreak > 0 ? `<p style="font-size:.65rem;color:var(--accent);text-align:center;margin-top:6px;">🔥 ${dailyChallengeStreak} day streak</p>` : ''}</div>`;
 }
 
+function acceptDailyChallenge() {
+    if (!walletAddress) return showToast('Connect wallet first', { type: 'error' });
+    const challenge = getDailyChallenge();
+    DOM.title.value = challenge.title;
+    DOM.category.value = challenge.category;
+    DOM.autoSource.value = challenge.autoSource;
+    if (challenge.targetValue) DOM.targetValue.value = challenge.targetValue;
+    const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(23, 59, 0, 0);
+    DOM.resolutionDate.value = t.toISOString().slice(0, 16);
+    document.querySelector('.create-praediction')?.classList.add('expanded');
+    document.querySelector('.create-praediction')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sessionStorage.setItem('prae_challenge_accepted', 'true');
+    sessionStorage.setItem('prae_challenge_reward', challenge.reward.toString());
+    showToast(`🎯 Challenge accepted! +${challenge.reward} SeerScore bonus!`, { type: 'success' });
+}
+
+function completeDailyChallenge() {
+    const wasAccepted = sessionStorage.getItem('prae_challenge_accepted') === 'true';
+    if (!wasAccepted) return;
+    const reward = parseInt(sessionStorage.getItem('prae_challenge_reward') || '10');
+    const today = getUTCDayKey();
+    dailyChallengeCompleted = true;
+    dailyChallengeStreak++;
+    localStorage.setItem('prae_daily_challenge', JSON.stringify({ date: today, completed: true, streak: dailyChallengeStreak }));
+    sessionStorage.removeItem('prae_challenge_accepted');
+    sessionStorage.removeItem('prae_challenge_reward');
+    showToast(`🏆 Challenge complete! +${reward} SeerScore! 🔥 ${dailyChallengeStreak} day streak!`, { type: 'win' });
+    renderDailyChallenge();
+}
+
+function dismissDailyChallenge() {
+    dailyChallengeCompleted = false;
+    dailyChallengeStreak = 0;
+    localStorage.setItem('prae_daily_challenge', JSON.stringify({ date: getUTCDayKey(), completed: false, streak: 0 }));
+    sessionStorage.removeItem('prae_challenge_accepted');
+    sessionStorage.removeItem('prae_challenge_reward');
+    DOM.dailyChallenge.innerHTML = '';
+}
+
+// REMOVED: oracleDecide function, initOracleAsk function
+// REMOVED: renderProgressBars from here (moved to profile)
+
 // ============================================================
-// DAILY CHALLENGE & TEMPLATES
+// IDEMPOTENCY, RETRY, CROSS-TAB, SAFETY
 // ============================================================
 
-function getDailyChallenge() { const c = [{ title:"Berlin above 25°C today?", cat:"weather", source:"weather_temp:Berlin", target:"25" },{ title:"BTC above $100K?", cat:"finance", source:"redstone_btc", target:"100000" },{ title:"ETH above $5K?", cat:"finance", source:"redstone_eth", target:"5000" },{ title:"SOL above $200?", cat:"finance", source:"redstone_sol", target:"200" },{ title:"Tesla above $350?", cat:"finance", source:"redstone_tsla", target:"350" },{ title:"Gold above $2500?", cat:"finance", source:"redstone_gold", target:"2500" },{ title:"London rain >5mm?", cat:"weather", source:"weather_rain:London", target:"5" }]; return c[getUTCDayKey().split('').reduce((s, ch) => s + ch.charCodeAt(0), 0) % c.length]; }
-function renderDailyChallenge() { if (!DOM.dailyChallenge) return; const ch = getDailyChallenge(); DOM.dailyChallenge.innerHTML = `<div style="padding:12px;background:var(--accent-glow);border-radius:12px;margin-bottom:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:1.2rem;">🎯</span><strong style="color:var(--accent);">Daily Challenge</strong></div><div style="font-size:.9rem;margin-bottom:8px;">"${ch.title}"</div><button onclick="quickBetDaily()" style="padding:6px 16px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.75rem;">🎯 Quick Bet 7 PRAE</button></div>`; }
-function quickBetDaily() { const c = getDailyChallenge(); DOM.title.value = c.title; DOM.category.value = c.cat; DOM.autoSource.value = c.source; DOM.targetValue.value = c.target; const t = new Date(); t.setDate(t.getDate()+1); t.setHours(23,59,0,0); DOM.resolutionDate.value = t.toISOString().slice(0,16); showToast("🎯 Challenge loaded!", 'success'); }
-function renderProgressBars() { if (!DOM.progressBars) return; DOM.progressBars.innerHTML = `<div style="display:flex;gap:16px;font-size:.65rem;color:var(--text-muted);margin-bottom:8px;"><div style="flex:1;"><div style="display:flex;justify-content:space-between;"><span>🎯 Bets</span><span>${analyticsData.bets}/77</span></div><div style="background:var(--border);border-radius:4px;height:4px;margin-top:2px;"><div style="background:var(--accent);border-radius:4px;height:100%;width:${Math.min(100,(analyticsData.bets/77)*100)}%;"></div></div></div><div style="flex:1;"><div style="display:flex;justify-content:space-between;"><span>✨ Created</span><span>${analyticsData.creations}/3</span></div><div style="background:var(--border);border-radius:4px;height:4px;margin-top:2px;"><div style="background:var(--oracle-color);border-radius:4px;height:100%;width:${Math.min(100,(analyticsData.creations/3)*100)}%;"></div></div></div></div>`; }
-function quickTemplate(type) { const t = { btc:{ title:"BTC above $____ by ____", cat:"finance", source:"redstone_btc" }, eth:{ title:"ETH above $____ by ____", cat:"finance", source:"redstone_eth" }, weather:{ title:"____ will be above ____°C tomorrow", cat:"weather", source:"weather_temp" }, sports:{ title:"____ will win against ____", cat:"sports", source:"sports_" }, movie:{ title:"____ grosses over $____", cat:"entertainment", source:"movie_" }, spacex:{ title:"SpaceX launches ____ by ____", cat:"space", source:"spacex_" } }[type]; if (!t) return; DOM.title.value = t.title; DOM.category.value = t.cat; DOM.autoSource.value = t.source; DOM.title.focus(); showToast('📝 Fill in the blanks!', 'info'); }
-
-// ============================================================
-// REACTIONS
-// ============================================================
-
-async function reactClick(e) { const btn = e.currentTarget, id = btn.dataset.id, emoji = btn.dataset.emoji; if (!isValidReaction(emoji)) return; const prediction = currentPredictions.find(p => p.id === id); if (!prediction) return; prediction.reactions = prediction.reactions || []; if (prediction.reactions.some(r => r.user === walletAddress)) return showToast("Already reacted", 'info'); prediction.reactions.push({ user: walletAddress, emoji }); const rect = btn.getBoundingClientRect(); animateReaction(emoji, rect.left + rect.width/2, rect.top); try { await callSecureRpc('react', { predictionId: id, reaction: emoji }); } catch (err) { console.debug('Reaction sync failed:', err); } updateReactionDisplay(prediction, btn.closest('.praediction-card')); }
-function updateReactionDisplay(prediction, card) { if (!card) return; const g = {}; (prediction.reactions||[]).filter(r => isValidReaction(r.emoji)).forEach(r => { g[r.emoji] = (g[r.emoji]||0) + 1; }); CONFIG.ALLOWED_EMOJIS.forEach(e => { const b = card.querySelector(`.react-btn[data-emoji="${e}"]`); if (b) { const c = g[e]||0; b.innerHTML = c > 0 ? `${e} <span style="font-size:.7rem;color:var(--accent);">${c}</span>` : e; } }); }
-function shareClick(e) { navigator.clipboard.writeText(e.target.dataset.url).then(() => showToast("Copied!", 'success')); }
-function updatePayout(e) { const id = e.target.id.split('-')[1], amt = parseFloat(e.target.value)||CONFIG.MIN_BET, m = getMarket(id), p = getYesPrice(m); const el = document.getElementById(`payout-${id}`); if (el) el.textContent = `${(amt/(p||0.5)).toFixed(2)} YES`; const mx = document.getElementById(`maxbet-${id}`); if (mx) mx.textContent = getMaxBet(userPRAEBalance, p); }
+function generateIdempotencyKey() { return `${walletAddress}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; }
+async function verifyBalance() { if (!walletAddress) return false; const now = Date.now(); if (now - balanceVerifiedAt < BALANCE_VERIFY_INTERVAL) return true; try { const { data: user, error } = await supabaseClient.from('users').select('prae_balance, banned').eq('address', walletAddress).single(); if (error) return false; if (user.banned) { showToast('Account suspended', 'error'); disconnectWallet(); return false; } const serverBalance = parseFloat(user.prae_balance || 0); if (Math.abs(serverBalance - userPRAEBalance) > 0.01) { userPRAEBalance = serverBalance; saveBalance(); } balanceVerifiedAt = now; return true; } catch (err) { return false; } }
+function addToRetryQueue(operation) { pendingRetries.push({ ...operation, attempts: 0, nextRetry: Date.now() + RETRY_BACKOFF[0], id: Date.now() + Math.random() }); if (!retryInterval) startRetryProcessor(); }
+function startRetryProcessor() { retryInterval = setInterval(processRetryQueue, 5000); }
+function stopRetryProcessor() { if (retryInterval) { clearInterval(retryInterval); retryInterval = null; } }
+async function processRetryQueue() { if (pendingRetries.length === 0) { stopRetryProcessor(); return; } const now = Date.now(); const toProcess = pendingRetries.filter(r => r.nextRetry <= now); for (const retry of toProcess) { if (retry.attempts >= MAX_RETRIES) { pendingRetries = pendingRetries.filter(r => r.id !== retry.id); continue; } try { let result; if (retry.type === 'place_order') result = await callSecureRpc('place_order', retry.params); else if (retry.type === 'cancel_order') result = await callSecureRpc('cancel_order', retry.params); if (result && result.success) { pendingRetries = pendingRetries.filter(r => r.id !== retry.id); if (result.newBalance !== undefined) { userPRAEBalance = parseFloat(result.newBalance); saveBalance(); } if (retry.type === 'place_order' && result.orderId) { const market = getMarket(retry.params.predictionId); const orders = retry.params.outcome === 'yes' ? market.yesBids : market.noBids; const localOrder = orders.find(o => o.id === retry.localOrderId); if (localOrder) { localOrder.id = result.orderId.toString(); localOrder.pendingSync = false; } } } else { retry.attempts++; retry.nextRetry = now + RETRY_BACKOFF[Math.min(retry.attempts, RETRY_BACKOFF.length - 1)]; } } catch (err) { retry.attempts++; retry.nextRetry = now + RETRY_BACKOFF[Math.min(retry.attempts, RETRY_BACKOFF.length - 1)]; } } }
+function initCrossTabSync() { try { if ('BroadcastChannel' in window) { crossTabChannel = new BroadcastChannel('praedicta_sync'); crossTabChannel.onmessage = (event) => { const { type, data } = event.data; if (type === 'order_placed' || type === 'order_cancelled') { if (data.predictionId) syncOrderBookFromServer(data.predictionId); syncBalanceFromServer(); } else if (type === 'balance_changed') syncBalanceFromServer(); else if (type === 'prediction_resolved') refreshAll(); else if (type === 'profile_updated' && data.wallet === walletAddress) refreshAll(); }; } } catch (e) {} }
+function broadcastChange(type, data = {}) { if (crossTabChannel) { try { crossTabChannel.postMessage({ type, data }); } catch (e) {} } }
+function cleanupExpiredOrders() { Object.keys(mockMarkets).forEach(id => { const prediction = currentPredictions.find(p => p.id === id); if (!prediction || prediction.status !== 'active') { const market = mockMarkets[id]; if (!market.snapshot) { market.snapshot = { yesBids: [...market.yesBids], noBids: [...market.noBids], fills: [...(market.fills || [])], finalPrice: getYesPrice(market), resolvedAt: Date.now() }; } const allOrders = [...market.yesBids, ...market.noBids]; allOrders.forEach(order => { if (order.amount > 0 && order.user === walletAddress) { userPRAEBalance += order.amount * order.price; } }); saveBalance(); } }); }
+function safeLocalStorageSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { if (e.name === 'QuotaExceededError') { const keys = Object.keys(localStorage); keys.filter(k => k.startsWith('horoscope_') || (k.startsWith('prae_balance_') && !k.includes(walletAddress || ''))).forEach(k => localStorage.removeItem(k)); try { localStorage.setItem(key, value); } catch (e2) { showToast('Storage full.', 'error'); } } } }
+const originalPlaceLimitOrder = placeLimitOrder; placeLimitOrder = async function(id, outcome, amount, price) { const idempotencyKey = generateIdempotencyKey(); if (orderIdempotencyKeys[idempotencyKey]) return { error: 'Order already submitted.' }; orderIdempotencyKeys[idempotencyKey] = true; const balanceOk = await verifyBalance(); if (!balanceOk) { delete orderIdempotencyKeys[idempotencyKey]; return { error: 'Cannot verify balance.' }; } const prediction = currentPredictions.find(p => p.id === id); if (!prediction || prediction.status !== 'active') { delete orderIdempotencyKeys[idempotencyKey]; return { error: 'Prediction no longer active.' }; } if (prediction.resolution_date && new Date(prediction.resolution_date) <= new Date()) { delete orderIdempotencyKeys[idempotencyKey]; return { error: 'Resolution date passed.' }; } if (prediction.creator === walletAddress) { delete orderIdempotencyKeys[idempotencyKey]; return { error: "Can't bet on your own." }; } const result = await originalPlaceLimitOrder(id, outcome, amount, price); setTimeout(() => { delete orderIdempotencyKeys[idempotencyKey]; }, 300000); return result; };
+const originalCancelOrderFunc = cancelOrder; cancelOrder = async function(id, outcome, index) { const market = getMarket(id), orders = outcome === 'yes' ? market.yesBids : market.noBids; if (index < 0 || index >= orders.length) return { error: 'Order not found' }; const order = orders[index]; if (order.user !== walletAddress) return { error: 'Not your order' }; if (order.pendingSync) { userPRAEBalance += order.amount * order.price; saveBalance(); orders.splice(index, 1); broadcastChange('order_cancelled', { predictionId: id }); return { success: true, refunded: order.amount * order.price }; } return await originalCancelOrderFunc(id, outcome, index); };
 
 loadOrderBooks();
+initCrossTabSync();

@@ -1,8 +1,10 @@
 // ============================================================
-// PRAEDICTA – Rendering Functions (render.js) - FINAL v11
+// PRAEDICTA – Rendering Functions (render.js) - FINAL v12
+// Diff-based rendering + TradingView charts + Mini order book
 // ============================================================
 
 function renderPraedictions() {
+    saveScrollPosition();
     const container = DOM.praedictionsContainer; if (!container) return;
     hideSkeleton();
 
@@ -25,13 +27,13 @@ function renderPraedictions() {
     if (currentPredictions.length === 0 && currentFilter.status === 'active' && currentFilter.category === 'all' && !currentFilter.search) {
         container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔮</div><h3 style="color:var(--accent);">The Oracle awaits your first praediction</h3><p style="margin:16px 0;line-height:1.6;">1. Describe what will happen<br>2. Provide a proof URL<br>3. Choose YES or NO<br>4. Stake 7 PRAE<br>5. Earn SeerScore when you're right!</p></div>`;
         if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = ''; if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
-        renderActivityFeed(); renderRecentWinners(); return;
+        renderActivityFeed(); renderRecentWinners(); restoreScrollPosition(); return;
     }
 
     if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No praedictions match your filters.</p></div>';
         if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = ''; if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
-        renderActivityFeed(); renderRecentWinners(); return;
+        renderActivityFeed(); renderRecentWinners(); restoreScrollPosition(); return;
     }
 
     const activeOnly = filtered.filter(p => p.status === 'active');
@@ -51,19 +53,11 @@ function renderPraedictions() {
         if (DOM.resolvedContainer) { DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : ''; }
     }
 
-    const allContainers = [container, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean);
-    allContainers.forEach(cont => {
-        cont.querySelectorAll('.buy-btn').forEach(btn => btn.addEventListener('click', buyClick));
-        cont.querySelectorAll('.buy-amount').forEach(input => input.addEventListener('input', updatePayout));
-        cont.querySelectorAll('.react-btn').forEach(btn => btn.addEventListener('click', reactClick));
-        cont.querySelectorAll('.share-btn').forEach(btn => btn.addEventListener('click', shareClick));
-        cont.querySelectorAll('.oracle-decide').forEach(btn => btn.addEventListener('click', oracleDecide));
-        cont.querySelectorAll('.oracle-resolve').forEach(btn => btn.addEventListener('click', resolveClick));
-    });
-
+    bindCardEvents();
     if (blindVotingEnabled) { applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); }
     setTimeout(updateCountdowns, 100);
     renderActivityFeed(); renderRecentWinners();
+    restoreScrollPosition();
 }
 
 function renderPredictionCard(p, isOracle) {
@@ -82,10 +76,11 @@ function renderPredictionCard(p, isOracle) {
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
+    const stateClass = p.status === 'active' ? 'status-active' : p.status === 'expired' ? 'status-expired' : p.unresolvable ? 'status-unresolvable' : 'status-resolved';
 
     // COMPACT MODE
     if (!isExpanded) {
-        return `<div class="praediction-card" style="cursor:pointer;" onclick="toggleCardExpand('${p.id}')">
+        return `<div class="praediction-card compact-mode ${stateClass}" data-prediction-id="${p.id}" style="cursor:pointer;" onclick="toggleCardExpand('${p.id}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div style="flex:1;">
         <div class="praediction-title" style="font-size:1rem;">${escapeHtml(p.title).slice(0, 60)}${p.title.length > 60 ? '...' : ''}</div>
@@ -95,6 +90,7 @@ function renderPredictionCard(p, isOracle) {
         ${myBet ? `<span style="color:var(--accent);">🎯 ${myBet.outcome?.toUpperCase()} ${myBet.amount}P</span>` : ''}
         </div></div><span style="font-size:1.2rem;color:var(--text-muted);margin-left:8px;">▶</span></div>
         ${active ? renderVoteStats(yesPrice, noPrice) : ''}
+        ${active ? renderMiniOrderBook(p) : ''}
         ${active && !isCreator ? `<div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes" style="font-size:.7rem;padding:6px 12px;" onclick="event.stopPropagation();">Buy YES</button><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no" style="font-size:.7rem;padding:6px 12px;background:rgba(239,68,68,0.8);" onclick="event.stopPropagation();">Buy NO</button></div>` : ''}
         ${active && isCreator ? '<div style="text-align:center;padding:4px;color:var(--text-muted);font-size:.7rem;">You staked on this</div>' : ''}
         ${!active ? `<div style="text-align:center;margin-top:8px;font-size:.8rem;color:var(--accent);">${p.unresolvable ? '🚫 UNRESOLVABLE' : `RESOLVED: ${p.resolved_outcome?.toUpperCase()}`}</div>` : ''}
@@ -102,7 +98,7 @@ function renderPredictionCard(p, isOracle) {
     }
 
     // EXPANDED MODE
-    return `<div class="praediction-card">
+    return `<div class="praediction-card expanded-mode ${stateClass}" data-prediction-id="${p.id}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
     <span style="font-size:.7rem;color:var(--text-muted);cursor:pointer;" onclick="toggleCardExpand('${p.id}')">▶ Compact</span>
     ${isCreator && active && !hasExternalBets ? `<button class="edit-prediction-btn" data-id="${p.id}" style="background:transparent;border:none;cursor:pointer;font-size:.8rem;" title="Edit">✏️</button>` : ''}
@@ -121,15 +117,10 @@ function renderPredictionCard(p, isOracle) {
     ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
     ${renderResolutionInfo(p)}
     ${active ? renderOracleInsight(p) : ''}
-    ${active ? renderAdvancedChart(market, p.id) : ''}
+    ${active ? renderTradingViewChart(market, p.id) : ''}
     ${active ? renderVoteStats(yesPrice, noPrice) : renderVoteStats(yesPrice, noPrice)}
-    ${active ? `<div style="margin-top:8px;text-align:center;">
-    <button onclick="toggleOrderBook('${p.id}')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:6px 16px;border-radius:20px;cursor:pointer;font-size:.7rem;">
-        ${showOrderBook[p.id] ? '📊 Hide Order Book' : '📊 View Order Book'}
-    </button>
-</div>` : ''}
-${active && showOrderBook[p.id] ? renderOrderBook(p) : ''}
-    
+    ${renderMiniOrderBook(p)}
+    ${showOrderBook[p.id] ? renderOrderBook(p) : ''}
     ${p.bets && p.bets.length > 0 ? renderBetList(p) : ''}
     ${active && !isCreator ? renderActiveActions(p, yesPrice) : active && isCreator ? '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:.8rem;">You staked on this prediction</div>' : ''}
     ${!active ? renderResolvedStatus(p) : ''}
@@ -181,17 +172,16 @@ function renderActiveActions(p, yesPrice) {
     const maxBet = getMaxBet(userPRAEBalance, price);
     const positionValue = walletAddress ? getPositionValue(p.id, walletAddress) : 0;
     return `<div class="action-buttons">
-    <input type="number" class="buy-amount" id="amount-${p.id}" value="${CONFIG.MIN_BET}" min="${CONFIG.MIN_BET}" step="1" inputmode="numeric" style="width:70px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:40px;padding:8px;color:var(--text);" aria-label="Bet amount">
-    <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes"><span>Buy YES</span><span class="loader" style="display:none;"></span></button>
-    <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no"><span>Buy NO</span><span class="loader" style="display:none;"></span></button>
-    <button class="btn-suggest oracle-decide" data-id="${p.id}"><span>🦉 Oracle</span></button></div>
-    <div style="display:flex;gap:4px;margin-top:4px;">
-    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="7" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">7 PRAE</button>
-    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="20" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">20 PRAE</button>
-    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="50" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">50 PRAE</button></div>
-    <div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);">Payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (price || 0.5)).toFixed(2)} YES</span> · Max: <span id="maxbet-${p.id}">${maxBet}</span> PRAE</div>
-    ${positionValue > 0 ? `<div style="margin-top:4px;font-size:.7rem;color:var(--accent);">💎 Position: ~${positionValue.toFixed(2)} PRAE</div>` : ''}
-    <div style="margin-top:4px;font-size:.65rem;color:var(--text-muted);">Fee: 0.5% · Resolves within 24h</div>`;
+    <input type="number" class="buy-amount" id="amount-${p.id}" value="${CONFIG.MIN_BET}" min="${CONFIG.MIN_BET}" step="1" inputmode="numeric" style="width:80px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:40px;padding:8px 12px;color:var(--text);text-align:center;" aria-label="Bet amount">
+    <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes" style="font-size:.75rem;">Buy YES</button>
+    <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no" style="font-size:.75rem;background:rgba(239,68,68,0.8);">Buy NO</button></div>
+    <div style="display:flex;gap:4px;margin-top:6px;justify-content:center;">
+    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="7" style="font-size:.6rem;padding:3px 10px;border-radius:16px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">7 PRAE</button>
+    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="20" style="font-size:.6rem;padding:3px 10px;border-radius:16px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">20 PRAE</button>
+    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="50" style="font-size:.6rem;padding:3px 10px;border-radius:16px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">50 PRAE</button></div>
+    <div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);text-align:center;">Payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (price || 0.5)).toFixed(2)} YES</span> · Max: <span id="maxbet-${p.id}">${maxBet}</span> PRAE</div>
+    ${positionValue > 0 ? `<div style="margin-top:4px;font-size:.7rem;color:var(--accent);text-align:center;">💎 Position: ~${positionValue.toFixed(2)} PRAE</div>` : ''}
+    <div style="margin-top:4px;font-size:.6rem;color:var(--text-muted);text-align:center;">Fee: 0.5% · Resolves within 24h</div>`;
 }
 
 function renderReactionBar(p) {
@@ -225,7 +215,7 @@ function renderRecentWinners() {
 }
 
 // ============================================================
-// Bet List with Pagination
+// Bet List with Pagination + Copy Trade
 // ============================================================
 
 function renderBetList(p) {
@@ -236,7 +226,7 @@ function renderBetList(p) {
     const totalAmount = sortedBets.reduce((s, b) => s + (b.amount || 0), 0);
     const uniqueBettors = new Set(sortedBets.map(b => b.user)).size;
     let html = `<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);"><div style="display:flex; gap:12px; font-size:.7rem; color:var(--text-muted); margin-bottom:6px;"><span>💰 ${totalAmount} PRAE bet</span><span>👥 ${uniqueBettors} bettors</span><span>📊 ${sortedBets.length} total bets</span></div><div style="max-height:${betLimit * 32}px; overflow-y:auto; margin-bottom:4px;">`;
-    visibleBets.forEach(b => { const userShort = (b.user || '???').slice(0, 6) + '...'; const timeStr = b.time ? timeAgo(new Date(b.time).toISOString()) : ''; const isWin = p.status === 'resolved' && b.outcome === p.resolved_outcome; const betColor = isWin ? 'var(--success-color)' : p.status === 'resolved' ? 'var(--error-color)' : 'var(--accent)'; html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:.65rem; padding:2px 0; color:var(--text-muted);"><span>${userShort} · <span style="color:${betColor};">${(b.outcome || '?').toUpperCase()}</span></span><span style="display:flex; gap:8px;"><span style="color:var(--accent);">${b.amount || 0} PRAE</span>${timeStr ? `<span style="font-size:.6rem;">${timeStr}</span>` : ''}</span></div>`; });
+    visibleBets.forEach(b => { const userShort = (b.user || '???').slice(0, 6) + '...'; const timeStr = b.time ? timeAgo(new Date(b.time).toISOString()) : ''; const isWin = p.status === 'resolved' && b.outcome === p.resolved_outcome; const betColor = isWin ? 'var(--success-color)' : p.status === 'resolved' ? 'var(--error-color)' : 'var(--accent)'; html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:.65rem; padding:2px 0; color:var(--text-muted);"><span>${userShort} · <span style="color:${betColor};">${(b.outcome || '?').toUpperCase()}</span></span><span style="display:flex; gap:8px;align-items:center;"><span style="color:var(--accent);">${b.amount || 0} PRAE</span>${timeStr ? `<span style="font-size:.6rem;">${timeStr}</span>` : ''}<button onclick="event.stopPropagation();copyTrade('${p.id}','${b.outcome}','${b.amount || CONFIG.MIN_BET}')" title="Copy trade" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:0 4px;cursor:pointer;font-size:.55rem;">📋</button></span></div>`; });
     html += `</div>`;
     if (hasMore) html += `<button onclick="showMoreBets('${p.id}')" style="width:100%; padding:4px; background:var(--accent-glow); border:1px solid var(--accent); border-radius:12px; color:var(--accent); cursor:pointer; font-size:.65rem;">👁️ Show all ${sortedBets.length} bets</button>`;
     if (betLimit > BETS_PER_CARD) html += `<button onclick="showLessBets('${p.id}')" style="width:100%; padding:4px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:.6rem; margin-top:2px;">Show less</button>`;
