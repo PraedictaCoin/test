@@ -27,7 +27,6 @@ function cacheDOM() {
     DOM.totalPraedicts = document.getElementById('totalPraedicts');
     DOM.totalSeerscore = document.getElementById('totalSeerscore');
     DOM.totalVolume = document.getElementById('totalVolume');
-    DOM.crowdYes = document.getElementById('crowdYes');
     DOM.filterSearch = document.getElementById('filterSearch');
     DOM.filterCategory = document.getElementById('filterCategory');
     DOM.connectBtn = document.getElementById('connectBtn');
@@ -64,10 +63,7 @@ function cacheDOM() {
     DOM.dailyDigest = document.getElementById('dailyDigest');
     DOM.hallOfFameList = document.getElementById('hallOfFameList');
     DOM.freezeTimer = document.getElementById('freezeTimer');
-    DOM.oracleQuestion = document.getElementById('oracleQuestion');
-    DOM.askOracleBtn = document.getElementById('askOracleBtn');
-    DOM.oracleAnswer = document.getElementById('oracleAnswer');
-    DOM.oracleLimit = document.getElementById('oracleLimit');
+    DOM.oracleBtn = document.getElementById('oracleBtn');
     DOM.resolvedContainer = document.getElementById('resolvedContainer');
     DOM.expiredContainer = document.getElementById('expiredContainer');
     DOM.hottestCategory = document.getElementById('hottestCategory');
@@ -82,7 +78,6 @@ function cacheDOM() {
     DOM.creatorBetDisplay = document.getElementById('creatorBetDisplay');
     DOM.emailInput = document.getElementById('emailInput');
     DOM.quickWeather = document.getElementById('quickWeather');
-    DOM.weatherCity = document.getElementById('weatherCity');
     DOM.skeletonContainer = document.getElementById('skeletonContainer');
     DOM.activityFeed = document.getElementById('activityFeed');
     DOM.recentWinners = document.getElementById('recentWinners');
@@ -90,6 +85,33 @@ function cacheDOM() {
     DOM.totalUsers = document.getElementById('totalUsers');
     DOM.dailyChallenge = document.getElementById('dailyChallenge');
     DOM.progressBars = document.getElementById('progressBars');
-
+    DOM.adminTabBtn = document.getElementById('adminTabBtn');
+    DOM.adminDashboard = document.getElementById('adminDashboard');
+    DOM.emailVerifySection = document.getElementById('emailVerifySection');
+    DOM.emailVerifyCode = document.getElementById('emailVerifyCode');
+    DOM.verifyEmailBtn = document.getElementById('verifyEmailBtn');
+    DOM.sendVerifyEmailBtn = document.getElementById('sendVerifyEmailBtn');
+    DOM.notifResolved = document.getElementById('notifResolved');
+    DOM.notifWon = document.getElementById('notifWon');
+    DOM.notifStreak = document.getElementById('notifStreak');
+    DOM.notifLeaderboard = document.getElementById('notifLeaderboard');
+    DOM.notifSound = document.getElementById('notifSound');
+    DOM.exportAnalyticsBtn = document.getElementById('exportAnalyticsBtn');
+    DOM.totalSeerscore = document.getElementById('totalSeerscore');
+DOM.leaderboardCategoryFilter = document.getElementById('leaderboardCategoryFilter');
+DOM.streakCalendar = document.getElementById('streakCalendar');
+DOM.showPortfolioBtn = document.getElementById('showPortfolioBtn');
+DOM.portfolioView = document.getElementById('portfolioView');
+DOM.showRecapBtn = document.getElementById('showRecapBtn');
+DOM.send2FACodeBtn = document.getElementById('send2FACodeBtn');
+DOM.notifCenterBtn = document.getElementById('notifCenterBtn');
+DOM.notifBadge = document.getElementById('notifBadge');
+DOM.notifCenter = document.getElementById('notifCenter');
+DOM.notifList = document.getElementById('notifList');
+DOM.quickStartWidget = document.getElementById('quickStartWidget');
+DOM.liveCounter = document.getElementById('liveCounter');
+DOM.avatarFileInput = document.getElementById('avatarFileInput');
+DOM.avatarPreview = document.getElementById('avatarPreview');
+DOM.avatarPreviewImg = document.getElementById('avatarPreviewImg');
 }
 cacheDOM();

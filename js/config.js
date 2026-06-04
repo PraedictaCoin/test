@@ -38,6 +38,3 @@ const HYPE_MESSAGES = ["🔥 The crowd is heating up!","👁️ A new Seer rises
 const ORACLE_ANSWERS = ["The stars say... yes.","The veil is unclear. Ask again tomorrow.","A definite no awaits.","The Oracle sees great potential.","Beware - the path is treacherous.","The answer lies within you.","Signs point to a glorious yes.","The future is murky on this one.","All signs align – absolutely yes.","The Oracle remains silent on this matter."];
 const STREAK_STORIES = { 0:"Begin your journey, Seer...", 1:"Day 1: The Oracle watches.", 3:"Day 3: Your vision grows clearer.", 7:"Day 7: The Oracle smiles upon you. 🎁 Gift unlocked!", 14:"Day 14: A true Prophet emerges!", 30:"Day 30: Legendary status approaches...", 60:"Day 60: You are one with the Oracle.", 100:"Day 100: Immortalized in the Hall of Fame." };
 const PROPHET_TITLES = [{ min:1000, title:'Oracle', emoji:'🦉' },{ min:500, title:'Prophet', emoji:'🔮' },{ min:250, title:'High Seer', emoji:'👁️‍🗨️' },{ min:100, title:'Seer', emoji:'👁️' },{ min:25, title:'Acolyte', emoji:'📿' },{ min:0, title:'Novice', emoji:'🌱' }];
-
-// SQL reminder for referral system
-// ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by TEXT;

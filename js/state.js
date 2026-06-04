@@ -6,7 +6,7 @@ let walletAddress = null;
 let walletPublicKey = null;
 let currentPredictions = [];
 let actionCooldown = false;
-let currentFilter = { category: 'all', status: 'active', search: '' };
+let currentFilter = { category: 'all', status: 'active', search: '', sort: 'newest', tags: [] };
 let sessionHoroscopeCache = {};
 let leaderboardPeriod = 'all';
 let searchDebounce;
@@ -20,6 +20,19 @@ let blindVotingEnabled = false;
 let creatorBetOutcome = null;
 let predictionsOffset = 0;
 const PREDICTIONS_PER_PAGE = 50;
+let betDisplayLimits = {};
+const BETS_PER_CARD = 5;
+let expandedCards = {};
+let showOrderBook = {};  
 
-// Analytics tracking
 let analyticsData = { bets: 0, creations: 0, flips: 0 };
+let surpriseDropAvailable = false;
+let lastSurpriseCheck = null;
+let onlineUsers = 0;
+let recentBetsCount = 0;
+let portfolioCache = null;
+let portfolioCacheTime = 0;
+
+let notifications = [];
+let unreadNotifs = 0;
+const MAX_NOTIFS = 50;

@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Rendering Functions (render.js) - FINAL
+// PRAEDICTA – Rendering Functions (render.js) - FINAL v11
 // ============================================================
 
 function renderPraedictions() {
@@ -16,6 +16,10 @@ function renderPraedictions() {
         return true;
     });
 
+    if (currentFilter.minVolume > 0) { filtered = filtered.filter(p => (p.bets || []).reduce((s, b) => s + (b.amount || 0), 0) >= currentFilter.minVolume); }
+    if (currentFilter.maxVolume && currentFilter.maxVolume < Infinity && currentFilter.maxVolume > 0) { filtered = filtered.filter(p => (p.bets || []).reduce((s, b) => s + (b.amount || 0), 0) <= currentFilter.maxVolume); }
+    if (currentFilter.tags && currentFilter.tags.length > 0) { const tagMap = { crypto: ['crypto', 'finance'], stocks: ['stocks', 'finance'], weather: ['weather'], sports: ['sports'] }; filtered = filtered.filter(p => currentFilter.tags.some(tag => (tagMap[tag] || [tag]).includes(p.category))); }
+    filtered = sortPredictions(filtered, currentFilter.sort || 'newest');
     if (currentFilter.status === 'ending-soon') { filtered.sort((a, b) => new Date(a.resolution_date) - new Date(b.resolution_date)); }
 
     if (currentPredictions.length === 0 && currentFilter.status === 'active' && currentFilter.category === 'all' && !currentFilter.search) {
@@ -59,12 +63,12 @@ function renderPraedictions() {
 
     if (blindVotingEnabled) { applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); }
     setTimeout(updateCountdowns, 100);
-    renderActivityFeed();
-    renderRecentWinners();
+    renderActivityFeed(); renderRecentWinners();
 }
 
 function renderPredictionCard(p, isOracle) {
     const active = p.status === 'active';
+    const isExpanded = expandedCards[p.id] || false;
     const market = getMarket(p.id);
     const yesPrice = getYesPrice(market);
     const noPrice = 1 - yesPrice;
@@ -73,39 +77,69 @@ function renderPredictionCard(p, isOracle) {
     const isCreator = p.creator === walletAddress;
     const myBet = walletAddress ? (p.bets || []).find(b => b.user === walletAddress) : null;
     const hasExternalBets = (p.bets || []).filter(b => b.user !== walletAddress).length > 0;
-
     const badgeClass = p.status === 'resolved' ? (p.unresolvable ? 'badge-expired' : 'badge-resolved') : p.status === 'expired' ? 'badge-expired' : 'badge-active';
     const badgeText = p.unresolvable ? 'UNRESOLVABLE' : p.status.toUpperCase();
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
-    const displayCat = p.category;
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
 
-    return `<div class="praediction-card ${controversy && controversy.class === 'badge-controversy' ? 'controversy' : ''}">
-    ${isCreator && active && !hasExternalBets ? `<button class="edit-prediction-btn" data-id="${p.id}" style="position:absolute;top:12px;right:12px;background:transparent;border:none;cursor:pointer;font-size:.8rem;z-index:10;" title="Edit">✏️</button>` : ''}
+    // COMPACT MODE
+    if (!isExpanded) {
+        return `<div class="praediction-card" style="cursor:pointer;" onclick="toggleCardExpand('${p.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+        <div class="praediction-title" style="font-size:1rem;">${escapeHtml(p.title).slice(0, 60)}${p.title.length > 60 ? '...' : ''}</div>
+        <div class="meta-row" style="margin-bottom:4px;">
+        <span>${catIcon} ${p.category}</span><span class="badge ${badgeClass}">${badgeText}</span>
+        ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
+        ${myBet ? `<span style="color:var(--accent);">🎯 ${myBet.outcome?.toUpperCase()} ${myBet.amount}P</span>` : ''}
+        </div></div><span style="font-size:1.2rem;color:var(--text-muted);margin-left:8px;">▶</span></div>
+        ${active ? renderVoteStats(yesPrice, noPrice) : ''}
+        ${active && !isCreator ? `<div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes" style="font-size:.7rem;padding:6px 12px;" onclick="event.stopPropagation();">Buy YES</button><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no" style="font-size:.7rem;padding:6px 12px;background:rgba(239,68,68,0.8);" onclick="event.stopPropagation();">Buy NO</button></div>` : ''}
+        ${active && isCreator ? '<div style="text-align:center;padding:4px;color:var(--text-muted);font-size:.7rem;">You staked on this</div>' : ''}
+        ${!active ? `<div style="text-align:center;margin-top:8px;font-size:.8rem;color:var(--accent);">${p.unresolvable ? '🚫 UNRESOLVABLE' : `RESOLVED: ${p.resolved_outcome?.toUpperCase()}`}</div>` : ''}
+        </div>`;
+    }
+
+    // EXPANDED MODE
+    return `<div class="praediction-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+    <span style="font-size:.7rem;color:var(--text-muted);cursor:pointer;" onclick="toggleCardExpand('${p.id}')">▶ Compact</span>
+    ${isCreator && active && !hasExternalBets ? `<button class="edit-prediction-btn" data-id="${p.id}" style="background:transparent;border:none;cursor:pointer;font-size:.8rem;" title="Edit">✏️</button>` : ''}
+    </div>
     <div class="praediction-title">${escapeHtml(p.title)}</div>
-    <div class="praediction-desc">${escapeHtml(p.description)}</div>
+    <div class="praediction-desc">${escapeHtml(p.description || '')}</div>
     <div class="meta-row">
-    <span>${catIcon} ${displayCat}</span><span>📅 ${deadline}</span>
+    <span>${catIcon} ${p.category}</span><span>📅 ${deadline}</span>
     <span class="badge ${badgeClass}">${badgeText}</span>
     ${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}
     ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
     <span style="font-size:.6rem;color:var(--text-muted);">${timeAgo(p.created_at)}</span>
     </div>
-    ${myBet ? `<div style="font-size:.7rem;margin-bottom:4px;color:var(--accent);">🎯 You bet ${myBet.outcome?.toUpperCase() || '?'} · ${myBet.amount || '?'} PRAE <button onclick="navigator.clipboard.writeText('I just bet ${myBet.amount} PRAE on ${myBet.outcome?.toUpperCase()} for: ${escapeHtml(p.title).replace(/'/g, "\\'")} ${window.location.origin}/test/#pred-${p.id}')" style="background:transparent;border:none;cursor:pointer;font-size:.7rem;" title="Share bet">📤</button></div>` : ''}
+    ${myBet ? `<div style="font-size:.7rem;margin-bottom:4px;color:var(--accent);">🎯 You bet ${myBet.outcome?.toUpperCase() || '?'} · ${myBet.amount || '?'} PRAE</div>` : ''}
     ${isCreator && active ? `<div style="font-size:.65rem;color:var(--oracle-color);margin-bottom:4px;">🏆 Earn 10 SeerScore when resolved</div>` : ''}
     ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
     ${renderResolutionInfo(p)}
-    ${active ? renderPriceChart(market, p.id) : ''}
-    ${!active ? renderVoteStats(yesPrice, noPrice) : ''}${active ? renderVoteStats(yesPrice, noPrice) : ''}
-    ${p.bets && p.bets.length > 0 ? `<div style="margin-top:8px; font-size:.7rem; color:var(--text-muted); display:flex; gap:12px; padding-top:4px; border-top:1px solid var(--border);"><span>💰 ${p.bets.reduce((s,b) => s + (b.amount||0), 0)} PRAE bet</span><span>👥 ${new Set((p.bets||[]).map(b => b.user)).size} bettors</span></div>` : ''}
+    ${active ? renderOracleInsight(p) : ''}
+    ${active ? renderAdvancedChart(market, p.id) : ''}
+    ${active ? renderVoteStats(yesPrice, noPrice) : renderVoteStats(yesPrice, noPrice)}
+    ${active ? `<div style="margin-top:8px;text-align:center;">
+    <button onclick="toggleOrderBook('${p.id}')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:6px 16px;border-radius:20px;cursor:pointer;font-size:.7rem;">
+        ${showOrderBook[p.id] ? '📊 Hide Order Book' : '📊 View Order Book'}
+    </button>
+</div>` : ''}
+${active && showOrderBook[p.id] ? renderOrderBook(p) : ''}
+    
+    ${p.bets && p.bets.length > 0 ? renderBetList(p) : ''}
     ${active && !isCreator ? renderActiveActions(p, yesPrice) : active && isCreator ? '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:.8rem;">You staked on this prediction</div>' : ''}
     ${!active ? renderResolvedStatus(p) : ''}
     ${p.source_url ? `<div style="font-size:.7rem;margin-top:4px;">📎 <a href="${escapeHtml(p.source_url)}" target="_blank" rel="noopener" style="color:var(--accent);">Verification Source</a></div>` : (!active && !p.auto_source ? '<div style="font-size:.7rem;color:#FF8888;">⚠️ No source provided</div>' : '')}
     ${canResolve ? renderOracleResolveButtons(p) : ''}
-    ${!active ? renderReactionBar(p) : active ? renderReactionBar(p) : ''}
+    ${renderReactionBar(p)}
     </div>`;
 }
+
+function toggleCardExpand(id) { expandedCards[id] = !expandedCards[id]; renderPraedictions(); }
 
 function renderResolutionInfo(p) {
     const src = p.auto_source || ''; const target = p.target_value || '';
@@ -143,24 +177,19 @@ function renderResolutionInfo(p) {
 function renderVoteStats(yesPrice, noPrice) { return `<div class="vote-stats"><span>✅ YES: <span class="price-highlight">${yesPrice.toFixed(4)}</span> PRAE</span><span>❌ NO: <span class="price-highlight">${noPrice.toFixed(4)}</span> PRAE</span><span title="Order book market price" style="cursor:help;font-size:.65rem;">ℹ️</span></div>`; }
 
 function renderActiveActions(p, yesPrice) {
-    const market = getMarket(p.id);
-    const price = getYesPrice(market);
+    const market = getMarket(p.id); const price = getYesPrice(market);
     const maxBet = getMaxBet(userPRAEBalance, price);
     const positionValue = walletAddress ? getPositionValue(p.id, walletAddress) : 0;
     return `<div class="action-buttons">
     <input type="number" class="buy-amount" id="amount-${p.id}" value="${CONFIG.MIN_BET}" min="${CONFIG.MIN_BET}" step="1" inputmode="numeric" style="width:70px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:40px;padding:8px;color:var(--text);" aria-label="Bet amount">
     <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes"><span>Buy YES</span><span class="loader" style="display:none;"></span></button>
     <button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no"><span>Buy NO</span><span class="loader" style="display:none;"></span></button>
-    <button class="btn-suggest oracle-decide" data-id="${p.id}"><span>🦉 Oracle</span></button>
-    </div>
+    <button class="btn-suggest oracle-decide" data-id="${p.id}"><span>🦉 Oracle</span></button></div>
     <div style="display:flex;gap:4px;margin-top:4px;">
     <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="7" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">7 PRAE</button>
     <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="20" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">20 PRAE</button>
-    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="50" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">50 PRAE</button>
-    </div>
-    <div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);">
-    Payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (price || 0.5)).toFixed(2)} YES</span> · Max: <span id="maxbet-${p.id}">${maxBet}</span> PRAE
-    </div>
+    <button class="quick-bet-btn" data-id="${p.id}" data-outcome="yes" data-amount="50" style="font-size:.65rem;padding:2px 8px;border-radius:20px;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);cursor:pointer;">50 PRAE</button></div>
+    <div style="margin-top:8px;font-size:.7rem;color:var(--text-muted);">Payout: <span id="payout-${p.id}">${(CONFIG.MIN_BET / (price || 0.5)).toFixed(2)} YES</span> · Max: <span id="maxbet-${p.id}">${maxBet}</span> PRAE</div>
     ${positionValue > 0 ? `<div style="margin-top:4px;font-size:.7rem;color:var(--accent);">💎 Position: ~${positionValue.toFixed(2)} PRAE</div>` : ''}
     <div style="margin-top:4px;font-size:.65rem;color:var(--text-muted);">Fee: 0.5% · Resolves within 24h</div>`;
 }
@@ -174,53 +203,45 @@ function renderResolvedStatus(p) { const t = p.unresolvable ? '🚫 UNRESOLVABLE
 
 function renderOracleResolveButtons(p) {
     const disputeCount = p.disputes ? p.disputes.length : 0;
-    return `<div style="margin-top:12px;display:flex;gap:8px;">
-    <button class="oracle-resolve" data-id="${p.id}" data-outcome="yes">✅ YES</button>
-    <button class="oracle-resolve" data-id="${p.id}" data-outcome="no">❌ NO</button>
-    <button class="oracle-resolve" data-id="${p.id}" data-outcome="unresolvable" style="background:#FF4444;">🚫 Unresolvable</button>
-    </div>
-    ${p.status === 'resolved' && !p.unresolvable ? `<div style="margin-top:8px;text-align:center;font-size:.7rem;"><button class="dispute-btn" data-id="${p.id}" style="background:transparent;border:1px solid var(--oracle-color);color:var(--oracle-color);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;">⚠️ Dispute (${disputeCount})</button></div>` : ''}`;
+    return `<div style="margin-top:12px;display:flex;gap:8px;"><button class="oracle-resolve" data-id="${p.id}" data-outcome="yes">✅ YES</button><button class="oracle-resolve" data-id="${p.id}" data-outcome="no">❌ NO</button><button class="oracle-resolve" data-id="${p.id}" data-outcome="unresolvable" style="background:#FF4444;">🚫 Unresolvable</button></div>${p.status === 'resolved' && !p.unresolvable ? `<div style="margin-top:8px;text-align:center;font-size:.7rem;"><button class="dispute-btn" data-id="${p.id}" style="background:transparent;border:1px solid var(--oracle-color);color:var(--oracle-color);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;">⚠️ Dispute (${disputeCount})</button></div>` : ''}`;
 }
 
 function renderActivityFeed() {
     if (!DOM.activityFeed) return;
-    const recent = []; const now = Date.now();
-    currentPredictions.forEach(p => { (p.bets || []).forEach(b => { recent.push({ time: now - Math.random() * 3600000, text: `💰 Someone bet ${b.amount} PRAE on ${b.outcome.toUpperCase()} for "${p.title.slice(0, 30)}..."`, type: 'bet' }); }); });
-    currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at).forEach(p => { recent.push({ time: new Date(p.resolved_at).getTime(), text: `✅ "${p.title.slice(0, 40)}..." resolved ${p.resolved_outcome === 'yes' ? 'YES' : 'NO'}`, type: 'resolve' }); });
-    currentPredictions.filter(p => p.created_at).forEach(p => { recent.push({ time: new Date(p.created_at).getTime(), text: `🆕 "${p.title.slice(0, 40)}..."`, type: 'create' }); });
+    const recent = [];
+    currentPredictions.forEach(p => { (p.bets || []).forEach(b => { recent.push({ time: b.time || p.created_at || Date.now(), text: `💰 ${(b.user || '').slice(0, 6)}... bet ${b.amount || '?'} PRAE on ${(b.outcome || '?').toUpperCase()} for "${(p.title || '').slice(0, 30)}..."`, type: 'bet' }); }); });
+    currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at).forEach(p => { recent.push({ time: new Date(p.resolved_at).getTime(), text: `✅ "${(p.title || '').slice(0, 40)}..." resolved ${p.resolved_outcome === 'yes' ? 'YES' : 'NO'}${p.unresolvable ? ' (UNRESOLVABLE)' : ''}`, type: 'resolve' }); });
+    currentPredictions.filter(p => p.created_at).forEach(p => { recent.push({ time: new Date(p.created_at).getTime(), text: `🆕 ${(p.creator || '').slice(0, 6)}... created "${(p.title || '').slice(0, 40)}..."`, type: 'create' }); });
     recent.sort((a, b) => b.time - a.time);
-    DOM.activityFeed.innerHTML = recent.slice(0, 10).length > 0 ? '<h4 style="color:var(--accent);margin-bottom:8px;">📡 Live Activity</h4>' + recent.slice(0, 10).map(r => `<div style="font-size:.75rem;padding:4px 0;color:var(--text-muted);border-bottom:1px solid var(--border);">${r.text}</div>`).join('') : '';
+    const displayItems = recent.slice(0, 20);
+    DOM.activityFeed.innerHTML = displayItems.length > 0 ? '<h4 style="color:var(--accent);margin-bottom:8px;">📡 Live Activity</h4>' + displayItems.map(r => `<div style="font-size:.75rem;padding:6px 0;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><span style="flex:1;">${r.text}</span><span style="font-size:.65rem;color:var(--text-muted);margin-left:8px;white-space:nowrap;">${timeAgo(new Date(r.time).toISOString())}</span></div>`).join('') : '<div style="text-align:center;padding:12px;color:var(--text-muted);">No activity yet. Be the first!</div>';
 }
 
 function renderRecentWinners() {
     if (!DOM.recentWinners) return;
     const resolved = currentPredictions.filter(p => p.status === 'resolved' && !p.unresolvable && p.resolved_at).sort((a, b) => new Date(b.resolved_at) - new Date(a.resolved_at)).slice(0, 5);
     if (resolved.length === 0) return;
-    DOM.recentWinners.innerHTML = '<h4 style="color:var(--accent);margin-bottom:8px;">🏆 Recent Winners</h4>' + resolved.map(p => {
-        const w = p.resolved_outcome === 'yes' ? 'YES' : 'NO';
-        const top = ((p.bets || []).filter(b => b.outcome === p.resolved_outcome).sort((a, b) => b.amount - a.amount)[0] || {}).amount || 0;
-        return `<div style="font-size:.75rem;padding:4px 0;color:var(--accent);border-bottom:1px solid var(--border);">🏆 ${escapeHtml(p.title.slice(0, 35))}... ${w}${top ? `<span style="color:var(--text-muted);">· ${top} PRAE won</span>` : ''}</div>`;
-    }).join('');
+    DOM.recentWinners.innerHTML = '<h4 style="color:var(--accent);margin-bottom:8px;">🏆 Recent Winners</h4>' + resolved.map(p => { const w = p.resolved_outcome === 'yes' ? 'YES' : 'NO'; const top = ((p.bets || []).filter(b => b.outcome === p.resolved_outcome).sort((a, b) => b.amount - a.amount)[0] || {}).amount || 0; return `<div style="font-size:.75rem;padding:4px 0;color:var(--accent);border-bottom:1px solid var(--border);">🏆 ${escapeHtml(p.title.slice(0, 35))}... ${w}${top ? `<span style="color:var(--text-muted);">· ${top} PRAE won</span>` : ''}</div>`; }).join('');
 }
 
-function renderPriceChart(market, id) {
-    const history = market.priceHistory;
-    if (!history || history.length < 2) return '';
-    const data = history.slice(-20);
-    const max = Math.max(...data.map(h => h.price));
-    const min = Math.min(...data.map(h => h.price));
-    const range = max - min || 0.01;
-    const height = 40;
-    const width = data.length * 8;
-    const points = data.map((h, i) => { const x = i * 8; const y = height - ((h.price - min) / range) * height; return `${x},${y}`; }).join(' ');
-    const change = data.length >= 2 ? data[data.length - 1].price - data[0].price : 0;
-    const changeColor = change > 0 ? 'var(--success-color)' : change < 0 ? 'var(--error-color)' : 'var(--text-muted)';
-    const changeIcon = change > 0 ? '📈' : change < 0 ? '📉' : '➡️';
-    return `<div style="margin-top:8px; padding:8px; background:var(--card-bg); border-radius:8px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-    <span style="font-size:.7rem; color:var(--text-muted);">Price History</span>
-    <span style="font-size:.7rem; color:${changeColor};">${changeIcon} ${change > 0 ? '+' : ''}${change.toFixed(4)}</span>
-    </div>
-    <svg width="${width}" height="${height}" style="display:block;"><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/></svg>
-    </div>`;
+// ============================================================
+// Bet List with Pagination
+// ============================================================
+
+function renderBetList(p) {
+    const betLimit = betDisplayLimits[p.id] || BETS_PER_CARD;
+    const sortedBets = (p.bets || []).sort((a, b) => (b.time || 0) - (a.time || 0));
+    const visibleBets = sortedBets.slice(0, betLimit);
+    const hasMore = sortedBets.length > betLimit;
+    const totalAmount = sortedBets.reduce((s, b) => s + (b.amount || 0), 0);
+    const uniqueBettors = new Set(sortedBets.map(b => b.user)).size;
+    let html = `<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);"><div style="display:flex; gap:12px; font-size:.7rem; color:var(--text-muted); margin-bottom:6px;"><span>💰 ${totalAmount} PRAE bet</span><span>👥 ${uniqueBettors} bettors</span><span>📊 ${sortedBets.length} total bets</span></div><div style="max-height:${betLimit * 32}px; overflow-y:auto; margin-bottom:4px;">`;
+    visibleBets.forEach(b => { const userShort = (b.user || '???').slice(0, 6) + '...'; const timeStr = b.time ? timeAgo(new Date(b.time).toISOString()) : ''; const isWin = p.status === 'resolved' && b.outcome === p.resolved_outcome; const betColor = isWin ? 'var(--success-color)' : p.status === 'resolved' ? 'var(--error-color)' : 'var(--accent)'; html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:.65rem; padding:2px 0; color:var(--text-muted);"><span>${userShort} · <span style="color:${betColor};">${(b.outcome || '?').toUpperCase()}</span></span><span style="display:flex; gap:8px;"><span style="color:var(--accent);">${b.amount || 0} PRAE</span>${timeStr ? `<span style="font-size:.6rem;">${timeStr}</span>` : ''}</span></div>`; });
+    html += `</div>`;
+    if (hasMore) html += `<button onclick="showMoreBets('${p.id}')" style="width:100%; padding:4px; background:var(--accent-glow); border:1px solid var(--accent); border-radius:12px; color:var(--accent); cursor:pointer; font-size:.65rem;">👁️ Show all ${sortedBets.length} bets</button>`;
+    if (betLimit > BETS_PER_CARD) html += `<button onclick="showLessBets('${p.id}')" style="width:100%; padding:4px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:.6rem; margin-top:2px;">Show less</button>`;
+    html += `</div>`; return html;
 }
+
+function showMoreBets(id) { const p = currentPredictions.find(p => p.id === id); if (!p) return; betDisplayLimits[id] = (p.bets || []).length; renderPraedictions(); }
+function showLessBets(id) { betDisplayLimits[id] = BETS_PER_CARD; renderPraedictions(); }
