@@ -2,77 +2,73 @@
 // PRAEDICTA – Application State
 // ============================================================
 
-let walletAddress = null;
-let walletPublicKey = null;
-let currentPredictions = [];
-let actionCooldown = false;
-let currentFilter = { category: 'all', status: 'active', search: '', sort: 'newest', tags: [] };
-let sessionHoroscopeCache = {};
-let leaderboardPeriod = 'all';
-let searchDebounce;
-let sessionToken = null;
-let sessionExpiresAt = null;
-let userPRAEBalance = CONFIG.DEFAULT_BALANCE;
-let useRealMarket = false;
-let previousLeaderboard = [];
-let blindVotingEnabled = false;
-let creatorBetOutcome = null;
-let predictionsOffset = 0;
-const PREDICTIONS_PER_PAGE = 50;
-let betDisplayLimits = {};
-const BETS_PER_CARD = 5;
-let expandedCards = {};
-let showOrderBook = {};
+var walletAddress = null;
+var walletPublicKey = null;
+var currentPredictions = [];
+var actionCooldown = false;
+var currentFilter = { category: 'all', status: 'active', search: '', sort: 'newest', tags: [] };
+var sessionHoroscopeCache = {};
+var leaderboardPeriod = 'all';
+var searchDebounce;
+var sessionToken = null;
+var sessionExpiresAt = null;
+var userPRAEBalance = (typeof CONFIG !== 'undefined') ? CONFIG.DEFAULT_BALANCE : 1000;
+var useRealMarket = false;
+var previousLeaderboard = [];
+var blindVotingEnabled = false;
+var creatorBetOutcome = null;
+var predictionsOffset = 0;
+var PREDICTIONS_PER_PAGE = 50;
+var betDisplayLimits = {};
+var BETS_PER_CARD = 5;
+var expandedCards = {};
+var showOrderBook = {};
 
-let analyticsData = { bets: 0, creations: 0, flips: 0 };
-let surpriseDropAvailable = false;
-let lastSurpriseCheck = null;
-let onlineUsers = 0;
-let recentBetsCount = 0;
-let portfolioCache = null;
-let portfolioCacheTime = 0;
+var analyticsData = { bets: 0, creations: 0, flips: 0 };
+var onlineUsers = 0;
+var portfolioCache = null;
+var portfolioCacheTime = 0;
 
-let notifications = [];
-let unreadNotifs = 0;
-const MAX_NOTIFS = 50;
+var notifications = [];
+var unreadNotifs = 0;
+var MAX_NOTIFS = 50;
 
-let previousPrices = {};
-let cancelledOrders = [];
-let orderIdempotencyKeys = {};
-let pendingRetries = [];
-let retryInterval = null;
-const MAX_RETRIES = 5;
-const RETRY_BACKOFF = [1000, 2000, 4000, 8000, 16000];
-let balanceVerifiedAt = 0;
-const BALANCE_VERIFY_INTERVAL = 30000;
+var previousPrices = {};
+var cancelledOrders = [];
+var orderIdempotencyKeys = {};
+var pendingRetries = [];
+var retryInterval = null;
+var MAX_RETRIES = 5;
+var RETRY_BACKOFF = [1000, 2000, 4000, 8000, 16000];
+var balanceVerifiedAt = 0;
+var BALANCE_VERIFY_INTERVAL = 30000;
 
-let sessionWarningShown = false;
-let priceAlerts = [];
-let userInventory = {};
-let crossTabChannel = null;
+var sessionWarningShown = false;
+var priceAlerts = [];
+var userInventory = {};
+var crossTabChannel = null;
 
-let consolidatedInterval = null;
-let orderBookCache = {};
-let orderBookCacheTime = {};
-const ORDER_BOOK_CACHE_DURATION = 15000;
-let localStorageDirty = false;
-let lastRenderHash = '';
-let prefetchPromise = null;
-let dailyChallengeCompleted = false;
-let dailyChallengeStreak = 0;
+var consolidatedInterval = null;
+var orderBookCache = {};
+var orderBookCacheTime = {};
+var ORDER_BOOK_CACHE_DURATION = 15000;
+var localStorageDirty = false;
+var lastRenderHash = '';
+var dailyChallengeCompleted = false;
+var dailyChallengeStreak = 0;
 
 try {
-    const savedAlerts = localStorage.getItem('praedicta_price_alerts');
+    var savedAlerts = localStorage.getItem('praedicta_price_alerts');
     if (savedAlerts) priceAlerts = JSON.parse(savedAlerts);
 } catch(e) {}
 try {
-    const savedInventory = localStorage.getItem('praedicta_inventory');
+    var savedInventory = localStorage.getItem('praedicta_inventory');
     if (savedInventory) userInventory = JSON.parse(savedInventory);
 } catch(e) {}
 try {
-    const saved = localStorage.getItem('prae_daily_challenge');
+    var saved = localStorage.getItem('prae_daily_challenge');
     if (saved) {
-        const data = JSON.parse(saved);
+        var data = JSON.parse(saved);
         if (data.date === getUTCDayKey()) {
             dailyChallengeCompleted = data.completed || false;
             dailyChallengeStreak = data.streak || 0;

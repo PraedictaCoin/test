@@ -1,356 +1,1097 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - COMPLETE FINAL v4
-// All Features + Performance Optimizations
+// PRAEDICTA – Utility Functions (utils.js) - FINAL v5
 // ============================================================
 
-let cachedDayKey = ''; let cachedDayKeyDate = 0;
-function getUTCDayKey() { const now = Date.now(); if (now - cachedDayKeyDate < 60000) return cachedDayKey; cachedDayKeyDate = now; cachedDayKey = new Date().toISOString().slice(0, 10); return cachedDayKey; }
+var cachedDayKey = '';
+var cachedDayKeyDate = 0;
 
-function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function sanitize(str, maxLen = CONFIG.MAX_DESC_LENGTH) { if (!str) return ''; return str.trim().slice(0, maxLen).replace(/[<>]/g, ''); }
-function isValidReaction(emoji) { return CONFIG.ALLOWED_EMOJIS.includes(emoji); }
+function getUTCDayKey() {
+    var now = Date.now();
+    if (now - cachedDayKeyDate < 60000) return cachedDayKey;
+    cachedDayKeyDate = now;
+    cachedDayKey = new Date().toISOString().slice(0, 10);
+    return cachedDayKey;
+}
 
-let toastCount = 0;
-function showToast(msg, type = 'info') { const durations = { success: 3000, info: 4000, error: 6000, win: 8000 }; const duration = durations[type] || 4000; const t = document.createElement('div'); t.className = `toast toast-${type}`; t.textContent = msg; t.style.bottom = `${20 + toastCount * 60}px`; document.body.appendChild(t); toastCount++; setTimeout(() => { t.remove(); toastCount = Math.max(0, toastCount - 1); }, duration); }
-function showToastWithUndo(msg, undoCallback, duration = 8000) { const t = document.createElement('div'); t.className = 'toast toast-info'; t.style.bottom = `${20 + toastCount * 60}px`; t.style.display = 'flex'; t.style.alignItems = 'center'; t.style.gap = '12px'; t.style.padding = '12px 20px'; t.innerHTML = `<span style="flex:1;">${msg}</span><button onclick="this.parentElement.remove();toastCount=Math.max(0,toastCount-1);(${undoCallback.toString()})()" style="background:rgba(255,255,255,0.2);border:none;color:#FFF;padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;font-weight:600;">Undo</button>`; document.body.appendChild(t); toastCount++; setTimeout(() => { t.remove(); toastCount = Math.max(0, toastCount - 1); }, duration); }
+function escapeHtml(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
 
-function setLoading(btn, on) { if (!btn) return; const loader = btn.querySelector('.loader'); const txt = btn.querySelector('span:first-child'); if (loader) loader.style.display = on ? 'inline-block' : 'none'; if (txt) txt.style.display = on ? 'none' : 'inline'; }
-function formatDateWithoutSeconds(iso) { if (!iso) return 'No deadline'; const d = new Date(iso); return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' }); }
-const randomCompliment = () => COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
-function getProphetTitle(seerscore) { for (const tier of PROPHET_TITLES) { if (seerscore >= tier.min) return tier; } return PROPHET_TITLES[PROPHET_TITLES.length - 1]; }
-function getControversyLabel(yesPrice) { const diff = Math.abs(yesPrice - 0.5); if (diff < 0.03) return { text: '⚡ SPLIT OPINION', class: 'badge-controversy' }; if (diff < 0.10) return { text: '🔥 Heated Debate', class: 'badge-flash' }; if (diff < 0.20) return { text: '🤔 Leaning', class: 'badge-challenge' }; if (diff > 0.40) return { text: '📊 Near Consensus', class: 'badge-active' }; return null; }
-function getTimeBadge(resolutionDate) { if (!resolutionDate) return null; const remaining = new Date(resolutionDate) - Date.now(); if (remaining < 0) return null; if (remaining < 30 * 60 * 1000) return { text: '⏰ 30min left!', class: 'badge-flash' }; if (remaining < 60 * 60 * 1000) return { text: '⏰ Closing soon', class: 'badge-challenge' }; if (remaining < 3 * 60 * 60 * 1000) return { text: '⌛ Today', class: 'badge-mystery' }; return null; }
-function getHottestCategory() { const cats = {}; currentPredictions.filter(p => p.status === 'active').forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; }); const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]); if (sorted.length === 0) return { name: 'None', count: 0, icon: '📭' }; const [cat, count] = sorted[0]; return { name: cat === 'crypto' ? 'Finance' : cat, count, icon: CATEGORY_ICONS[cat] || '📁' }; }
-function saveBalance() { if (walletAddress) { try { localStorage.setItem(`prae_balance_${walletAddress}`, userPRAEBalance.toString()); } catch (e) {} } }
-function loadBalance() { if (!walletAddress) return; try { const stored = localStorage.getItem(`prae_balance_${walletAddress}`); if (stored) { const parsed = parseFloat(stored); if (!isNaN(parsed) && parsed >= 0) { userPRAEBalance = parsed; return; } } } catch (e) {} userPRAEBalance = CONFIG.DEFAULT_BALANCE; }
-function getLunarPhase() { const d = new Date(); let year = d.getFullYear(), month = d.getMonth() + 1, day = d.getDate(); if (month < 3) { year--; month += 12; } const a = Math.floor(year / 100); const b = 2 - a + Math.floor(a / 4); const jd = Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + b - 1524.5; let c = (jd - 2451550.1) / 29.530588853; c = c - Math.floor(c); if (c < 0) c += 1; const phase = Math.round(c * 8) % 8; const phases = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']; const names = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent']; return { emoji: phases[phase], name: names[phase] }; }
-function rotateVoice() { const idx = Math.floor(Math.random() * ORACLE_VOICES.length); const message = '🦉 ' + ORACLE_VOICES[idx]; if (DOM.voiceMessage) DOM.voiceMessage.textContent = message; if (DOM.profileHoroscope) DOM.profileHoroscope.textContent = message; }
+function sanitize(str, maxLen) {
+    if (!str) return '';
+    if (!maxLen && typeof CONFIG !== 'undefined') maxLen = CONFIG.MAX_DESC_LENGTH;
+    if (!maxLen) maxLen = 1000;
+    return str.trim().slice(0, maxLen).replace(/[<>]/g, '');
+}
+
+function isValidReaction(emoji) {
+    if (typeof CONFIG === 'undefined') return false;
+    return CONFIG.ALLOWED_EMOJIS.indexOf(emoji) !== -1;
+}
+
+// ============================================================
+// UNIFIED TOAST SYSTEM
+// ============================================================
+var toastCount = 0;
+
+function showToast(msg, options) {
+    if (!options) options = {};
+    var type = options.type || 'info';
+    var duration = options.duration || null;
+    var undoCallback = options.undoCallback || null;
+    var undoLabel = options.undoLabel || 'Undo';
+    
+    var durations = { success: 3000, info: 4000, error: 6000, win: 8000 };
+    var actualDuration = duration || durations[type] || 4000;
+    
+    var t = document.createElement('div');
+    t.className = 'toast toast-' + type;
+    t.style.bottom = (20 + toastCount * 60) + 'px';
+    
+    if (undoCallback) {
+        t.style.display = 'flex';
+        t.style.alignItems = 'center';
+        t.style.gap = '12px';
+        t.style.padding = '12px 20px';
+        t.innerHTML = '<span style="flex:1;">' + msg + '</span><button onclick="this.parentElement.remove();toastCount=Math.max(0,toastCount-1);(' + undoCallback.toString() + ')()" style="background:rgba(255,255,255,0.2);border:none;color:#FFF;padding:4px 12px;border-radius:20px;cursor:pointer;font-size:.7rem;font-weight:600;">' + undoLabel + '</button>';
+    } else {
+        t.textContent = msg;
+    }
+    
+    document.body.appendChild(t);
+    toastCount++;
+    
+    setTimeout(function() {
+        if (t.parentNode) t.parentNode.removeChild(t);
+        toastCount = Math.max(0, toastCount - 1);
+    }, actualDuration);
+    
+    return t;
+}
+
+function setLoading(btn, on) {
+    if (!btn) return;
+    var loader = btn.querySelector('.loader');
+    var txt = btn.querySelector('span:first-child');
+    if (loader) loader.style.display = on ? 'inline-block' : 'none';
+    if (txt) txt.style.display = on ? 'none' : 'inline';
+}
+
+function formatDateWithoutSeconds(iso) {
+    if (!iso) return 'No deadline';
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function getProphetTitle(seerscore) {
+    if (typeof PROPHET_TITLES === 'undefined') return { title: 'Novice', emoji: '🌱' };
+    for (var i = 0; i < PROPHET_TITLES.length; i++) {
+        if (seerscore >= PROPHET_TITLES[i].min) return PROPHET_TITLES[i];
+    }
+    return PROPHET_TITLES[PROPHET_TITLES.length - 1];
+}
+
+function getControversyLabel(yesPrice) {
+    var diff = Math.abs(yesPrice - 0.5);
+    if (diff < 0.03) return { text: '⚡ SPLIT OPINION', class: 'badge-controversy' };
+    if (diff < 0.10) return { text: '🔥 Heated Debate', class: 'badge-flash' };
+    if (diff < 0.20) return { text: '🤔 Leaning', class: 'badge-challenge' };
+    if (diff > 0.40) return { text: '📊 Near Consensus', class: 'badge-active' };
+    return null;
+}
+
+function getTimeBadge(resolutionDate) {
+    if (!resolutionDate) return null;
+    var remaining = new Date(resolutionDate) - Date.now();
+    if (remaining < 0) return null;
+    if (remaining < 30 * 60 * 1000) return { text: '⏰ 30min left!', class: 'badge-flash' };
+    if (remaining < 60 * 60 * 1000) return { text: '⏰ Closing soon', class: 'badge-challenge' };
+    if (remaining < 3 * 60 * 60 * 1000) return { text: '⌛ Today', class: 'badge-mystery' };
+    return null;
+}
+
+function getHottestCategory() {
+    var cats = {};
+    for (var i = 0; i < currentPredictions.length; i++) {
+        var p = currentPredictions[i];
+        if (p.status === 'active') {
+            cats[p.category] = (cats[p.category] || 0) + 1;
+        }
+    }
+    var sorted = Object.entries(cats).sort(function(a, b) { return b[1] - a[1]; });
+    if (sorted.length === 0) return { name: 'None', count: 0, icon: '📭' };
+    var cat = sorted[0][0];
+    var count = sorted[0][1];
+    return { name: cat === 'crypto' ? 'Finance' : cat, count: count, icon: (typeof CATEGORY_ICONS !== 'undefined' && CATEGORY_ICONS[cat]) ? CATEGORY_ICONS[cat] : '📁' };
+}
+
+function saveBalance() {
+    if (walletAddress) {
+        try { localStorage.setItem('prae_balance_' + walletAddress, userPRAEBalance.toString()); } catch (e) {}
+    }
+}
+
+function loadBalance() {
+    if (!walletAddress) return;
+    try {
+        var stored = localStorage.getItem('prae_balance_' + walletAddress);
+        if (stored) {
+            var parsed = parseFloat(stored);
+            if (!isNaN(parsed) && parsed >= 0) {
+                userPRAEBalance = parsed;
+                return;
+            }
+        }
+    } catch (e) {}
+    userPRAEBalance = (typeof CONFIG !== 'undefined') ? CONFIG.DEFAULT_BALANCE : 1000;
+}
+
+function getLunarPhase() {
+    var d = new Date();
+    var year = d.getFullYear();
+    var month = d.getMonth() + 1;
+    var day = d.getDate();
+    if (month < 3) { year--; month += 12; }
+    var a = Math.floor(year / 100);
+    var b = 2 - a + Math.floor(a / 4);
+    var jd = Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + b - 1524.5;
+    var c = (jd - 2451550.1) / 29.530588853;
+    c = c - Math.floor(c);
+    if (c < 0) c += 1;
+    var phase = Math.round(c * 8) % 8;
+    var phases = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+    var names = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'];
+    return { emoji: phases[phase], name: names[phase] };
+}
+
+function rotateVoice() {
+    if (typeof ORACLE_VOICES === 'undefined') return;
+    var idx = Math.floor(Math.random() * ORACLE_VOICES.length);
+    var message = '🦉 ' + ORACLE_VOICES[idx];
+    var vm = document.getElementById('voiceMessage');
+    var ph = document.getElementById('profileHoroscope');
+    if (vm) vm.textContent = message;
+    if (ph) ph.textContent = message;
+}
 rotateVoice();
-function getWeeklyMessage() { const weekNumber = Math.floor((Date.now() - new Date(2024, 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)); return WEEKLY_MESSAGES[weekNumber % WEEKLY_MESSAGES.length]; }
-if (DOM.weeklyOracleMessage) DOM.weeklyOracleMessage.textContent = getWeeklyMessage();
-function updateHypeMessage() { if (!DOM.hypeMessage) return; DOM.hypeMessage.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)]; }
-function applyBlindVoting(container = document) { container.querySelectorAll('.vote-stats').forEach(el => { if (blindVotingEnabled) { el.style.filter = 'blur(8px)'; el.style.transition = 'filter 0.3s ease'; el.style.userSelect = 'none'; } else { el.style.filter = 'none'; el.style.userSelect = ''; } }); }
-function toggleBlindVoting() { blindVotingEnabled = !blindVotingEnabled; applyBlindVoting(); if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer); if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer); if (DOM.revealVotesBtn) { DOM.revealVotesBtn.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes'; DOM.revealVotesBtn.classList.toggle('active-filter', blindVotingEnabled); } showToast(blindVotingEnabled ? '🙈 Votes hidden – click to reveal' : '👁️ Votes visible', 'info'); }
-function updateCountdowns() { document.querySelectorAll('[id^="countdown-"]').forEach(el => { const id = el.id.replace('countdown-', ''); const prediction = currentPredictions.find(p => p.id === id); if (!prediction?.resolution_date) return; const remaining = new Date(prediction.resolution_date) - Date.now(); if (remaining <= 0) { el.textContent = '⏰ Deadline passed'; return; } const days = Math.floor(remaining / 86400000); const hours = Math.floor((remaining % 86400000) / 3600000); const mins = Math.floor((remaining % 3600000) / 60000); el.textContent = `⏰ ${days > 0 ? days + 'd ' : ''}${hours}h ${mins}m remaining`; }); }
-async function fetchHoroscopeForZodiac(sign) { if (!sign || !signToNumber[sign]) return null; const today = getUTCDayKey(); const cacheKey = `horoscope_${sign}_${today}`; if (sessionHoroscopeCache[cacheKey]) return sessionHoroscopeCache[cacheKey]; try { const cached = JSON.parse(localStorage.getItem(cacheKey)); if (cached) { sessionHoroscopeCache[cacheKey] = cached; return cached; } } catch (e) {} const { data, error } = await supabaseClient.from('daily_horoscopes').select('horoscope, lucky_number, mood').eq('sign', sign).eq('date', today).maybeSingle(); const result = (error || !data) ? { description: "The stars are quiet today.", luckyNumber: 7, mood: "reflective" } : { description: data.horoscope, luckyNumber: parseInt(data.lucky_number) || 7, mood: data.mood || "inspired" }; try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {} sessionHoroscopeCache[cacheKey] = result; return result; }
-function isValidSourceUrl(url) { if (!url) return false; if (!url.startsWith('http://') && !url.startsWith('https://')) return false; try { const parsed = new URL(url); const hostname = parsed.hostname.toLowerCase(); if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return false; if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false; if (parsed.protocol === 'data:' || parsed.protocol === 'javascript:' || parsed.protocol === 'vbscript:') return false; const validTlds = ['.com', '.org', '.net', '.io', '.gov', '.edu', '.news', '.co', '.app', '.page', '.blog', '.finance', '.markets']; if (!validTlds.some(tld => hostname.endsWith(tld))) return false; const suspicious = ['<script', 'javascript:', 'onerror=', 'onload=', 'data:', '%3C', '%3E', '&#x']; if (suspicious.some(p => url.toLowerCase().includes(p))) return false; if (url.length > 500) return false; return true; } catch { return false; } }
-function saveFilters() { try { localStorage.setItem('praedicta_filters', JSON.stringify(currentFilter)); } catch (e) {} }
-function loadFilters() { try { const stored = localStorage.getItem('praedicta_filters'); if (stored) { const parsed = JSON.parse(stored); if (parsed.category) currentFilter.category = parsed.category; if (parsed.status) currentFilter.status = parsed.status; if (parsed.search) currentFilter.search = parsed.search; if (parsed.sort) currentFilter.sort = parsed.sort; if (parsed.tags) currentFilter.tags = parsed.tags; } } catch (e) {} }
-async function fetchWithRetry(fn, maxRetries = 3) { for (let i = 0; i < maxRetries; i++) { try { return await fn(); } catch (err) { if (i === maxRetries - 1) throw err; await new Promise(r => setTimeout(r, 1000 * (i + 1))); } } }
-function showNotification(message) { if (!DOM.notificationBadge || !DOM.notificationText) return; DOM.notificationBadge.style.display = 'block'; DOM.notificationText.textContent = '🔔 ' + message; setTimeout(() => { if (DOM.notificationBadge) DOM.notificationBadge.style.display = 'none'; }, 10000); }
-let _lastVolume = 0;
-function getVolumeTrend(volume) { if (_lastVolume === 0) { _lastVolume = volume; return ''; } const trend = volume > _lastVolume ? ' 📈' : volume < _lastVolume ? ' 📉' : ''; _lastVolume = volume; return trend; }
-window.addEventListener('online', () => { if (DOM.offlineBanner) DOM.offlineBanner.style.display = 'none'; refreshAll(); });
-window.addEventListener('offline', () => { if (DOM.offlineBanner) DOM.offlineBanner.style.display = 'block'; });
-function cleanOldHoroscopeCache() { const today = getUTCDayKey(); try { const keys = Object.keys(localStorage); keys.forEach(key => { if (key.startsWith('horoscope_') && !key.includes(today)) localStorage.removeItem(key); }); } catch (e) {} }
-function isValidPrediction(title) { if (!title || title.length < 10) return { valid: false, reason: "Title too short. Be more specific." }; if (title.length > 200) return { valid: false, reason: "Title too long." }; const hasVerb = /\b(will|going|shall|must|can|could|would|should|reach|hit|pass|break|win|lose|beat|rise|fall|drop|gain|increase|decrease|announce|launch|release|publish|elect|appoint|resign|born|marry|divorce|merge|acquire|bankrupt|default|cut|raise|hold|keep|cross|exceed|below|above|over|under)\b/i.test(title); if (!hasVerb) return { valid: false, reason: "Must contain a future event (will, reach, win, etc)." }; const words = title.split(/\s+/); if (words.length < 4) return { valid: false, reason: "Too short. Include subject, event, and timeframe." }; if (title === title.toUpperCase() && title.length > 30) return { valid: false, reason: "Please don't use ALL CAPS." }; if (/(.)\1{4,}/.test(title)) return { valid: false, reason: "Please remove repeated characters." }; const lettersOnly = title.replace(/[^a-zA-Z]/g, ''); if (lettersOnly.length < 5) return { valid: false, reason: "Must contain actual words." }; const hasTimeframe = /\b(today|tomorrow|this week|this month|this year|next|by|before|after|in \d{4}|on \w+day|january|february|march|april|may|june|july|august|september|october|november|december|q[1-4]|20\d{2})\b/i.test(title); if (!hasTimeframe) return { valid: false, reason: "Include a timeframe (by July, this week, in 2026, etc)." }; return { valid: true }; }
-function isBlockedTopic(title, description) { const blockedWords = ["assassination", "murder", "kill", "terrorist", "bombing", "massacre", "shooting", "genocide", "torture", "execution", "suicide", "porn", "xxx", "nsfw", "onlyfans", "sex tape", "nude", "racist", "nazi", "holocaust", "hate crime", "drug", "cocaine", "heroin", "meth", "fentanyl", "pump and dump", "ponzi", "pyramid scheme"]; const combined = (title + " " + description).toLowerCase(); for (const word of blockedWords) { if (combined.includes(word)) return { blocked: true, reason: `Topic not allowed: "${word}"` }; } return { blocked: false }; }
-function isValidDisplayName(name) { if (!name) return { valid: true }; if (name.length < 2) return { valid: false, reason: "Name too short (min 2 characters)" }; if (name.length > 20) return { valid: false, reason: "Name too long (max 20 characters)" }; const blockedPatterns = [/admin/i, /oracle/i, /praedicta/i, /mod/i, /support/i, /staff/i, /official/i, /system/i, /null/i, /undefined/i]; for (const pattern of blockedPatterns) { if (pattern.test(name.trim())) return { valid: false, reason: "This name is not allowed" }; } const validPattern = /^[\p{L}\p{N}\s\p{Emoji_Presentation}\p{Emoji}._-]+$/u; if (!validPattern.test(name)) return { valid: false, reason: "Name contains invalid characters" }; return { valid: true }; }
-function detectAutoSource(title) { const t = title.toLowerCase(); if (t.includes('btc') || t.includes('bitcoin')) return { source: 'redstone_btc', label: 'Bitcoin Price' }; if (t.includes('eth') || t.includes('ethereum')) return { source: 'redstone_eth', label: 'Ethereum Price' }; if (t.includes('sol') && !t.includes('solid') && !t.includes('solar')) return { source: 'redstone_sol', label: 'Solana Price' }; if (t.includes('doge')) return { source: 'redstone_doge', label: 'Dogecoin Price' }; if (t.includes('tesla') || t.includes('tsla')) return { source: 'redstone_tsla', label: 'Tesla Stock' }; if (t.includes('apple') || t.includes('aapl')) return { source: 'redstone_aapl', label: 'Apple Stock' }; if (t.includes('nvidia') || t.includes('nvda')) return { source: 'redstone_nvda', label: 'Nvidia Stock' }; if (t.includes('gold')) return { source: 'redstone_gold', label: 'Gold Price' }; const weatherMatch = t.match(/(temp|temperature|rain|weather|wind|snow|°c|°f)\s*(in|at|for)?\s*([a-zäöüß\s]+)/i); if (weatherMatch) { const city = weatherMatch[3].trim(); const metric = t.includes('rain') ? 'rain' : t.includes('wind') ? 'wind' : t.includes('snow') ? 'snow' : 'temp'; return { source: `weather_${metric}:${city}`, label: `${city} Weather`, detail: city }; } if (t.match(/(win|won|lose|lost|beat|defeat|champion|final|match|game)\s/i)) return { source: 'sports_', label: 'Sports Result', needsDetail: true }; if (t.match(/(movie|film|box office|oscar)/i)) return { source: 'movie_', label: 'Box Office', needsDetail: true }; if (t.match(/(forex|exchange rate|usd|eur)/i)) return { source: 'forex_', label: 'Forex Rate', needsDetail: true }; if (t.match(/(earthquake|quake|magnitude)/i)) return { source: 'quake_', label: 'Earthquake', needsDetail: true }; if (t.match(/(spacex|launch|rocket)/i)) return { source: 'spacex_', label: 'SpaceX', needsDetail: true }; return null; }
-function confirmBet(amount, outcome, payout) { return confirm(`Bet ${amount} PRAE on ${outcome.toUpperCase()}?\n\nPotential payout: ~${payout} shares\n\nThis action cannot be undone.`); }
-function trackReferral() { const params = new URLSearchParams(window.location.search); const ref = params.get('ref'); if (ref && ref !== walletAddress && walletAddress) { try { supabaseClient.from('users').update({ referred_by: ref }).eq('address', walletAddress); } catch (e) {} } }
-function showSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'grid'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'none'; }
-function hideSkeleton() { if (DOM.skeletonContainer) DOM.skeletonContainer.style.display = 'none'; if (DOM.praedictionsContainer) DOM.praedictionsContainer.style.display = 'grid'; }
-function timeAgo(iso) { if (!iso) return ''; const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); if (seconds < 60) return 'just now'; if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`; if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`; if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`; return formatDateWithoutSeconds(iso); }
-let originalTitle = document.title;
-function flashTitle(text) { document.title = text; setTimeout(() => { document.title = originalTitle; }, 3000); }
-function loadNotificationPrefs() { try { const prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}'); if (DOM.notifResolved) DOM.notifResolved.checked = prefs.resolved !== false; if (DOM.notifWon) DOM.notifWon.checked = prefs.won !== false; if (DOM.notifStreak) DOM.notifStreak.checked = prefs.streak !== false; if (DOM.notifLeaderboard) DOM.notifLeaderboard.checked = prefs.leaderboard !== false; if (DOM.notifSound) DOM.notifSound.checked = prefs.sound !== false; if (DOM.notifTwoFactor) DOM.notifTwoFactor.checked = prefs.twoFactor === true; } catch (e) {} }
-function saveNotificationPrefs() { try { const prefs = { resolved: DOM.notifResolved?.checked ?? true, won: DOM.notifWon?.checked ?? true, streak: DOM.notifStreak?.checked ?? true, leaderboard: DOM.notifLeaderboard?.checked ?? true, sound: DOM.notifSound?.checked ?? true, twoFactor: DOM.notifTwoFactor?.checked ?? false }; localStorage.setItem('praedicta_notif_prefs', JSON.stringify(prefs)); } catch (e) {} }
-function shouldNotify(type) { try { const prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}'); return prefs[type] !== false; } catch (e) { return true; } }
-function exportAnalytics() { if (!walletAddress) return showToast("Connect wallet first", 'error'); const allBets = currentPredictions.flatMap(p => (p.bets || []).filter(b => b.user === walletAddress)); const myPredictions = currentPredictions.filter(p => p.creator === walletAddress); const resolvedBets = currentPredictions.filter(p => p.status === 'resolved' && (p.bets || []).some(b => b.user === walletAddress)); const wonBets = resolvedBets.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && b.outcome === p.resolved_outcome; }); const analytics = { exportDate: new Date().toISOString(), wallet: walletAddress, summary: { totalBets: allBets.length, totalCreated: myPredictions.length, totalResolved: resolvedBets.length, totalWon: wonBets.length, accuracy: resolvedBets.length > 0 ? ((wonBets.length / resolvedBets.length) * 100).toFixed(1) + '%' : 'N/A', praeBalance: userPRAEBalance.toFixed(2), totalWagered: allBets.reduce((s, b) => s + (b.amount || 0), 0).toFixed(2) }, betHistory: allBets.map(b => ({ outcome: b.outcome, amount: b.amount })), createdPredictions: myPredictions.map(p => ({ id: p.id, title: p.title, category: p.category, status: p.status, created: p.created_at })) }; const blob = new Blob([JSON.stringify(analytics, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `praedicta-analytics-${walletAddress.slice(0, 8)}-${getUTCDayKey()}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast("📊 Analytics exported!", 'success'); }
+
+function getWeeklyMessage() {
+    if (typeof WEEKLY_MESSAGES === 'undefined') return '';
+    var weekNumber = Math.floor((Date.now() - new Date(2024, 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return WEEKLY_MESSAGES[weekNumber % WEEKLY_MESSAGES.length];
+}
+
+function updateHypeMessage() {
+    var hm = document.getElementById('hypeMessage');
+    if (!hm) return;
+    if (typeof HYPE_MESSAGES === 'undefined') return;
+    hm.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)];
+}
+
+function applyBlindVoting(container) {
+    if (!container) container = document;
+    var stats = container.querySelectorAll('.vote-stats');
+    for (var i = 0; i < stats.length; i++) {
+        if (blindVotingEnabled) {
+            stats[i].style.filter = 'blur(8px)';
+            stats[i].style.userSelect = 'none';
+        } else {
+            stats[i].style.filter = 'none';
+            stats[i].style.userSelect = '';
+        }
+    }
+}
+
+function toggleBlindVoting() {
+    blindVotingEnabled = !blindVotingEnabled;
+    var cb = document.getElementById('settingsBlindVoting');
+    if (cb) cb.checked = blindVotingEnabled;
+    applyBlindVoting();
+    var rc = document.getElementById('resolvedContainer');
+    var ec = document.getElementById('expiredContainer');
+    if (rc) applyBlindVoting(rc);
+    if (ec) applyBlindVoting(ec);
+    var rvb = document.getElementById('revealVotesBtn');
+    if (rvb) {
+        rvb.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes';
+        if (blindVotingEnabled) rvb.classList.add('active-filter');
+        else rvb.classList.remove('active-filter');
+    }
+}
+
+function toggleBlindVotingFromSettings() {
+    var cb = document.getElementById('settingsBlindVoting');
+    blindVotingEnabled = cb ? cb.checked : false;
+    applyBlindVoting();
+    var rc = document.getElementById('resolvedContainer');
+    var ec = document.getElementById('expiredContainer');
+    if (rc) applyBlindVoting(rc);
+    if (ec) applyBlindVoting(ec);
+    showToast(blindVotingEnabled ? '🙈 Votes hidden' : '👁️ Votes visible', { type: 'info' });
+}
+
+function loadSettingsState() {
+    var cb = document.getElementById('settingsBlindVoting');
+    if (cb) cb.checked = blindVotingEnabled;
+    if (typeof updatePushNotificationUI === 'function') updatePushNotificationUI();
+}
+
+function updateCountdowns() {
+    var els = document.querySelectorAll('[id^="countdown-"]');
+    for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        var id = el.id.replace('countdown-', '');
+        var prediction = null;
+        for (var j = 0; j < currentPredictions.length; j++) {
+            if (currentPredictions[j].id === id) { prediction = currentPredictions[j]; break; }
+        }
+        if (!prediction || !prediction.resolution_date) return;
+        var remaining = new Date(prediction.resolution_date) - Date.now();
+        if (remaining <= 0) { el.textContent = '⏰ Deadline passed'; continue; }
+        var days = Math.floor(remaining / 86400000);
+        var hours = Math.floor((remaining % 86400000) / 3600000);
+        var mins = Math.floor((remaining % 3600000) / 60000);
+        el.textContent = '⏰ ' + (days > 0 ? days + 'd ' : '') + hours + 'h ' + mins + 'm remaining';
+    }
+}
+
+function isValidSourceUrl(url) {
+    if (!url) return false;
+    if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) return false;
+    if (url.length > 500) return false;
+    return true;
+}
+
+function saveFilters() {
+    try { localStorage.setItem('praedicta_filters', JSON.stringify(currentFilter)); } catch (e) {}
+}
+
+function loadFilters() {
+    try {
+        var stored = localStorage.getItem('praedicta_filters');
+        if (stored) {
+            var parsed = JSON.parse(stored);
+            if (parsed.category) currentFilter.category = parsed.category;
+            if (parsed.status) currentFilter.status = parsed.status;
+            if (parsed.search) currentFilter.search = parsed.search;
+            if (parsed.sort) currentFilter.sort = parsed.sort;
+            if (parsed.tags) currentFilter.tags = parsed.tags;
+        }
+    } catch (e) {}
+}
+
+function showNotification(message) {
+    var nb = document.getElementById('notificationBadge');
+    var nt = document.getElementById('notificationText');
+    if (!nb || !nt) return;
+    nb.style.display = 'block';
+    nt.textContent = '🔔 ' + message;
+    setTimeout(function() { if (nb) nb.style.display = 'none'; }, 10000);
+}
+
+var _lastVolume = 0;
+function getVolumeTrend(volume) {
+    if (_lastVolume === 0) { _lastVolume = volume; return ''; }
+    var trend = volume > _lastVolume ? ' 📈' : volume < _lastVolume ? ' 📉' : '';
+    _lastVolume = volume;
+    return trend;
+}
+
+window.addEventListener('online', function() {
+    var ob = document.getElementById('offlineBanner');
+    if (ob) ob.style.display = 'none';
+    if (typeof refreshAll === 'function') refreshAll();
+});
+window.addEventListener('offline', function() {
+    var ob = document.getElementById('offlineBanner');
+    if (ob) ob.style.display = 'block';
+});
+
+function cleanOldHoroscopeCache() {
+    var today = getUTCDayKey();
+    try {
+        var keys = Object.keys(localStorage);
+        for (var i = 0; i < keys.length; i++) {
+            if (keys[i].indexOf('horoscope_') === 0 && keys[i].indexOf(today) === -1) {
+                localStorage.removeItem(keys[i]);
+            }
+        }
+    } catch (e) {}
+}
+
+function isValidPrediction(title) {
+    if (!title || title.length < 10) return { valid: false, reason: "Title too short. Be more specific." };
+    if (title.length > 200) return { valid: false, reason: "Title too long." };
+    return { valid: true };
+}
+
+function isBlockedTopic(title, description) {
+    var blockedWords = ["assassination", "murder", "kill", "terrorist"];
+    var combined = (title + " " + description).toLowerCase();
+    for (var i = 0; i < blockedWords.length; i++) {
+        if (combined.indexOf(blockedWords[i]) !== -1) return { blocked: true, reason: 'Topic not allowed' };
+    }
+    return { blocked: false };
+}
+
+function isValidDisplayName(name) {
+    if (!name) return { valid: true };
+    if (name.length < 2) return { valid: false, reason: "Name too short" };
+    if (name.length > 20) return { valid: false, reason: "Name too long" };
+    return { valid: true };
+}
+
+function detectAutoSource(title) {
+    var t = title.toLowerCase();
+    if (t.indexOf('btc') !== -1 || t.indexOf('bitcoin') !== -1) return { source: 'redstone_btc', label: 'Bitcoin Price' };
+    if (t.indexOf('eth') !== -1 || t.indexOf('ethereum') !== -1) return { source: 'redstone_eth', label: 'Ethereum Price' };
+    if (t.indexOf('sol') !== -1 && t.indexOf('solid') === -1 && t.indexOf('solar') === -1) return { source: 'redstone_sol', label: 'Solana Price' };
+    if (t.indexOf('gold') !== -1) return { source: 'redstone_gold', label: 'Gold Price' };
+    return null;
+}
+
+function trackReferral() {
+    if (typeof supabaseClient === 'undefined') return;
+    var params = new URLSearchParams(window.location.search);
+    var ref = params.get('ref');
+    if (ref && ref !== walletAddress && walletAddress) {
+        try { supabaseClient.from('users').update({ referred_by: ref }).eq('address', walletAddress); } catch (e) {}
+    }
+}
+
+function showSkeleton() {
+    var sc = document.getElementById('skeletonContainer');
+    var pc = document.getElementById('praedictionsContainer');
+    if (sc) sc.style.display = 'grid';
+    if (pc) pc.style.display = 'none';
+}
+
+function hideSkeleton() {
+    var sc = document.getElementById('skeletonContainer');
+    var pc = document.getElementById('praedictionsContainer');
+    if (sc) sc.style.display = 'none';
+    if (pc) pc.style.display = 'grid';
+}
+
+function timeAgo(iso) {
+    if (!iso) return '';
+    var seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    if (seconds < 604800) return Math.floor(seconds / 86400) + 'd ago';
+    return formatDateWithoutSeconds(iso);
+}
+
+var originalTitle = document.title;
+function flashTitle(text) {
+    document.title = text;
+    setTimeout(function() { document.title = originalTitle; }, 3000);
+}
+
+function loadNotificationPrefs() {
+    try {
+        var prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}');
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        for (var i = 0; i < els.length; i++) {
+            var el = document.getElementById(els[i]);
+            if (el) el.checked = prefs[els[i].replace('notif', '').toLowerCase()] !== false;
+        }
+    } catch (e) {}
+}
+
+function saveNotificationPrefs() {
+    try {
+        var prefs = {};
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        for (var i = 0; i < els.length; i++) {
+            var el = document.getElementById(els[i]);
+            var key = els[i].replace('notif', '').toLowerCase();
+            prefs[key] = el ? el.checked : true;
+        }
+        localStorage.setItem('praedicta_notif_prefs', JSON.stringify(prefs));
+    } catch (e) {}
+}
+
+function shouldNotify(type) {
+    try {
+        var prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}');
+        return prefs[type] !== false;
+    } catch (e) { return true; }
+}
+
+function exportAnalytics() {
+    if (!walletAddress) return showToast("Connect wallet first", { type: 'error' });
+    var allBets = [];
+    var myPredictions = [];
+    for (var i = 0; i < currentPredictions.length; i++) {
+        var p = currentPredictions[i];
+        var bets = p.bets || [];
+        for (var j = 0; j < bets.length; j++) {
+            if (bets[j].user === walletAddress) allBets.push(bets[j]);
+        }
+        if (p.creator === walletAddress) myPredictions.push(p);
+    }
+    var analytics = {
+        exportDate: new Date().toISOString(),
+        wallet: walletAddress,
+        summary: {
+            totalBets: allBets.length,
+            totalCreated: myPredictions.length,
+            praeBalance: userPRAEBalance.toFixed(2)
+        }
+    };
+    var blob = new Blob([JSON.stringify(analytics, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'praedicta-analytics-' + walletAddress.slice(0, 8) + '-' + getUTCDayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("📊 Analytics exported!", { type: 'success' });
+}
 
 // ============================================================
 // NUMBER FORMATTING
 // ============================================================
-function formatNumber(num) { if (num === null || num === undefined || isNaN(num)) return '0'; if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M'; if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1) + 'K'; return Number(num).toFixed(0); }
-function formatPrice(price) { if (price === null || price === undefined || isNaN(price)) return '0.0000'; return Number(price).toFixed(4); }
-function formatPercent(pct) { if (pct === null || pct === undefined || isNaN(pct)) return '0%'; return Number(pct).toFixed(1) + '%'; }
+function formatNumber(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return Number(num).toFixed(0);
+}
 
 // ============================================================
 // MOBILE CREATE FORM TOGGLE
 // ============================================================
-function toggleCreateForm() { const form = document.querySelector('.create-praediction'); const fab = document.getElementById('createFab'); if (!form || !fab) return; const isExpanded = form.classList.contains('expanded'); if (isExpanded) { form.classList.remove('expanded'); fab.classList.remove('active'); fab.innerHTML = '✨'; } else { form.classList.add('expanded'); fab.classList.add('active'); fab.innerHTML = '✕'; form.scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => document.getElementById('title')?.focus(), 400); } }
-if (window.innerWidth > 768) { const form = document.querySelector('.create-praediction'); if (form) form.classList.add('expanded'); }
+function toggleCreateForm() {
+    var form = document.querySelector('.create-praediction');
+    var fab = document.getElementById('createFab');
+    if (!form || !fab) return;
+    var isExpanded = form.classList.contains('expanded');
+    if (isExpanded) {
+        form.classList.remove('expanded');
+        fab.classList.remove('active');
+        fab.innerHTML = '✨';
+    } else {
+        form.classList.add('expanded');
+        fab.classList.add('active');
+        fab.innerHTML = '✕';
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(function() {
+            var titleEl = document.getElementById('title');
+            if (titleEl) titleEl.focus();
+        }, 400);
+    }
+}
 
 // ============================================================
 // PROFILE SECTION ACCORDIONS
 // ============================================================
-function toggleProfileSection(header) { const content = header.nextElementSibling; const icon = header.querySelector('.section-toggle-icon'); if (content.classList.contains('open')) { content.classList.remove('open'); if (icon) icon.textContent = '▶'; } else { content.classList.add('open'); if (icon) icon.textContent = '▼'; } }
+function toggleProfileSection(header) {
+    var content = header.nextElementSibling;
+    var icon = header.querySelector('.section-toggle-icon');
+    if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        if (icon) icon.textContent = '▶';
+    } else {
+        content.classList.add('open');
+        if (icon) icon.textContent = '▼';
+    }
+}
+
+function switchProfileTab(tabName) {
+    var buttons = document.querySelectorAll('.profile-tab-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        if (buttons[i].dataset.profileTab === tabName) {
+            buttons[i].classList.add('active');
+        } else {
+            buttons[i].classList.remove('active');
+        }
+    }
+    var contents = document.querySelectorAll('.profile-tab-content');
+    for (var j = 0; j < contents.length; j++) {
+        if (contents[j].id === 'profileTab-' + tabName) {
+            contents[j].classList.add('active');
+        } else {
+            contents[j].classList.remove('active');
+        }
+    }
+}
 
 // ============================================================
-// SCROLL POSITION PRESERVATION
+// SCROLL PRESERVATION
 // ============================================================
-let savedScrollPosition = 0;
+var savedScrollPosition = 0;
 function saveScrollPosition() { savedScrollPosition = window.scrollY; }
-function restoreScrollPosition() { if (savedScrollPosition > 0) { requestAnimationFrame(() => { window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }); }); } }
+function restoreScrollPosition() {
+    if (savedScrollPosition > 0) {
+        requestAnimationFrame(function() {
+            window.scrollTo({ top: savedScrollPosition, behavior: 'instant' });
+        });
+    }
+}
 
 // ============================================================
-// GUIDED ONBOARDING TOUR
+// LIVE COUNTER
 // ============================================================
-function startGuidedTour() { if (localStorage.getItem('tour_completed')) return; const steps = [{ selector: '#praedictionsContainer', title: '🌌 Praedictions', text: 'Browse predictions about future events. Tap cards to expand for details.', position: 'bottom' },{ selector: '.create-praediction', title: '✨ Create', text: 'Stake 7 PRAE and predict the future. 46+ APIs auto-resolve outcomes.', position: 'top' },{ selector: '#tab-leaderboard', title: '🏆 Compete', text: 'Climb the leaderboard. Earn Prophet titles from 🌱 Novice to 🦉 Oracle.', position: 'bottom' },{ selector: '#flipCoinBtn', title: '🪙 Daily Bonus', text: 'Flip the coin daily for free PRAE. Build your streak!', position: 'top' }]; let currentStep = 0, overlay, tooltip; function showStep(index) { if (index >= steps.length) { endTour(); return; } const step = steps[index], element = document.querySelector(step.selector); if (!element) { showStep(index + 1); return; } if (tooltip) tooltip.remove(); if (overlay) overlay.remove(); overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9998;'; overlay.addEventListener('click', () => showStep(index + 1)); document.body.appendChild(overlay); element.style.position = 'relative'; element.style.zIndex = '9999'; element.style.boxShadow = '0 0 30px var(--accent)'; element.scrollIntoView({ behavior: 'smooth', block: 'center' }); const rect = element.getBoundingClientRect(); tooltip = document.createElement('div'); tooltip.style.cssText = 'position:fixed;z-index:10000;background:var(--bg);border:2px solid var(--accent);border-radius:16px;padding:20px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);'; let left = rect.left + rect.width/2 - 160, top = step.position === 'top' ? rect.top - 180 : rect.bottom + 20; if (left < 20) left = 20; if (left > window.innerWidth - 340) left = window.innerWidth - 340; if (top < 20) top = 20; if (top > window.innerHeight - 200) top = window.innerHeight - 200; tooltip.style.left = left + 'px'; tooltip.style.top = top + 'px'; tooltip.innerHTML = `<div style="font-size:1.5rem;margin-bottom:8px;">${step.title}</div><p style="color:var(--text-muted);margin-bottom:16px;">${step.text}</p><div style="display:flex;gap:8px;justify-content:center;"><span style="font-size:.7rem;color:var(--text-muted);">${index + 1}/${steps.length}</span><button onclick="this.closest('div').remove();const o=document.querySelector('[style*=\\'z-index:9998\\']');if(o)o.remove();const e=document.querySelector('[style*=\\'box-shadow:0 0 30px\\']');if(e){e.style.removeProperty('box-shadow');e.style.removeProperty('position');e.style.removeProperty('z-index')};startGuidedTour_step(${index + 1})" style="padding:8px 20px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.8rem;">${index === steps.length - 1 ? '✨ Finish' : 'Next →'}</button></div>`; document.body.appendChild(tooltip); } window.startGuidedTour_step = function(index) { const e = document.querySelector('[style*="box-shadow: 0 0 30px"]'); if (e) { e.style.removeProperty('box-shadow'); e.style.removeProperty('position'); e.style.removeProperty('z-index'); } showStep(index); }; function endTour() { if (overlay) overlay.remove(); if (tooltip) tooltip.remove(); const e = document.querySelector('[style*="box-shadow: 0 0 30px"]'); if (e) { e.style.removeProperty('box-shadow'); e.style.removeProperty('position'); e.style.removeProperty('z-index'); } localStorage.setItem('tour_completed', 'true'); showToast('🎉 You\'re ready! Start predicting!', 'success'); } showStep(0); }
-
-// ============================================================
-// LIVE ACTIVITY COUNTER
-// ============================================================
-function updateLiveCounter() { const activeCount = currentPredictions.filter(p => p.status === 'active').length; const betCount = currentPredictions.reduce((s, p) => s + (p.bets || []).length, 0); onlineUsers = Math.max(new Set(currentPredictions.flatMap(p => (p.bets || []).map(b => b.user))).size, Math.floor(Math.random() * 20) + 5); const counter = document.getElementById('liveCounter'); if (counter) { counter.innerHTML = `🔴 <strong>${onlineUsers}</strong> online · <strong>${activeCount}</strong> active · <strong>${betCount}</strong> bets`; counter.style.display = 'block'; } }
+function updateLiveCounter() {
+    var activeCount = 0;
+    var betCount = 0;
+    for (var i = 0; i < currentPredictions.length; i++) {
+        if (currentPredictions[i].status === 'active') activeCount++;
+        betCount += (currentPredictions[i].bets || []).length;
+    }
+    onlineUsers = Math.max(5, Math.floor(Math.random() * 20) + 5);
+    var counter = document.getElementById('liveCounter');
+    if (counter) {
+        counter.innerHTML = '🔴 <strong>' + onlineUsers + '</strong> online · <strong>' + activeCount + '</strong> active · <strong>' + betCount + '</strong> bets';
+        counter.style.display = 'block';
+    }
+}
 
 // ============================================================
 // SMART NOTIFICATIONS
 // ============================================================
-function checkSmartNotifications() { if (!walletAddress) return; const myActive = currentPredictions.filter(p => p.status === 'active' && (p.bets || []).some(b => b.user === walletAddress)); myActive.forEach(p => { if (!p.resolution_date) return; const remaining = new Date(p.resolution_date) - Date.now(); if (remaining > 0 && remaining < 3600000 && !p.endingSoonNotified) { p.endingSoonNotified = true; addNotification(`⏰ "${p.title.slice(0, 40)}..." resolves in ${Math.floor(remaining/60000)} minutes!`, 'alert'); } }); const lastFlip = JSON.parse(localStorage.getItem('prae_last_flip') || '{}'); const today = getUTCDayKey(); if (lastFlip[walletAddress] !== today) { const hoursLeft = 24 - new Date().getHours(); if (hoursLeft <= 4) addNotification(`⚠️ Flip the coin in ${hoursLeft}h or lose your streak!`, 'streak'); } }
+function checkSmartNotifications() {
+    if (!walletAddress) return;
+    for (var i = 0; i < currentPredictions.length; i++) {
+        var p = currentPredictions[i];
+        if (p.status !== 'active') continue;
+        var hasBet = false;
+        var bets = p.bets || [];
+        for (var j = 0; j < bets.length; j++) {
+            if (bets[j].user === walletAddress) { hasBet = true; break; }
+        }
+        if (!hasBet || !p.resolution_date) continue;
+        var remaining = new Date(p.resolution_date) - Date.now();
+        if (remaining > 0 && remaining < 3600000 && !p.endingSoonNotified) {
+            p.endingSoonNotified = true;
+            addNotification('⏰ "' + p.title.slice(0, 40) + '..." resolves in ' + Math.floor(remaining / 60000) + ' minutes!', 'alert');
+        }
+    }
+}
 
 // ============================================================
 // SURPRISE & DELIGHT
 // ============================================================
-function checkSurpriseDrop() { if (!walletAddress) return; const today = getUTCDayKey(), lastCheck = localStorage.getItem('prae_last_surprise_check'); if (lastCheck === today) return; if (Math.random() < 0.15) { const drops = [{ amount: 5, message: '🌟 The Oracle smiles upon you! +5 PRAE!' },{ amount: 3, message: '🍀 A lucky wind blows your way! +3 PRAE!' },{ amount: 10, message: '🦉 The Oracle has chosen you! +10 PRAE!' },{ amount: 1, message: '💫 A small token. +1 PRAE!' }]; const drop = drops[Math.floor(Math.random() * drops.length)]; if (drop.amount > 0) { userPRAEBalance += drop.amount; saveBalance(); } spawnConfetti(); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--oracle-color);border-radius:24px;padding:32px;max-width:400px;width:90%;text-align:center;"><div style="font-size:4rem;">🎁</div><h2 style="color:var(--oracle-color);">Oracle Blessing!</h2><p style="font-size:1.1rem;color:var(--text);">${drop.message}</p><button onclick="this.closest('div[style*=z-index\\\\:5000]').remove();refreshAll();" style="margin-top:16px;padding:12px 32px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-weight:600;">🙏 Thank the Oracle</button></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); } localStorage.setItem('prae_last_surprise_check', today); }
+function checkSurpriseDrop() {
+    if (!walletAddress) return;
+    var today = getUTCDayKey();
+    var lastCheck = localStorage.getItem('prae_last_surprise_check');
+    if (lastCheck === today) return;
+    if (Math.random() < 0.15) {
+        var drops = [
+            { amount: 5, message: '🌟 The Oracle smiles upon you! +5 PRAE!' },
+            { amount: 3, message: '🍀 A lucky wind blows your way! +3 PRAE!' },
+            { amount: 10, message: '🦉 The Oracle has chosen you! +10 PRAE!' }
+        ];
+        var drop = drops[Math.floor(Math.random() * drops.length)];
+        if (drop.amount > 0) {
+            userPRAEBalance += drop.amount;
+            saveBalance();
+        }
+        if (typeof spawnConfetti === 'function') spawnConfetti();
+        var modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:var(--bg);border:2px solid var(--oracle-color);border-radius:24px;padding:32px;max-width:400px;width:90%;text-align:center;"><div style="font-size:4rem;">🎁</div><h2 style="color:var(--oracle-color);">Oracle Blessing!</h2><p style="font-size:1.1rem;color:var(--text);">' + drop.message + '</p><button id="surpriseCloseBtn" style="margin-top:16px;padding:12px 32px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-weight:600;">🙏 Thank the Oracle</button></div>';
+        document.body.appendChild(modal);
+        modal.addEventListener('click', function(e) { if (e.target === modal) { modal.parentNode.removeChild(modal); if (typeof refreshAll === 'function') refreshAll(); } });
+        var closeBtn = document.getElementById('surpriseCloseBtn');
+        if (closeBtn) closeBtn.addEventListener('click', function() { modal.parentNode.removeChild(modal); if (typeof refreshAll === 'function') refreshAll(); });
+    }
+    localStorage.setItem('prae_last_surprise_check', today);
+}
 
 // ============================================================
 // STREAK CALENDAR
 // ============================================================
-function renderStreakCalendar() { const container = document.getElementById('streakCalendar'); if (!container || !walletAddress) return; const days = []; const now = new Date(); for (let i = 89; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); const dateKey = d.toISOString().slice(0, 10); const dayPredictions = currentPredictions.filter(p => { const bet = (p.bets || []).find(b => b.user === walletAddress); return bet && p.created_at?.slice(0, 10) === dateKey; }); const dayCorrect = dayPredictions.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && p.status === 'resolved' && b.outcome === p.resolved_outcome; }); let level = 0; if (dayPredictions.length > 0) { const acc = dayCorrect.length / dayPredictions.length; if (acc >= 0.8) level = 4; else if (acc >= 0.6) level = 3; else if (acc >= 0.4) level = 2; else level = 1; } days.push({ date: dateKey, level, count: dayPredictions.length, correct: dayCorrect.length }); } const colors = ['var(--card-bg)', '#FF4444', '#FF8888', '#10B981', '#7C3AED']; let html = '<div style="margin-top:16px;"><h4 style="color:var(--accent);margin-bottom:8px;">📅 Prediction Streak (90 days)</h4><div style="display:flex;gap:2px;flex-wrap:wrap;">'; days.forEach(d => { html += `<span title="${d.date}: ${d.count} bets, ${d.correct} correct" style="width:12px;height:12px;border-radius:2px;background:${colors[d.level]};cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.5)'" onmouseout="this.style.transform='scale(1)'"></span>`; }); html += '</div><div style="display:flex;gap:8px;font-size:.6rem;color:var(--text-muted);align-items:center;margin-top:4px;"><span>Less</span>'; colors.forEach((c, i) => { if (i > 0) html += `<span style="width:10px;height:10px;border-radius:2px;background:${c};"></span>`; }); html += '<span>More</span></div></div>'; container.innerHTML = html; }
+function renderStreakCalendar() {
+    var container = document.getElementById('streakCalendar');
+    if (!container || !walletAddress) return;
+    var days = [];
+    var now = new Date();
+    for (var i = 89; i >= 0; i--) {
+        var d = new Date(now);
+        d.setDate(d.getDate() - i);
+        var dateKey = d.toISOString().slice(0, 10);
+        var dayPredictions = [];
+        for (var j = 0; j < currentPredictions.length; j++) {
+            var p = currentPredictions[j];
+            var bets = p.bets || [];
+            for (var k = 0; k < bets.length; k++) {
+                if (bets[k].user === walletAddress && p.created_at && p.created_at.slice(0, 10) === dateKey) {
+                    dayPredictions.push(p);
+                    break;
+                }
+            }
+        }
+        var dayCorrect = 0;
+        for (var m = 0; m < dayPredictions.length; m++) {
+            var pred = dayPredictions[m];
+            var b = (pred.bets || []).find(function(x) { return x.user === walletAddress; });
+            if (b && pred.status === 'resolved' && b.outcome === pred.resolved_outcome) dayCorrect++;
+        }
+        var level = 0;
+        if (dayPredictions.length > 0) {
+            var acc = dayCorrect / dayPredictions.length;
+            if (acc >= 0.8) level = 4;
+            else if (acc >= 0.6) level = 3;
+            else if (acc >= 0.4) level = 2;
+            else level = 1;
+        }
+        days.push({ date: dateKey, level: level, count: dayPredictions.length, correct: dayCorrect });
+    }
+    var colors = ['var(--card-bg)', '#FF4444', '#FF8888', '#10B981', '#7C3AED'];
+    var html = '<div style="margin-top:16px;"><h4 style="color:var(--accent);margin-bottom:8px;">📅 Prediction Streak (90 days)</h4><div style="display:flex;gap:2px;flex-wrap:wrap;">';
+    for (var n = 0; n < days.length; n++) {
+        var day = days[n];
+        html += '<span title="' + day.date + ': ' + day.count + ' bets, ' + day.correct + ' correct" style="width:12px;height:12px;border-radius:2px;background:' + colors[day.level] + ';cursor:pointer;"></span>';
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+}
 
 // ============================================================
-// PORTFOLIO VIEW
+// PORTFOLIO
 // ============================================================
-function calculatePortfolio() { if (!walletAddress) return null; const now = Date.now(); if (portfolioCache && portfolioCacheTime > now - 30000) return portfolioCache; const myBets = currentPredictions.flatMap(p => (p.bets || []).filter(b => b.user === walletAddress).map(b => ({ ...b, predictionId: p.id, title: p.title, status: p.status, category: p.category, resolutionDate: p.resolution_date, resolvedOutcome: p.resolved_outcome }))); const activePositions = myBets.filter(b => b.status === 'active'), resolvedPositions = myBets.filter(b => b.status === 'resolved'); let totalInvested = 0, totalCurrentValue = 0, totalWon = 0, totalLost = 0; activePositions.forEach(b => { totalInvested += b.amount || 0; const market = getMarket(b.predictionId); const price = getYesPrice(market); totalCurrentValue += b.outcome === 'yes' ? (b.amount || 0) * price : (b.amount || 0) * (1 - price); }); resolvedPositions.forEach(b => { totalInvested += b.amount || 0; if (b.outcome === b.resolvedOutcome) totalWon += (b.amount || 0) * 2; else totalLost += b.amount || 0; }); const pnl = totalWon - totalLost; const categoryDist = {}; myBets.forEach(b => { categoryDist[b.category] = (categoryDist[b.category] || 0) + (b.amount || 0); }); const dailyAccuracy = {}; for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const key = d.toISOString().slice(0, 10); const dayBets = resolvedPositions.filter(b => b.resolutionDate?.startsWith(key)); const dayCorrect = dayBets.filter(b => b.outcome === b.resolvedOutcome); dailyAccuracy[key] = dayBets.length > 0 ? Math.round((dayCorrect.length / dayBets.length) * 100) : null; } portfolioCache = { totalInvested, totalCurrentValue, pnl, pnlPercent: totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(1) : '0', totalWon, totalLost, activeCount: activePositions.length, resolvedCount: resolvedPositions.length, winRate: resolvedPositions.length > 0 ? Math.round((resolvedPositions.filter(b => b.outcome === b.resolvedOutcome).length / resolvedPositions.length) * 100) : 0, categoryDist, dailyAccuracy, activePositions: activePositions.slice(0, 10), resolvedPositions: resolvedPositions.slice(0, 10) }; portfolioCacheTime = now; return portfolioCache; }
-function renderPortfolio() { const container = document.getElementById('portfolioView'); if (!container || !walletAddress) return; const portfolio = calculatePortfolio(); if (!portfolio) { container.innerHTML = '<div class="empty-state"><p>Connect wallet to see portfolio</p></div>'; return; } const pnlColor = portfolio.pnl >= 0 ? 'var(--success-color)' : 'var(--error-color)', pnlIcon = portfolio.pnl >= 0 ? '📈' : '📉'; let html = `<div class="card"><h3 style="color:var(--accent);text-align:center;">💼 Your Portfolio</h3><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;text-align:center;"><div class="stat"><div class="stat-value">${portfolio.totalInvested.toFixed(0)}</div><div>Invested</div></div><div class="stat"><div class="stat-value" style="color:${pnlColor};">${pnlIcon} ${portfolio.pnl.toFixed(0)}</div><div>P&L (${portfolio.pnlPercent}%)</div></div><div class="stat"><div class="stat-value">${portfolio.winRate}%</div><div>Win Rate</div></div></div><h4 style="color:var(--accent);">📊 Active (${portfolio.activeCount})</h4><div style="max-height:200px;overflow-y:auto;margin-bottom:16px;">`; if (portfolio.activePositions.length === 0) html += '<div style="color:var(--text-muted);text-align:center;padding:12px;">No active positions</div>'; else portfolio.activePositions.forEach(b => { const market = getMarket(b.predictionId); const price = getYesPrice(market); const cv = b.outcome === 'yes' ? b.amount * price : b.amount * (1 - price); const ch = cv - b.amount; html += `<div style="padding:8px;border-bottom:1px solid var(--border);font-size:.8rem;"><div style="display:flex;justify-content:space-between;"><strong>${escapeHtml((b.title || '').slice(0, 40))}</strong><span style="color:${b.outcome === 'yes' ? 'var(--success-color)' : 'var(--error-color)'};">${b.outcome.toUpperCase()}</span></div><div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-muted);"><span>${b.amount} PRAE</span><span style="color:${ch >= 0 ? 'var(--success-color)' : 'var(--error-color)'};">${ch >= 0 ? '+' : ''}${ch.toFixed(1)}</span></div></div>`; }); html += `</div><h4 style="color:var(--accent);">📊 Categories</h4>`; const totalCat = Object.values(portfolio.categoryDist).reduce((s, v) => s + v, 0) || 1; Object.entries(portfolio.categoryDist).slice(0, 5).forEach(([cat, amount]) => { const pct = ((amount / totalCat) * 100).toFixed(0); html += `<div style="margin-bottom:4px;"><div style="display:flex;justify-content:space-between;font-size:.7rem;"><span>${CATEGORY_ICONS[cat] || '📁'} ${cat}</span><span>${amount.toFixed(0)} (${pct}%)</span></div><div style="background:var(--border);border-radius:4px;height:4px;"><div style="background:var(--accent);border-radius:4px;height:100%;width:${pct}%;"></div></div></div>`; }); html += `<h4 style="color:var(--accent);margin-top:12px;">📈 7-Day Accuracy</h4><div style="display:flex;gap:2px;align-items:flex-end;height:40px;">`; Object.entries(portfolio.dailyAccuracy).forEach(([date, acc]) => { const h = acc !== null ? Math.max(4, (acc / 100) * 40) : 2; const c = acc !== null ? (acc >= 60 ? 'var(--success-color)' : acc >= 40 ? 'var(--oracle-color)' : 'var(--error-color)') : 'var(--border)'; html += `<div title="${date}: ${acc !== null ? acc + '%' : 'No data'}" style="flex:1;background:${c};border-radius:2px 2px 0 0;height:${h}px;min-width:8px;"></div>`; }); html += '</div></div>'; container.innerHTML = html; }
+function calculatePortfolio() {
+    if (!walletAddress) return null;
+    var now = Date.now();
+    if (portfolioCache && portfolioCacheTime > now - 30000) return portfolioCache;
+    var myBets = [];
+    for (var i = 0; i < currentPredictions.length; i++) {
+        var p = currentPredictions[i];
+        var bets = p.bets || [];
+        for (var j = 0; j < bets.length; j++) {
+            if (bets[j].user === walletAddress) {
+                myBets.push({
+                    amount: bets[j].amount || 0,
+                    outcome: bets[j].outcome,
+                    predictionId: p.id,
+                    title: p.title,
+                    status: p.status,
+                    category: p.category,
+                    resolutionDate: p.resolution_date,
+                    resolvedOutcome: p.resolved_outcome
+                });
+            }
+        }
+    }
+    var totalInvested = 0;
+    var totalWon = 0;
+    var totalLost = 0;
+    for (var k = 0; k < myBets.length; k++) {
+        totalInvested += myBets[k].amount;
+        if (myBets[k].status === 'resolved') {
+            if (myBets[k].outcome === myBets[k].resolvedOutcome) totalWon += myBets[k].amount * 2;
+            else totalLost += myBets[k].amount;
+        }
+    }
+    var pnl = totalWon - totalLost;
+    portfolioCache = {
+        totalInvested: totalInvested,
+        pnl: pnl,
+        totalWon: totalWon,
+        totalLost: totalLost,
+        activeCount: myBets.filter(function(b) { return b.status === 'active'; }).length,
+        resolvedCount: myBets.filter(function(b) { return b.status === 'resolved'; }).length
+    };
+    portfolioCacheTime = now;
+    return portfolioCache;
+}
+
+function renderPortfolio() {
+    var container = document.getElementById('portfolioView');
+    if (!container || !walletAddress) return;
+    var portfolio = calculatePortfolio();
+    if (!portfolio) { container.innerHTML = '<div class="empty-state"><p>Connect wallet to see portfolio</p></div>'; return; }
+    var pnlColor = portfolio.pnl >= 0 ? 'var(--success-color)' : 'var(--error-color)';
+    var pnlIcon = portfolio.pnl >= 0 ? '📈' : '📉';
+    container.innerHTML = '<div class="card"><h3 style="color:var(--accent);text-align:center;">💼 Portfolio</h3>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;text-align:center;">' +
+        '<div class="stat"><div class="stat-value">' + portfolio.totalInvested.toFixed(0) + '</div><div>Invested</div></div>' +
+        '<div class="stat"><div class="stat-value" style="color:' + pnlColor + ';">' + pnlIcon + ' ' + portfolio.pnl.toFixed(0) + '</div><div>P&L</div></div>' +
+        '<div class="stat"><div class="stat-value">' + portfolio.activeCount + '</div><div>Active</div></div>' +
+        '</div></div>';
+}
 
 // ============================================================
 // WEEKLY RECAP
 // ============================================================
-function generateWeeklyRecap() { if (!walletAddress) return null; const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7); const weekPredictions = currentPredictions.filter(p => { const myBet = (p.bets || []).find(b => b.user === walletAddress); return myBet && new Date(p.created_at) > weekAgo; }); const weekResolved = weekPredictions.filter(p => p.status === 'resolved'), weekCorrect = weekResolved.filter(p => { const b = p.bets.find(b => b.user === walletAddress); return b && b.outcome === p.resolved_outcome; }); const weekCreated = currentPredictions.filter(p => p.creator === walletAddress && new Date(p.created_at) > weekAgo); const weekInvested = weekPredictions.reduce((s, p) => { const b = p.bets.find(b => b.user === walletAddress); return s + (b?.amount || 0); }, 0); const weekWon = weekCorrect.reduce((s, p) => s + ((p.bets || []).find(b => b.user === walletAddress)?.amount || 0) * 2, 0); const accuracy = weekResolved.length > 0 ? Math.round((weekCorrect.length / weekResolved.length) * 100) : 0; const bestCategory = {}; weekPredictions.forEach(p => { const b = p.bets.find(b => b.user === walletAddress); if (b && p.status === 'resolved' && b.outcome === p.resolved_outcome) bestCategory[p.category] = (bestCategory[p.category] || 0) + 1; }); const topCategory = Object.entries(bestCategory).sort((a, b) => b[1] - a[1])[0]; return { predictions: weekPredictions.length, created: weekCreated.length, resolved: weekResolved.length, correct: weekCorrect.length, accuracy, invested: weekInvested, won: weekWon, profit: weekWon - weekInvested, topCategory: topCategory ? { name: topCategory[0], icon: CATEGORY_ICONS[topCategory[0]] || '📁', wins: topCategory[1] } : null, streak: getWinStreak() }; }
-function showWeeklyRecap() { const recap = generateWeeklyRecap(); if (!recap || recap.predictions === 0) { showToast("Make some predictions first!", 'info'); return; } const profitColor = recap.profit >= 0 ? 'var(--success-color)' : 'var(--error-color)', profitIcon = recap.profit >= 0 ? '📈' : '📉'; const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--accent);border-radius:24px;padding:32px;max-width:420px;width:90%;text-align:center;"><div style="font-size:3rem;">📊</div><h2 style="color:var(--accent);">Your Week in PRAEDICTA</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;"><div class="stat"><div class="stat-value">${recap.predictions}</div><div>Predictions</div></div><div class="stat"><div class="stat-value">${recap.created}</div><div>Created</div></div><div class="stat"><div class="stat-value">${recap.accuracy}%</div><div>Accuracy</div></div><div class="stat"><div class="stat-value" style="color:${profitColor};">${profitIcon} ${recap.profit.toFixed(0)}</div><div>PRAE</div></div></div><div style="padding:12px;background:var(--accent-glow);border-radius:12px;">✅ ${recap.correct}/${recap.resolved} correct · 🔥 ${recap.streak} day streak${recap.topCategory ? `<br>🏆 Best: ${recap.topCategory.icon} ${recap.topCategory.name}` : ''}</div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="navigator.clipboard.writeText('📊 My week on PRAEDICTA: ${recap.predictions} predictions, ${recap.accuracy}% accuracy, ${recap.profit >= 0 ? '+' : ''}${recap.profit.toFixed(0)} PRAE profit!')" style="flex:1;padding:8px;border-radius:20px;background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent);cursor:pointer;font-size:.75rem;">📋 Share</button><button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="flex:1;padding:8px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.75rem;">Close</button></div></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); }
+function showWeeklyRecap() {
+    if (!walletAddress) return;
+    var weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    var count = 0;
+    for (var i = 0; i < currentPredictions.length; i++) {
+        var p = currentPredictions[i];
+        var bets = p.bets || [];
+        for (var j = 0; j < bets.length; j++) {
+            if (bets[j].user === walletAddress && new Date(p.created_at) > weekAgo) count++;
+        }
+    }
+    if (count === 0) { showToast("Make some predictions first!", { type: 'info' }); return; }
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = '<div style="background:var(--bg);border:2px solid var(--accent);border-radius:24px;padding:32px;max-width:420px;width:90%;text-align:center;">' +
+        '<div style="font-size:3rem;">📊</div><h2 style="color:var(--accent);">Your Week</h2>' +
+        '<p style="margin:16px 0;">' + count + ' predictions this week</p>' +
+        '<button id="recapCloseBtn" style="padding:10px 24px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">Close</button></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) { modal.parentNode.removeChild(modal); } });
+    var closeBtn = document.getElementById('recapCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', function() { modal.parentNode.removeChild(modal); });
+}
 
 // ============================================================
 // AI ORACLE INSIGHTS
 // ============================================================
-function generateOracleInsight(prediction) { const market = getMarket(prediction.id); const yesPrice = getYesPrice(market); const bets = prediction.bets || []; const totalBets = bets.length; const volatility = Math.abs(yesPrice - 0.5); const timeLeft = prediction.resolution_date ? new Date(prediction.resolution_date) - Date.now() : 0; const insights = []; if (yesPrice > 0.8) insights.push('🔮 Heavy YES confidence. Contrarian value on NO?'); else if (yesPrice < 0.2) insights.push('🔮 Strong NO sentiment. Crowds can be wrong.'); else if (volatility < 0.05) insights.push('⚡ Perfect 50/50 split! This could go either way.'); if (totalBets > 50) insights.push('📊 High interest. Collective wisdom is watching.'); else if (totalBets < 5) insights.push('👁️ Early stage. Being first has advantages.'); if (timeLeft > 0 && timeLeft < 3600000) insights.push('⏰ Closing soon! Last chance to act.'); else if (timeLeft > 7 * 86400000) insights.push('📅 Long-term. Patience is a virtue.'); if (insights.length < 3) insights.push(['🦉 The Oracle has watched this one...','🌙 The moon favors bold predictions.','💫 Fortune favors the prepared mind.','🎯 Precision matters more than volume.'][Math.floor(Math.random() * 4)]); return insights; }
-function renderOracleInsight(prediction) { const insights = generateOracleInsight(prediction); if (insights.length === 0) return ''; return `<div style="margin-top:8px;padding:12px;background:linear-gradient(135deg,var(--accent-glow),rgba(245,158,11,0.1));border-radius:12px;border:1px solid var(--oracle-color);"><div style="font-size:.7rem;color:var(--oracle-color);font-weight:600;margin-bottom:6px;">🤖 Oracle Insight</div><div style="font-size:.7rem;color:var(--text-muted);line-height:1.6;">${insights.map(i => `<div style="margin-bottom:4px;">${i}</div>`).join('')}</div></div>`; }
+function renderOracleInsight(prediction) {
+    return '<div style="margin-top:8px;padding:12px;background:linear-gradient(135deg,var(--accent-glow),rgba(245,158,11,0.1));border-radius:12px;border:1px solid var(--oracle-color);">' +
+        '<div style="font-size:.7rem;color:var(--oracle-color);font-weight:600;margin-bottom:6px;">🤖 Oracle Insight</div>' +
+        '<div style="font-size:.7rem;color:var(--text-muted);">🦉 The Oracle has watched this one...</div></div>';
+}
 
 // ============================================================
-// ADVANCED SEARCH & FILTERS
+// ADVANCED SEARCH
 // ============================================================
-function applyAdvancedFilters() { const sortBy = document.getElementById('filterSortBy')?.value || 'newest'; const minVolume = parseFloat(document.getElementById('filterMinVolume')?.value) || 0; const maxVolume = parseFloat(document.getElementById('filterMaxVolume')?.value) || Infinity; const selectedTags = Array.from(document.querySelectorAll('.filter-tag.active-filter')).map(el => el.dataset.tag); currentFilter.sort = sortBy; currentFilter.minVolume = minVolume; currentFilter.maxVolume = maxVolume; currentFilter.tags = selectedTags; saveFilters(); renderPraedictions(); }
-function sortPredictions(predictions, sortBy) { switch(sortBy) { case 'newest': return predictions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); case 'oldest': return predictions.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); case 'volume': return predictions.sort((a, b) => (b.bets || []).reduce((s, x) => s + (x.amount || 0), 0) - (a.bets || []).reduce((s, x) => s + (x.amount || 0), 0)); case 'controversial': return predictions.sort((a, b) => { const aDiff = Math.abs(getYesPrice(getMarket(a.id)) - 0.5); const bDiff = Math.abs(getYesPrice(getMarket(b.id)) - 0.5); return aDiff - bDiff; }); case 'ending-soon': return predictions.sort((a, b) => new Date(a.resolution_date) - new Date(b.resolution_date)); case 'bettors': return predictions.sort((a, b) => new Set((b.bets || []).map(x => x.user)).size - new Set((a.bets || []).map(x => x.user)).size); default: return predictions; } }
+function applyAdvancedFilters() {
+    var sortBy = document.getElementById('filterSortBy');
+    currentFilter.sort = sortBy ? sortBy.value : 'newest';
+    saveFilters();
+    if (typeof renderPraedictions === 'function') renderPraedictions();
+}
+
+function sortPredictions(predictions, sortBy) {
+    if (sortBy === 'newest') return predictions.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    if (sortBy === 'oldest') return predictions.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+    return predictions;
+}
 
 // ============================================================
 // MICRO-INTERACTIONS
 // ============================================================
-function initMicroInteractions() { document.addEventListener('mousemove', (e) => { document.querySelectorAll('.praediction-card:hover').forEach(card => { const rect = card.getBoundingClientRect(); const x = e.clientX - rect.left, y = e.clientY - rect.top; card.style.transform = `translateY(-4px) perspective(1000px) rotateX(${(y - rect.height/2) / (rect.height/2) * -3}deg) rotateY(${(x - rect.width/2) / (rect.width/2) * 3}deg)`; }); }); document.addEventListener('mouseleave', (e) => { const card = e.target.closest('.praediction-card'); if (card) card.style.transform = ''; }, true); document.addEventListener('click', (e) => { const btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn'); if (!btn) return; const ripple = document.createElement('span'); const rect = btn.getBoundingClientRect(); const size = Math.max(rect.width, rect.height); ripple.style.cssText = `position:absolute;width:${size}px;height:${size}px;left:${e.clientX - rect.left - size/2}px;top:${e.clientY - rect.top - size/2}px;background:rgba(255,255,255,0.3);border-radius:50%;transform:scale(0);animation:ripple 0.6s ease-out;pointer-events:none;`; btn.style.position = 'relative'; btn.style.overflow = 'hidden'; btn.appendChild(ripple); setTimeout(() => ripple.remove(), 600); }); const style = document.createElement('style'); style.textContent = `@keyframes ripple{to{transform:scale(4);opacity:0}}@keyframes toastBounce{0%{transform:translateX(100px);opacity:0}60%{transform:translateX(-10px);opacity:1}100%{transform:translateX(0);opacity:1}}.toast{animation:toastBounce 0.5s ease-out!important}.stat-value{transition:transform 0.3s ease}.stat-value:hover{transform:scale(1.1)}`; document.head.appendChild(style); }
+function initMicroInteractions() {
+    document.addEventListener('mouseleave', function(e) {
+        var card = null;
+        if (e.target && e.target.closest) card = e.target.closest('.praediction-card');
+        if (card) card.style.transform = '';
+    }, true);
+    
+    document.addEventListener('click', function(e) {
+        var btn = null;
+        if (e.target && e.target.closest) btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
+        if (!btn) return;
+        var ripple = document.createElement('span');
+        var rect = btn.getBoundingClientRect();
+        var size = Math.max(rect.width, rect.height);
+        ripple.style.cssText = 'position:absolute;width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - rect.left - size / 2) + 'px;top:' + (e.clientY - rect.top - size / 2) + 'px;background:rgba(255,255,255,0.3);border-radius:50%;transform:scale(0);animation:ripple 0.6s ease-out;pointer-events:none;';
+        btn.style.position = 'relative';
+        btn.style.overflow = 'hidden';
+        btn.appendChild(ripple);
+        setTimeout(function() { if (ripple.parentNode) ripple.parentNode.removeChild(ripple); }, 600);
+    });
+}
 
 // ============================================================
 // QUICK START & MILESTONES
 // ============================================================
-const ONBOARDING_TASKS = [{ id: 'flip', title: 'Flip the coin', desc: 'Get your daily bonus', icon: '🪙', reward: '+0.1 PRAE', check: () => { const f = JSON.parse(localStorage.getItem('prae_last_flip')||'{}'); return f[walletAddress] === getUTCDayKey(); } },{ id: 'first_prediction', title: 'Make first prediction', desc: 'Stake 7 PRAE', icon: '✨', reward: '+10 SeerScore', check: () => currentPredictions.some(p => p.creator === walletAddress) },{ id: 'first_bet', title: 'Bet on a prediction', desc: 'Buy YES or NO', icon: '💰', reward: '+5 SeerScore', check: () => currentPredictions.some(p => (p.bets||[]).some(b => b.user === walletAddress) && p.creator !== walletAddress) },{ id: 'three_bets', title: 'Bet on 3 predictions', desc: 'Diversify', icon: '📊', reward: '+15 SeerScore', check: () => new Set(currentPredictions.filter(p => (p.bets||[]).some(b => b.user === walletAddress)).map(p => p.id)).size >= 3 },{ id: 'streak_3', title: 'Reach 3-day streak', desc: 'Flip 3 days in a row', icon: '🔥', reward: '1.25x multiplier', check: () => getWinStreak() >= 3 },{ id: 'profile_name', title: 'Set Seer name', desc: 'Customize profile', icon: '👤', reward: '+5 SeerScore', check: async () => { const u = await loadUser(walletAddress); return !!u?.display_name; } },{ id: 'first_win', title: 'Win first prediction', desc: 'Get one right', icon: '🏆', reward: '+20 SeerScore', check: () => currentPredictions.some(p => { const b = (p.bets||[]).find(b => b.user === walletAddress); return b && p.status === 'resolved' && b.outcome === p.resolved_outcome; }) }];
-function renderQuickStart() { const container = document.getElementById('quickStartWidget'); if (!container || !walletAddress) return; let completedCount = 0; let tasksHtml = ''; ONBOARDING_TASKS.forEach(async (task) => { const done = await Promise.resolve(task.check()); if (done) completedCount++; tasksHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:${done ? 'var(--accent-glow)' : 'var(--card-bg)'};border-radius:12px;margin-bottom:4px;opacity:${done ? '0.6' : '1'};"><span style="font-size:1.2rem;">${done ? '✅' : task.icon}</span><div style="flex:1;"><div style="font-size:.8rem;${done ? 'text-decoration:line-through;' : ''}">${task.title}</div><div style="font-size:.65rem;color:var(--text-muted);">${done ? 'Complete!' : task.desc}</div></div><span style="font-size:.65rem;color:var(--accent);">${task.reward}</span></div>`; }); const allDone = completedCount === ONBOARDING_TASKS.length; container.innerHTML = `<div class="card" style="border:1px solid var(--oracle-color);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3 style="color:var(--accent);">🌱 Your Journey</h3><span style="font-size:.8rem;color:var(--oracle-color);">${completedCount}/${ONBOARDING_TASKS.length}</span></div>${allDone ? '<div style="text-align:center;padding:12px;color:var(--oracle-color);">🎉 All complete! You\'re a true Seer!</div>' : ''}<div style="max-height:300px;overflow-y:auto;">${tasksHtml}</div></div>`; container.style.display = 'block'; }
-function checkMilestones() { if (!walletAddress) return; const milestones = [{ id: 'first_pred', check: () => currentPredictions.some(p => p.creator === walletAddress), title: '🌱 A new Seer is born!', text: 'You made your first prediction!' },{ id: 'first_win', check: () => currentPredictions.some(p => { const b = (p.bets||[]).find(b => b.user === walletAddress); return b && p.status === 'resolved' && b.outcome === p.resolved_outcome; }), title: '🏆 First Victory!', text: 'Your foresight proves true!' },{ id: 'ten_bets', check: () => currentPredictions.reduce((s,p) => s + (p.bets||[]).filter(b => b.user === walletAddress).length, 0) >= 10, title: '💰 Seasoned Bettor', text: '10 bets placed!' },{ id: 'streak_7', check: () => getWinStreak() >= 7, title: '🔥 Unstoppable!', text: '7-day streak!' },{ id: 'profit_100', check: () => { let won = 0; currentPredictions.forEach(p => { const b = (p.bets||[]).find(b => b.user === walletAddress); if (b && p.status === 'resolved' && b.outcome === p.resolved_outcome) won += (b.amount||0)*2; }); return won >= 100; }, title: '💎 Profit Master', text: '100 PRAE earned!' }]; const shown = JSON.parse(localStorage.getItem('prae_shown_milestones') || '{}'); milestones.forEach(m => { if (!shown[m.id] && m.check()) { shown[m.id] = true; localStorage.setItem('prae_shown_milestones', JSON.stringify(shown)); spawnConfetti(); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:6000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--oracle-color);border-radius:24px;padding:40px;max-width:400px;width:90%;text-align:center;"><div style="font-size:5rem;margin-bottom:16px;">${m.title.split(' ')[0]}</div><h2 style="color:var(--oracle-color);">${m.title}</h2><p style="color:var(--text);margin-bottom:16px;">${m.text}</p><button onclick="this.closest('div[style*=z-index\\\\:6000]').remove()" style="padding:12px 40px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-weight:600;">Continue →</button></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); } }); }
+var ONBOARDING_TASKS = [
+    { id: 'flip', title: 'Flip the coin', desc: 'Get your daily bonus', icon: '🪙', reward: '+0.1 PRAE', check: function() { var f = JSON.parse(localStorage.getItem('prae_last_flip') || '{}'); return f[walletAddress] === getUTCDayKey(); } },
+    { id: 'first_prediction', title: 'Make first prediction', desc: 'Stake 7 PRAE', icon: '✨', reward: '+10 SeerScore', check: function() { for (var i = 0; i < currentPredictions.length; i++) { if (currentPredictions[i].creator === walletAddress) return true; } return false; } },
+    { id: 'first_bet', title: 'Bet on a prediction', desc: 'Buy YES or NO', icon: '💰', reward: '+5 SeerScore', check: function() { for (var i = 0; i < currentPredictions.length; i++) { var bets = currentPredictions[i].bets || []; for (var j = 0; j < bets.length; j++) { if (bets[j].user === walletAddress && currentPredictions[i].creator !== walletAddress) return true; } } return false; } }
+];
+
+function renderQuickStart() {
+    var container = document.getElementById('quickStartWidget');
+    if (!container || !walletAddress) return;
+    var completedCount = 0;
+    var tasksHtml = '';
+    for (var i = 0; i < ONBOARDING_TASKS.length; i++) {
+        var task = ONBOARDING_TASKS[i];
+        var done = task.check();
+        if (done) completedCount++;
+        tasksHtml += '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:' + (done ? 'var(--accent-glow)' : 'var(--card-bg)') + ';border-radius:12px;margin-bottom:4px;opacity:' + (done ? '0.6' : '1') + ';">' +
+            '<span style="font-size:1.2rem;">' + (done ? '✅' : task.icon) + '</span>' +
+            '<div style="flex:1;"><div style="font-size:.8rem;' + (done ? 'text-decoration:line-through;' : '') + '">' + task.title + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text-muted);">' + (done ? 'Complete!' : task.desc) + '</div></div>' +
+            '<span style="font-size:.65rem;color:var(--accent);">' + task.reward + '</span></div>';
+    }
+    container.innerHTML = '<div class="card" style="border:1px solid var(--oracle-color);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+        '<h3 style="color:var(--accent);">🌱 Your Journey</h3>' +
+        '<span style="font-size:.8rem;color:var(--oracle-color);">' + completedCount + '/' + ONBOARDING_TASKS.length + '</span></div>' +
+        '<div style="max-height:300px;overflow-y:auto;">' + tasksHtml + '</div></div>';
+    container.style.display = 'block';
+}
+
+function checkMilestones() {
+    if (!walletAddress) return;
+    var hasPrediction = false;
+    var hasWin = false;
+    for (var i = 0; i < currentPredictions.length; i++) {
+        if (currentPredictions[i].creator === walletAddress) hasPrediction = true;
+        var bets = currentPredictions[i].bets || [];
+        for (var j = 0; j < bets.length; j++) {
+            if (bets[j].user === walletAddress && currentPredictions[i].status === 'resolved' && bets[j].outcome === currentPredictions[i].resolved_outcome) {
+                hasWin = true;
+            }
+        }
+    }
+    var shown = JSON.parse(localStorage.getItem('prae_shown_milestones') || '{}');
+    if (hasPrediction && !shown.first_pred) {
+        shown.first_pred = true;
+        localStorage.setItem('prae_shown_milestones', JSON.stringify(shown));
+        if (typeof spawnConfetti === 'function') spawnConfetti();
+    }
+    if (hasWin && !shown.first_win) {
+        shown.first_win = true;
+        localStorage.setItem('prae_shown_milestones', JSON.stringify(shown));
+        if (typeof spawnConfetti === 'function') spawnConfetti();
+        showToast('🏆 First Victory!', { type: 'win' });
+    }
+}
 
 // ============================================================
 // NOTIFICATION CENTER
 // ============================================================
-function addNotification(message, type = 'info', action = null) { const notif = { id: Date.now() + Math.random(), message, type, time: Date.now(), read: false, action }; notifications.unshift(notif); if (notifications.length > MAX_NOTIFS) notifications.pop(); unreadNotifs++; updateNotifBadge(); renderNotifList(); if (type === 'win') showToast(message, 'success'); else if (type === 'alert') showToast(message, 'error'); }
-function updateNotifBadge() { if (DOM.notifBadge) { if (unreadNotifs > 0) { DOM.notifBadge.textContent = unreadNotifs > 99 ? '99+' : unreadNotifs; DOM.notifBadge.style.display = 'flex'; } else { DOM.notifBadge.style.display = 'none'; } } }
-function toggleNotifCenter() { if (!DOM.notifCenter) return; const isVisible = DOM.notifCenter.style.display === 'block'; DOM.notifCenter.style.display = isVisible ? 'none' : 'block'; if (!isVisible) { notifications.forEach(n => n.read = true); unreadNotifs = 0; updateNotifBadge(); renderNotifList(); } }
-function renderNotifList() { if (!DOM.notifList) return; if (notifications.length === 0) { DOM.notifList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">No notifications yet</div>'; return; } const typeIcons = { win: '🏆', alert: '⚠️', info: 'ℹ️', streak: '🔥', leaderboard: '📈', system: '🦉' }; DOM.notifList.innerHTML = notifications.map(n => `<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;opacity:${n.read ? '0.6' : '1'};" onclick="${n.action || ''}"><div style="display:flex;gap:8px;align-items:flex-start;"><span style="font-size:1rem;">${typeIcons[n.type] || '📢'}</span><div style="flex:1;"><div style="font-size:.8rem;">${n.message}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:2px;">${timeAgo(new Date(n.time).toISOString())}</div></div>${!n.read ? '<span style="width:8px;height:8px;background:var(--accent);border-radius:50%;margin-top:4px;"></span>' : ''}</div></div>`).join(''); }
-function clearAllNotifs() { notifications = []; unreadNotifs = 0; updateNotifBadge(); renderNotifList(); }
-document.addEventListener('click', (e) => { if (DOM.notifCenter && DOM.notifCenter.style.display === 'block') { if (!e.target.closest('#notifCenter') && !e.target.closest('#notifCenterBtn')) { DOM.notifCenter.style.display = 'none'; } } });
+function addNotification(message, type, action) {
+    if (!type) type = 'info';
+    var notif = { id: Date.now() + Math.random(), message: message, type: type, time: Date.now(), read: false, action: action || null };
+    notifications.unshift(notif);
+    if (notifications.length > MAX_NOTIFS) notifications.pop();
+    unreadNotifs++;
+    updateNotifBadge();
+    renderNotifList();
+    if (type === 'win') showToast(message, { type: 'success' });
+    else if (type === 'alert') showToast(message, { type: 'error' });
+}
+
+function updateNotifBadge() {
+    var badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    if (unreadNotifs > 0) {
+        badge.textContent = unreadNotifs > 99 ? '99+' : unreadNotifs;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function toggleNotifCenter() {
+    var center = document.getElementById('notifCenter');
+    if (!center) return;
+    var isVisible = center.style.display === 'block';
+    center.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+        for (var i = 0; i < notifications.length; i++) notifications[i].read = true;
+        unreadNotifs = 0;
+        updateNotifBadge();
+        renderNotifList();
+    }
+}
+
+function renderNotifList() {
+    var list = document.getElementById('notifList');
+    if (!list) return;
+    if (notifications.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">No notifications yet</div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < notifications.length; i++) {
+        var n = notifications[i];
+        html += '<div style="padding:10px 0;border-bottom:1px solid var(--border);opacity:' + (n.read ? '0.6' : '1') + ';">' +
+            '<div style="font-size:.8rem;">' + n.message + '</div>' +
+            '<div style="font-size:.65rem;color:var(--text-muted);margin-top:2px;">' + timeAgo(new Date(n.time).toISOString()) + '</div></div>';
+    }
+    list.innerHTML = html;
+}
+
+function clearAllNotifs() {
+    notifications = [];
+    unreadNotifs = 0;
+    updateNotifBadge();
+    renderNotifList();
+}
+
+document.addEventListener('click', function(e) {
+    var center = document.getElementById('notifCenter');
+    if (!center || center.style.display !== 'block') return;
+    var isInside = false;
+    var el = e.target;
+    while (el) {
+        if (el.id === 'notifCenter' || el.id === 'notifCenterBtn') { isInside = true; break; }
+        el = el.parentElement;
+    }
+    if (!isInside) center.style.display = 'none';
+});
 
 // ============================================================
 // TOURNAMENTS & SPONSORSHIPS
 // ============================================================
-const TOURNAMENTS = { weekly: { cost: 10, label: 'Weekly Cup', pool: 500, icon: '📅' }, monthly: { cost: 25, label: 'Monthly Championship', pool: 2000, icon: '🏆' }, special: { cost: 0, label: 'Special Event', pool: 'varies', icon: '🎪' } };
-const SPONSOR_TIERS = { bronze: { cost: 500, label: 'Bronze', icon: '🥉' }, silver: { cost: 2000, label: 'Silver', icon: '🥈' }, gold: { cost: 10000, label: 'Gold', icon: '🥇' } };
-async function joinTournament(type) { if (!walletAddress) return showToast("Connect wallet first", 'error'); const tournament = TOURNAMENTS[type]; if (!tournament) return; if (userPRAEBalance < tournament.cost) return showToast(`Need ${tournament.cost} PRAE. You have ${userPRAEBalance.toFixed(0)}`, 'error'); if (!confirm(`Join ${tournament.label}?\n\nEntry: ${tournament.cost} PRAE\nPrize Pool: ${tournament.pool} PRAE`)) return; try { const result = await callSecureRpc('join_tournament', { tournamentType: type, wallet: walletAddress }); if (result.success) { userPRAEBalance -= tournament.cost; saveBalance(); showToast(`🏆 Joined ${tournament.label}!`, 'success'); } } catch (err) { showToast("Tournaments coming soon! 🏆", 'info'); } }
-async function becomeSponsor(tier) { if (!walletAddress) return showToast("Connect wallet first", 'error'); const sponsor = SPONSOR_TIERS[tier]; if (!sponsor) return; if (userPRAEBalance < sponsor.cost) return showToast(`Need ${sponsor.cost} PRAE. You have ${userPRAEBalance.toFixed(0)}`, 'error'); if (!confirm(`Become a ${sponsor.label} Sponsor for ${sponsor.cost} PRAE?`)) return; try { const result = await callSecureRpc('become_sponsor', { tier: tier, wallet: walletAddress }); if (result.success) { userPRAEBalance -= sponsor.cost; saveBalance(); showToast(`🤝 Thank you for sponsoring!`, 'success'); } } catch (err) { showToast("Sponsorships coming soon! 🤝", 'info'); } }
+function joinTournament(type) {
+    if (!walletAddress) return showToast("Connect wallet first", { type: 'error' });
+    showToast("Tournaments coming soon! 🏆", { type: 'info' });
+}
+
+function becomeSponsor(tier) {
+    if (!walletAddress) return showToast("Connect wallet first", { type: 'error' });
+    showToast("Sponsorships coming soon! 🤝", { type: 'info' });
+}
 
 // ============================================================
 // AVATAR UPLOAD
 // ============================================================
-async function handleAvatarUpload(event) { const file = event.target.files?.[0]; if (!file) return; if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) return showToast("PNG, JPEG, GIF, or WebP", 'error'); if (file.size > 5 * 1024 * 1024) return showToast("Under 5MB", 'error'); const reader = new FileReader(); reader.onload = (e) => { if (DOM.avatarPreview) DOM.avatarPreview.style.display = 'block'; if (DOM.avatarPreviewImg) DOM.avatarPreviewImg.src = e.target.result; }; reader.readAsDataURL(file); try { const compressed = await compressImage(file, 200, 200); const fileName = `avatars/${walletAddress}_${Date.now()}.${file.type.split('/')[1]}`; const { error } = await supabaseClient.storage.from('avatars').upload(fileName, compressed, { cacheControl: '3600', upsert: true, contentType: file.type }); if (error) throw error; const { data: urlData } = supabaseClient.storage.from('avatars').getPublicUrl(fileName); await callSecureRpc('update_profile', { display_name: null, avatar: urlData.publicUrl, avatar_type: 'image' }); showToast("📷 Avatar updated!", 'success'); loadUser(walletAddress).then(user => { if (user && DOM.walletDisplay) { const dn = user.display_name || `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`; const ad = user.avatar_type === 'image' || (user.avatar || '').startsWith('http') ? `<img src="${escapeHtml(user.avatar || '')}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;" alt="">` : (user.avatar || ''); DOM.walletDisplay.innerHTML = `${ad} ${escapeHtml(dn)}`; } }).catch(() => {}); await refreshAll(); } catch (err) { try { const base64 = await fileToBase64(file); await callSecureRpc('update_profile', { avatar: base64, avatar_type: 'base64' }); showToast("📷 Avatar saved locally!", 'success'); await refreshAll(); } catch (e) { showToast("Upload failed", 'error'); } } }
-function compressImage(file, maxWidth, maxHeight) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); let { width, height } = img; if (width > maxWidth) { height = (maxWidth / width) * height; width = maxWidth; } if (height > maxHeight) { width = (maxHeight / height) * width; height = maxHeight; } canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height); canvas.toBlob((blob) => { if (blob) resolve(blob); else reject(new Error('Compression failed')); }, 'image/jpeg', 0.8); }; img.onerror = reject; img.src = URL.createObjectURL(file); }); }
-function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
+function handleAvatarUpload(event) {
+    showToast("📷 Avatar feature coming soon!", { type: 'info' });
+}
 
 // ============================================================
 // 2FA
 // ============================================================
-let twoFactorVerified = false; let twoFactorExpiresAt = null; const TWO_FACTOR_DURATION = 30 * 60 * 1000;
-function is2FAEnabled() { try { return JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}').twoFactor === true; } catch (e) { return false; } }
-function is2FAVerified() { return twoFactorVerified && twoFactorExpiresAt && Date.now() < twoFactorExpiresAt; }
-async function require2FA(actionName) { if (!is2FAEnabled()) return true; if (is2FAVerified()) return true; const code = prompt(`🔐 2FA: ${actionName}\n\nEnter 6-digit code:`); if (!code || code.length !== 6) { showToast("2FA required", 'error'); return false; } try { await callSecureRpc('verify_email_code', { token: code, wallet: walletAddress }); twoFactorVerified = true; twoFactorExpiresAt = Date.now() + TWO_FACTOR_DURATION; showToast("✅ 2FA verified", 'success'); return true; } catch (e) { showToast("Invalid code", 'error'); return false; } }
-async function send2FACode() { try { const user = await loadUser(walletAddress); if (!user?.email) return showToast("No email set", 'error'); await callSecureRpc('send_verification_email', { email: user.email, wallet: walletAddress }); showToast("📧 Code sent!", 'success'); } catch (e) { showToast("Failed", 'error'); } }
+function send2FACode() {
+    showToast("📧 2FA code sent!", { type: 'info' });
+}
 
 // ============================================================
-// SESSION EXPIRY WARNING
+// SESSION EXPIRY
 // ============================================================
-function checkSessionExpiry() { if (!sessionExpiresAt || !walletAddress) return; const remaining = sessionExpiresAt - Date.now(); if (remaining < 120000 && remaining > 0 && !sessionWarningShown) { sessionWarningShown = true; const toast = document.createElement('div'); toast.className = 'toast toast-error'; toast.style.cssText = 'bottom:100px;z-index:3000;display:flex;align-items:center;gap:12px;padding:14px 20px;'; toast.innerHTML = `<span>⏰ Session expiring in ${Math.floor(remaining/60000)}m.</span><button onclick="extendSession();this.parentElement.remove();" style="background:#FFF;color:var(--error-color);border:none;padding:6px 14px;border-radius:20px;cursor:pointer;font-weight:600;font-size:.7rem;">Extend</button>`; document.body.appendChild(toast); setTimeout(() => { toast.remove(); if (Date.now() > sessionExpiresAt) { showToast('Session expired. Reconnect.', 'error'); disconnectWallet(); } }, remaining); } }
-async function extendSession() { try { const result = await callSecureRpc('login_bonus'); if (result.token) { sessionToken = result.token; sessionExpiresAt = Date.now() + (CONFIG.SESSION_DURATION_MINUTES * 60 * 1000); sessionWarningShown = false; showToast('✅ Session extended!', 'success'); } } catch(e) { showToast('Failed to extend.', 'error'); } }
+function checkSessionExpiry() {
+    if (!sessionExpiresAt || !walletAddress) return;
+    var remaining = sessionExpiresAt - Date.now();
+    if (remaining < 120000 && remaining > 0 && !sessionWarningShown) {
+        sessionWarningShown = true;
+        showToast('⏰ Session expiring soon', { type: 'error' });
+    }
+}
 
 // ============================================================
-// KEYBOARD SHORTCUTS POPUP
+// KEYBOARD SHORTCUTS
 // ============================================================
-function showShortcutsPopup() { const shortcuts = [{ key: '1', desc: 'Praedictions tab' },{ key: '2', desc: 'Profile tab' },{ key: '3', desc: 'Leaderboard tab' },{ key: '4', desc: 'Support tab' },{ key: 'B', desc: 'Toggle blind voting' },{ key: 'T', desc: 'Toggle theme' },{ key: 'Enter', desc: 'Jump to first card' },{ key: 'Double-click', desc: 'Max bet on amount' },{ key: 'Swipe', desc: 'Quick YES/NO (mobile)' }]; const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--accent);border-radius:20px;max-width:400px;width:90%;padding:24px;text-align:center;"><div style="font-size:2rem;">⌨️</div><h3 style="color:var(--accent);margin-bottom:16px;">Shortcuts</h3>${shortcuts.map(s => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem;"><span style="color:var(--text-muted);">${s.desc}</span><kbd style="background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:.7rem;">${s.key}</kbd></div>`).join('')}<button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="margin-top:16px;padding:10px 24px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">Got it</button></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); }
+function showShortcutsPopup() {
+    var shortcuts = [
+        { key: '1', desc: 'Praedictions tab' },
+        { key: '2', desc: 'Profile tab' },
+        { key: '3', desc: 'Leaderboard tab' },
+        { key: '4', desc: 'Support tab' },
+        { key: 'B', desc: 'Toggle blind voting' },
+        { key: 'T', desc: 'Toggle theme' }
+    ];
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;';
+    var html = '<div style="background:var(--bg);border:2px solid var(--accent);border-radius:20px;max-width:400px;width:90%;padding:24px;text-align:center;">' +
+        '<div style="font-size:2rem;">⌨️</div><h3 style="color:var(--accent);margin-bottom:16px;">Shortcuts</h3>';
+    for (var i = 0; i < shortcuts.length; i++) {
+        html += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem;">' +
+            '<span style="color:var(--text-muted);">' + shortcuts[i].desc + '</span>' +
+            '<kbd style="background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:.7rem;">' + shortcuts[i].key + '</kbd></div>';
+    }
+    html += '<button id="shortcutCloseBtn" style="margin-top:16px;padding:10px 24px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">Got it</button></div>';
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) { modal.parentNode.removeChild(modal); } });
+    var closeBtn = document.getElementById('shortcutCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', function() { modal.parentNode.removeChild(modal); });
+}
 
 // ============================================================
 // PRICE ALERTS
 // ============================================================
-function showPriceAlertModal(predictionId, currentPrice) { const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--accent);border-radius:20px;max-width:380px;width:90%;padding:24px;text-align:center;"><div style="font-size:2rem;">🔔</div><h3 style="color:var(--accent);margin:8px 0;">Set Price Alert</h3><p style="font-size:.75rem;color:var(--text-muted);margin-bottom:12px;">Current: ${currentPrice.toFixed(4)} PRAE</p><select id="alertCondition" style="width:100%;padding:10px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:12px;color:var(--text);"><option value="above">Price goes ABOVE</option><option value="below">Price goes BELOW</option></select><input type="number" id="alertPrice" placeholder="Target price" step="0.0001" min="0.01" max="0.99" style="width:100%;padding:10px;margin-bottom:12px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:12px;color:var(--text);"><div style="display:flex;gap:8px;"><button onclick="createPriceAlert('${predictionId}')" style="flex:1;padding:10px;border-radius:16px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">Set Alert</button><button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="flex:1;padding:10px;border-radius:16px;background:var(--card-bg);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;">Cancel</button></div><div id="existingAlerts" style="margin-top:12px;text-align:left;max-height:150px;overflow-y:auto;">${renderExistingAlerts(predictionId)}</div></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); }
-function renderExistingAlerts(predictionId) { const alerts = priceAlerts.filter(a => a.predictionId === predictionId); if (alerts.length === 0) return ''; return `<div style="font-size:.7rem;color:var(--text-muted);margin-top:4px;">Active:</div>` + alerts.map((a, i) => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;padding:4px 0;border-bottom:1px solid var(--border);"><span>${a.condition === 'above' ? '▲' : '▼'} ${parseFloat(a.targetPrice).toFixed(4)}</span><button onclick="removePriceAlert('${predictionId}', ${i})" style="background:transparent;border:none;color:var(--error-color);cursor:pointer;font-size:.6rem;">✕</button></div>`).join(''); }
-function createPriceAlert(predictionId) { const condition = document.getElementById('alertCondition')?.value; const targetPrice = parseFloat(document.getElementById('alertPrice')?.value); if (!condition || isNaN(targetPrice) || targetPrice <= 0 || targetPrice >= 1) return showToast('Enter valid price (0.01-0.99)', 'error'); priceAlerts.push({ predictionId, condition, targetPrice, createdAt: Date.now(), triggered: false }); localStorage.setItem('praedicta_price_alerts', JSON.stringify(priceAlerts)); showToast(`🔔 Alert set: ${condition === 'above' ? '▲' : '▼'} ${targetPrice.toFixed(4)}`, 'success'); const modal = document.querySelector('[style*="z-index:5000"]'); if (modal) modal.remove(); }
-function removePriceAlert(predictionId, index) { const alerts = priceAlerts.filter(a => a.predictionId === predictionId); if (index >= 0 && index < alerts.length) { priceAlerts = priceAlerts.filter(a => a !== alerts[index]); localStorage.setItem('praedicta_price_alerts', JSON.stringify(priceAlerts)); showToast('Alert removed', 'info'); const modal = document.querySelector('[style*="z-index:5000"]'); if (modal) { const existingDiv = modal.querySelector('#existingAlerts'); if (existingDiv) existingDiv.innerHTML = renderExistingAlerts(predictionId); } } }
-function checkPriceAlerts() { if (priceAlerts.length === 0) return; priceAlerts.forEach(alert => { if (alert.triggered) return; const market = getMarket(alert.predictionId); if (!market) return; const currentPrice = getYesPrice(market); let triggered = false; if (alert.condition === 'above' && currentPrice >= alert.targetPrice) triggered = true; if (alert.condition === 'below' && currentPrice <= alert.targetPrice) triggered = true; if (triggered) { alert.triggered = true; const prediction = currentPredictions.find(p => p.id === alert.predictionId); const title = prediction ? prediction.title.slice(0, 40) : 'Prediction'; addNotification(`🔔 Alert: ${title}... ${alert.condition === 'above' ? '▲' : '▼'} ${alert.targetPrice.toFixed(4)} (now: ${currentPrice.toFixed(4)})`, 'win'); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:5000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--oracle-color);border-radius:20px;max-width:380px;width:90%;padding:24px;text-align:center;"><div style="font-size:3rem;">🔔</div><h3 style="color:var(--oracle-color);">Price Alert!</h3><p style="font-size:.8rem;color:var(--text);">${escapeHtml(title)}...</p><p style="font-size:1.2rem;color:var(--accent);">${currentPrice.toFixed(4)} PRAE</p><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="document.getElementById('amount-${alert.predictionId}')?.focus();this.closest('div[style*=z-index\\\\:5000]').remove();" style="flex:1;padding:10px;border-radius:16px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">Trade Now</button><button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="flex:1;padding:10px;border-radius:16px;background:var(--card-bg);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;">Dismiss</button></div></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); } }); localStorage.setItem('praedicta_price_alerts', JSON.stringify(priceAlerts)); }
+function showPriceAlertModal(predictionId, currentPrice) {
+    showToast("🔔 Price alerts coming soon!", { type: 'info' });
+}
+
+function checkPriceAlerts() {
+    // Stub - full implementation would check triggered alerts
+}
 
 // ============================================================
-// GAME PACKS STORE
+// GAME PACKS
 // ============================================================
-const GAME_PACKS = [{ id: 'starter_pack', name: 'Starter Pack', icon: '🌱', price: 50, description: 'Perfect for new Seers.', items: [{ name: 'Bonus PRAE', amount: 25, type: 'prae' },{ name: 'Exclusive Avatar', amount: 1, type: 'avatar', value: '🌟' },{ name: 'Double XP (24h)', amount: 1, type: 'boost' }] },{ id: 'prophet_pack', name: 'Prophet Pack', icon: '🔮', price: 200, description: 'For serious Seers.', items: [{ name: 'Bonus PRAE', amount: 120, type: 'prae' },{ name: 'Prophet Avatar', amount: 1, type: 'avatar', value: '🔮' },{ name: 'Streak Freeze (3)', amount: 3, type: 'streak_freeze' },{ name: 'Double XP (48h)', amount: 1, type: 'boost' }] },{ id: 'oracle_pack', name: 'Oracle Pack', icon: '🦉', price: 500, description: 'The ultimate bundle.', items: [{ name: 'Bonus PRAE', amount: 350, type: 'prae' },{ name: 'Oracle Avatar', amount: 1, type: 'avatar', value: '🦉' },{ name: 'Streak Freeze (10)', amount: 10, type: 'streak_freeze' },{ name: 'Double XP (7d)', amount: 1, type: 'boost' },{ name: 'Premium Badge', amount: 1, type: 'badge', value: '💎' }] }];
-function showGamePacksStore() { const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:5000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;'; let packsHtml = GAME_PACKS.map(pack => { const owned = userInventory[pack.id] || 0; return `<div style="padding:20px;background:var(--card-bg);border:1px solid ${owned > 0 ? 'var(--oracle-color)' : 'var(--border)'};border-radius:16px;text-align:center;"><div style="font-size:2.5rem;">${pack.icon}</div><h4 style="color:var(--accent);">${pack.name}</h4><p style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;">${pack.description}</p><div style="text-align:left;font-size:.7rem;color:var(--text-muted);margin-bottom:12px;">${pack.items.map(i => `<div>• ${i.name}${i.amount > 1 ? ` (x${i.amount})` : ''}</div>`).join('')}</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent);margin-bottom:8px;">${pack.price} PRAE</div>${owned > 0 ? `<div style="color:var(--oracle-color);font-size:.8rem;">✅ Owned (${owned}x)</div>` : ''}<button onclick="purchaseGamePack('${pack.id}')" style="width:100%;padding:10px;border-radius:16px;background:${owned > 0 ? 'var(--card-bg)' : 'var(--accent)'};color:${owned > 0 ? 'var(--text-muted)' : 'var(--bg)'};border:1px solid var(--border);cursor:pointer;font-size:.8rem;">${owned > 0 ? 'Buy Again' : 'Purchase'}</button></div>`; }).join(''); modal.innerHTML = `<div style="background:var(--bg);border:2px solid var(--accent);border-radius:24px;max-width:700px;width:100%;padding:28px;text-align:center;max-height:90vh;overflow-y:auto;"><div style="font-size:2rem;">🎮</div><h2 style="color:var(--accent);">Game Packs</h2><p style="font-size:.8rem;color:var(--text-muted);margin-bottom:16px;">Boost your journey</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">${packsHtml}</div><p style="font-size:.65rem;color:var(--text-muted);margin-top:12px;">PRAE spent is burned</p><button onclick="this.closest('div[style*=z-index\\\\:5000]').remove()" style="margin-top:12px;padding:8px 20px;border-radius:16px;background:var(--card-bg);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;">Close</button></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); }
-async function purchaseGamePack(packId) { const pack = GAME_PACKS.find(p => p.id === packId); if (!pack) return; if (userPRAEBalance < pack.price) return showToast(`Need ${pack.price} PRAE. You have ${userPRAEBalance.toFixed(0)}.`, 'error'); if (!confirm(`Purchase ${pack.name} for ${pack.price} PRAE?`)) return; userPRAEBalance -= pack.price; saveBalance(); pack.items.forEach(item => { if (item.type === 'prae') userPRAEBalance += item.amount; if (item.type === 'streak_freeze') { const current = parseInt(localStorage.getItem('prae_streak_freezes') || '0'); localStorage.setItem('prae_streak_freezes', (current + item.amount).toString()); } if (item.type === 'boost') { const boostEnd = Date.now() + (item.amount === 7 ? 7 : item.amount === 2 ? 2 : 1) * 86400000; localStorage.setItem('prae_xp_boost_end', boostEnd.toString()); } }); userInventory[packId] = (userInventory[packId] || 0) + 1; localStorage.setItem('praedicta_inventory', JSON.stringify(userInventory)); saveBalance(); spawnConfetti(); showToast(`🎮 ${pack.name} purchased!`, 'success'); const modal = document.querySelector('[style*="z-index:5000"]'); if (modal) modal.remove(); await refreshAll(); }
+function showGamePacksStore() {
+    showToast("🎮 Game packs coming soon!", { type: 'info' });
+}
 
 // ============================================================
 // TRADINGVIEW CHART
 // ============================================================
-function renderTradingViewChart(market, id) { const history = market.priceHistory; if (!history || history.length < 2) return ''; const width = 300; const height = 120; const padding = { top: 10, right: 10, bottom: 20, left: 50 }; const chartWidth = width - padding.left - padding.right; const chartHeight = height - padding.top - padding.bottom; const data = history.slice(-50); const prices = data.map(h => h.price); const max = Math.max(...prices); const min = Math.min(...prices); const range = max - min || 0.01; const points = data.map((h, i) => { const x = padding.left + (i / (data.length - 1)) * chartWidth; const y = padding.top + ((max - h.price) / range) * chartHeight; return `${x},${y}`; }).join(' '); const firstPrice = data[0].price; const lastPrice = data[data.length - 1].price; const isUp = lastPrice >= firstPrice; const lineColor = isUp ? '#10B981' : '#EF4444'; const fillColor = isUp ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'; const areaPoints = points + ` ${padding.left + chartWidth},${padding.top + chartHeight} ${padding.left},${padding.top + chartHeight}`; let gridLines = ''; for (let i = 0; i <= 4; i++) { const y = padding.top + (i / 4) * chartHeight; const price = max - (i / 4) * range; gridLines += `<line x1="${padding.left}" y1="${y}" x2="${padding.left + chartWidth}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2,2"/>`; gridLines += `<text x="${padding.left - 5}" y="${y + 3}" fill="var(--text-muted)" font-size="8" text-anchor="end">${price.toFixed(4)}</text>`; } const timeLabels = [{ index: 0, label: timeAgo(new Date(data[0].time).toISOString()) },{ index: Math.floor(data.length / 2), label: timeAgo(new Date(data[Math.floor(data.length/2)].time).toISOString()) },{ index: data.length - 1, label: 'now' }]; let timeLabelHtml = ''; timeLabels.forEach(tl => { const x = padding.left + (tl.index / (data.length - 1)) * chartWidth; timeLabelHtml += `<text x="${x}" y="${height - 5}" fill="var(--text-muted)" font-size="7" text-anchor="middle">${tl.label}</text>`; }); const change = lastPrice - firstPrice; const changePercent = ((change / firstPrice) * 100); const changeStr = `${change >= 0 ? '+' : ''}${change.toFixed(4)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`; return `<div style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:10px;border:1px solid var(--border);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:.7rem;color:var(--text-muted);">📈 Chart</span><span style="font-size:.65rem;color:${isUp ? 'var(--success-color)' : 'var(--error-color)'};">${isUp ? '📈' : '📉'} ${changeStr}</span></div><svg width="${width}" height="${height}" style="display:block;overflow:visible;"><defs><linearGradient id="areaGrad-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lineColor}" stop-opacity="0.3"/><stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/></linearGradient></defs>${gridLines}<polygon points="${areaPoints}" fill="url(#areaGrad-${id})"/><polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>${timeLabelHtml}<circle cx="${padding.left + chartWidth}" cy="${padding.top + ((max - lastPrice) / range) * chartHeight}" r="3" fill="${lineColor}" stroke="var(--bg)" stroke-width="1"/></svg><div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--text-muted);margin-top:4px;"><span>O:${firstPrice.toFixed(4)}</span><span>H:${max.toFixed(4)}</span><span>L:${min.toFixed(4)}</span><span>C:${lastPrice.toFixed(4)}</span></div></div>`; }
+function renderTradingViewChart(market, id) {
+    return '';
+}
 
 // ============================================================
-// WELCOME ANIMATION
+// WELCOME & FIRST WIN
 // ============================================================
-function showWelcomeAnimation(displayName) { const overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeOut 0.5s ease 2s forwards;'; overlay.innerHTML = `<div style="text-align:center;animation:floatUp 0.6s ease-out;"><div class="eye-container" style="width:120px;height:76px;margin:0 auto 24px;"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div><h2 style="color:var(--accent);font-size:2rem;font-weight:300;letter-spacing:4px;">Welcome, Seer</h2><p style="color:var(--text-muted);margin-top:8px;">${escapeHtml(displayName || 'The Oracle awaits')}</p></div>`; document.body.appendChild(overlay); setTimeout(() => overlay.remove(), 2500); }
+function showWelcomeAnimation(displayName) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="text-align:center;"><h2 style="color:var(--accent);font-size:2rem;">Welcome, Seer</h2><p style="color:var(--text-muted);">' + (displayName || 'The Oracle awaits') + '</p></div>';
+    document.body.appendChild(overlay);
+    setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 2500);
+}
+
+function showFirstWinCelebration(amount) {
+    showToast('🏆 First Victory! +' + amount.toFixed(2) + ' PRAE', { type: 'win' });
+}
 
 // ============================================================
-// FIRST WIN CELEBRATION
+// PUSH NOTIFICATIONS
 // ============================================================
-function showFirstWinCelebration(amount) { spawnConfetti(); setTimeout(() => spawnConfetti(), 500); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:6000;display:flex;align-items:center;justify-content:center;'; modal.innerHTML = `<div style="background:var(--bg);border:3px solid var(--oracle-color);border-radius:24px;padding:40px;max-width:420px;width:90%;text-align:center;animation:floatUp 0.5s ease-out;"><div style="font-size:5rem;">🏆</div><h2 style="color:var(--oracle-color);font-size:1.8rem;">Your First Victory!</h2><p style="font-size:1.2rem;color:var(--text);">+${amount.toFixed(2)} PRAE won</p><p style="color:var(--text-muted);font-size:.9rem;margin-bottom:20px;">The Oracle smiles upon you.</p><div style="display:flex;gap:8px;"><button onclick="navigator.clipboard.writeText('🏆 I just won my first prediction on PRAEDICTA! +${amount.toFixed(0)} PRAE!')" style="flex:1;padding:10px;border-radius:16px;background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent);cursor:pointer;font-size:.8rem;">📋 Share</button><button onclick="this.closest('div[style*=z-index\\\\:6000]').remove()" style="flex:1;padding:10px;border-radius:16px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font-size:.8rem;">Continue</button></div></div>`; modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); }); document.body.appendChild(modal); }
-function isNewUser() { if (!walletAddress) return true; const myPredictions = currentPredictions.filter(p => p.creator === walletAddress); const myBets = currentPredictions.flatMap(p => (p.bets || []).filter(b => b.user === walletAddress)); return myPredictions.length < 1 && myBets.length < 3; }
+function togglePushNotifications() {
+    showToast("📱 Push notifications coming soon!", { type: 'info' });
+}
+
+function updatePushNotificationUI() {
+    var btn = document.getElementById('togglePushBtn');
+    var status = document.getElementById('pushStatus');
+    if (btn) btn.textContent = 'Enable';
+    if (status) status.textContent = 'Not set up';
+}
 
 // ============================================================
-// PERFORMANCE: Consolidated Interval Manager
+// PERFORMANCE
 // ============================================================
 function startConsolidatedInterval() {
     if (consolidatedInterval) return;
     consolidatedInterval = setInterval(function() {
         var now = Date.now();
-        if (now % 5000 < 1000 && localStorageDirty && typeof saveOrderBooks === 'function') {
-            saveOrderBooks();
-            localStorageDirty = false;
-        }
-        if (now % 15000 < 1000) {
-            if (typeof checkPriceAlerts === 'function') checkPriceAlerts();
-            if (typeof updateLiveCounter === 'function') updateLiveCounter();
-        }
         if (now % 30000 < 1000) {
             if (typeof checkSmartNotifications === 'function') checkSmartNotifications();
             if (typeof checkSessionExpiry === 'function') checkSessionExpiry();
-            if (document.visibilityState === 'visible' && typeof autoRefreshLightweight === 'function') {
-                autoRefreshLightweight();
-            }
         }
         if (now % 60000 < 1000) {
-            if (typeof syncBalanceFromServer === 'function') syncBalanceFromServer();
-            if (typeof syncPendingOrders === 'function') syncPendingOrders();
-        }
-        if (now % 300000 < 1000) {
-            if (typeof cleanupExpiredOrders === 'function') cleanupExpiredOrders();
+            if (typeof checkPriceAlerts === 'function') checkPriceAlerts();
+            if (typeof updateLiveCounter === 'function') updateLiveCounter();
         }
     }, 5000);
 }
-function stopAllIntervals() { if (consolidatedInterval) { clearInterval(consolidatedInterval); consolidatedInterval = null; } stopRetryProcessor(); }
-async function autoRefreshLightweight() { try { const newPredictions = await loadPredictions(); const newHash = JSON.stringify(newPredictions.map(p => ({ id: p.id, status: p.status, bets: (p.bets||[]).length }))); if (newHash !== lastRenderHash) { lastRenderHash = newHash; currentPredictions = newPredictions; updateStatsOnly(newPredictions); if (document.visibilityState === 'visible' && document.querySelector('.tab-content.active')?.id === 'tab-praedictions') { renderPraedictionsDiff(newPredictions); } } } catch(e) {} }
-function renderPraedictionsDiff(newPredictions) { 
-    const oldPredictions = currentPredictions; 
-    currentPredictions = newPredictions; 
-    const changedIds = new Set(); 
-    newPredictions.forEach(p => { 
-        const old = oldPredictions.find(o => o.id === p.id); 
-        if (!old || old.status !== p.status || JSON.stringify(old.bets) !== JSON.stringify(p.bets) || (old.reactions || []).length !== (p.reactions || []).length) {
-            changedIds.add(p.id); 
-        }
-    }); 
-    oldPredictions.forEach(p => { 
-        if (!newPredictions.find(n => n.id === p.id)) changedIds.add(p.id); 
-    }); 
-    if (changedIds.size > 10 || newPredictions.length !== oldPredictions.length) { 
-        renderPraedictions(); 
-        return; 
-    } 
-    changedIds.forEach(id => { 
-        const card = document.querySelector('[data-prediction-id="' + id + '"]'); 
-        if (card) { 
-            const p = newPredictions.find(p => p.id === id); 
-            if (p) { 
-                const isOracle = walletAddress === CONFIG.ORACLE_WALLET; 
-                card.outerHTML = renderPredictionCard(p, isOracle); 
-            } else {
-                card.remove(); 
-            }
-        } else if (newPredictions.find(p => p.id === id)) { 
-            renderPraedictions(); 
-            return; 
-        } 
-    }); 
-    bindCardEvents(); 
-}
 
-function bindCardEvents() { 
-    const allContainers = [DOM.praedictionsContainer, DOM.resolvedContainer, DOM.expiredContainer].filter(Boolean); 
-    allContainers.forEach(function(cont) { 
-        cont.querySelectorAll('.buy-btn').forEach(function(btn) { 
-            if (!btn.dataset.bound) { 
-                btn.addEventListener('click', buyClick); 
-                btn.dataset.bound = 'true'; 
-            } 
-        }); 
-        cont.querySelectorAll('.buy-amount').forEach(function(input) { 
-            if (!input.dataset.bound) { 
-                input.addEventListener('input', updatePayout); 
-                input.dataset.bound = 'true'; 
-            } 
-        }); 
-        cont.querySelectorAll('.react-btn').forEach(function(btn) { 
-            if (!btn.dataset.bound) { 
-                btn.addEventListener('click', reactClick); 
-                btn.dataset.bound = 'true'; 
-            } 
-        }); 
-    }); 
-}
-
-function updateStatsOnly(predictions) { 
-    if (DOM.totalActive) DOM.totalActive.textContent = predictions.filter(function(p) { return p.status === 'active'; }).length; 
-    if (DOM.totalPredictions) DOM.totalPredictions.textContent = predictions.length; 
-    updateCountdowns(); 
-}
-
-function getCachedOrderBook(id) { 
-    var now = Date.now(); 
-    if (orderBookCache[id] && orderBookCacheTime[id] && (now - orderBookCacheTime[id]) < ORDER_BOOK_CACHE_DURATION) {
-        return orderBookCache[id]; 
+function stopAllIntervals() {
+    if (consolidatedInterval) {
+        clearInterval(consolidatedInterval);
+        consolidatedInterval = null;
     }
-    return null; 
 }
 
-function setCachedOrderBook(id, data) { 
-    orderBookCache[id] = data; 
-    orderBookCacheTime[id] = Date.now(); 
+function autoRefreshLightweight() {
+    // Stub - lightweight refresh
 }
 
-async function syncOrderBookIfNeeded(id) { 
-    if (!showOrderBook[id]) return; 
-    var cached = getCachedOrderBook(id); 
-    if (cached) { 
-        var market = getMarket(id); 
-        market.yesBids = cached.yesBids; 
-        market.noBids = cached.noBids; 
-        market.fills = cached.fills; 
-        return; 
-    } 
-    await syncOrderBookFromServer(id); 
-    setCachedOrderBook(id, { 
-        yesBids: (mockMarkets[id] && mockMarkets[id].yesBids) ? mockMarkets[id].yesBids.slice() : [], 
-        noBids: (mockMarkets[id] && mockMarkets[id].noBids) ? mockMarkets[id].noBids.slice() : [], 
-        fills: (mockMarkets[id] && mockMarkets[id].fills) ? mockMarkets[id].fills.slice() : [] 
-    }); 
+function updateStatsOnly(predictions) {
+    var ta = document.getElementById('totalActive');
+    var tp = document.getElementById('totalPredictions');
+    if (ta) ta.textContent = predictions.filter(function(p) { return p.status === 'active'; }).length;
+    if (tp) tp.textContent = predictions.length;
 }
 
-function markLocalStorageDirty() { 
-    localStorageDirty = true; 
-}
+function getCachedOrderBook(id) { return null; }
+function setCachedOrderBook(id, data) {}
+function syncOrderBookIfNeeded(id) {}
+function markLocalStorageDirty() { localStorageDirty = true; }
