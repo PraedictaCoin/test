@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Authentication & Session (auth.js) - FINAL CORRECTED
+// PRAEDICTA – Authentication & Session (auth.js) - FINAL
 // ============================================================
 
 async function callSecureRpc(action, params = {}) {
@@ -27,7 +27,6 @@ async function callSecureRpc(action, params = {}) {
         return await res.json();
     }
     
-    // All other actions go through secure_rpc (with session token or fresh signature)
     // Try session token first
     if (sessionToken && sessionExpiresAt > Date.now()) {
         try {
@@ -37,7 +36,7 @@ async function callSecureRpc(action, params = {}) {
                 body: JSON.stringify({ action: 'session_action', params: { action, params }, token: sessionToken })
             });
             if (res.ok) return await res.json();
-            // Token invalid/expired – fall through to fresh authentication
+            // Token invalid/expired – fall through
             sessionToken = null;
             sessionExpiresAt = null;
         } catch (e) {}
@@ -112,22 +111,24 @@ async function connectWallet() {
             return;
         }
         
-        // --- Age verification (required, stored in DB, not localStorage) ---
-let dob = user?.date_of_birth; // fetch from user after login
-if (!dob) {
-    dob = prompt("To play, please enter your date of birth (dd/mm/yyyy):");
-    if (!dob) throw new Error("Age verification required");
-    // Validate format
-    const parts = dob.split('/');
-    if (parts.length !== 3) throw new Error("Use format dd/mm/yyyy");
-    const day = parseInt(parts[0]), month = parseInt(parts[1]) - 1, year = parseInt(parts[2]);
-    if (isNaN(day) || isNaN(month+1) || isNaN(year)) throw new Error("Invalid date");
-    const birthDate = new Date(year, month, day);
-    if (birthDate.getDate() !== day || birthDate.getMonth() !== month || birthDate.getFullYear() !== year) throw new Error("Invalid date");
-    const age = (new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000);
-    if (age < 18) throw new Error("You must be 18 or older.");
-    await callSecureRpc('set_birthdate', { dob: birthDate.toISOString().slice(0,10) });
-}
+        // --- Age verification (required) ---
+        let dob = localStorage.getItem(`dob_${walletAddress}`);
+        if (!dob) {
+            dob = prompt("To play, please enter your date of birth (DD/MM/YYYY):");
+            if (!dob) throw new Error("Age verification required");
+            // Validate format and calculate age
+            const parts = dob.split('/');
+            if (parts.length !== 3) throw new Error("Invalid date format. Use DD/MM/YYYY");
+            const day = parseInt(parts[0]);
+            const month = parseInt(parts[1]) - 1;
+            const year = parseInt(parts[2]);
+            const birthDate = new Date(year, month, day);
+            if (isNaN(birthDate.getTime())) throw new Error("Invalid date");
+            const age = (new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000);
+            if (age < 18) throw new Error("You must be 18 or older to use this game.");
+            localStorage.setItem(`dob_${walletAddress}`, dob);
+            await callSecureRpc('set_birthdate', { dob });
+        }
         
         // --- Terms acceptance (required) ---
         const termsCheck = await callSecureRpc('check_terms', {});
@@ -144,7 +145,6 @@ if (!dob) {
                     };
                 });
             } else {
-                // fallback: simple confirm
                 if (!confirm("You must accept the Terms of Use to continue. This is a free prediction game with virtual points. No real money involved. Accept?")) {
                     throw new Error("Terms not accepted");
                 }
@@ -198,8 +198,8 @@ if (!dob) {
         await refreshAll();
         
         // Check for referral in URL (just notify, reward removed)
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('ref')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('ref')) {
             showToast("🎁 You were referred! (bonus already applied)", 'success');
         }
     } catch (err) {
