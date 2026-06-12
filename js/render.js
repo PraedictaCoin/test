@@ -142,7 +142,6 @@ function renderPredictionCard(p, isOracle) {
     ${isCreator && active ? `<div style="font-size:.65rem;color:var(--oracle-color);margin-bottom:4px;">🏆 Earn 10 SeerScore when resolved</div>` : ''}
     ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
     ${renderResolutionInfo(p)}
-    ${active ? renderOracleInsight(p) : ''}
     ${active ? renderVoteStats(yesPrice, noPrice) : renderVoteStats(yesPrice, noPrice)}
     
     <!-- Market/Limit Toggle -->

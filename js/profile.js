@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL (no live counter)
 // ============================================================
 
 async function loadPredictions() {
@@ -119,7 +119,6 @@ function updateFreezeTimer(user) {
 
 // CORRECTED: No recursion, returns mock data immediately
 async function fetchHoroscopeForZodiac(sign) {
-    // Return mock data (no external fetch, no recursion)
     return {
         description: `The stars are aligned for ${sign}. Trust your intuition.`,
         luckyNumber: (Math.floor(Math.random() * 99) + 1).toString(),
@@ -417,7 +416,7 @@ async function refreshAll() {
         if (DOM.loadMoreBtn && predictions.length >= 100) DOM.loadMoreBtn.style.display = 'block';
         else if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
         updateHypeMessage();
-        updateLiveCounter();
+        // updateLiveCounter() removed (no longer exists)
         hideSkeleton();
     } catch (err) {
         console.error('Refresh error:', err);

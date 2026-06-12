@@ -1,9 +1,24 @@
 // ============================================================
-// PRAEDICTA – Event Listeners (events.js) - FINAL (fixed)
+// PRAEDICTA – Event Listeners (events.js) - FINAL v13 (clean layout)
 // ============================================================
 
-function initOracleAsk() {
-    DOM.oracleBtn?.addEventListener('click', () => {
+function initEventListeners() {
+    loadNotificationPrefs();
+    
+    // Theme toggles (both header and settings)
+    DOM.themeToggleSmall?.addEventListener('click', toggleTheme);
+    DOM.themeToggleSettings?.addEventListener('click', toggleTheme);
+    
+    // Accent toggle (both)
+    DOM.accentToggleBtn?.addEventListener('click', toggleAccent);
+    DOM.accentToggleSettings?.addEventListener('click', toggleAccent);
+    
+    // Connect/Disconnect
+    DOM.connectBtn?.addEventListener('click', connectWallet);
+    DOM.disconnectBtn?.addEventListener('click', disconnectWallet);
+    
+    // Oracle ask (new tab)
+    DOM.oracleAskBtn?.addEventListener('click', () => {
         if (oracleAsked) return showToast("🦉 Once per login.", 'info');
         const question = prompt("What do you wish to know?");
         if (!question) return;
@@ -11,22 +26,23 @@ function initOracleAsk() {
         const answer = ORACLE_ANSWERS[Math.floor(Math.random() * ORACLE_ANSWERS.length)];
         showToast(`🔮 ${answer}`, 'info');
     });
-}
-
-function initEventListeners() {
-    loadNotificationPrefs();
-    DOM.themeToggleSmall?.addEventListener('click', toggleTheme);
-    DOM.connectBtn?.addEventListener('click', connectWallet);
-    DOM.disconnectBtn?.addEventListener('click', disconnectWallet);
+    
+    // Play toggle (optional, keep)
     DOM.playToggle?.addEventListener('click', () => {
         useRealMarket = !useRealMarket;
         DOM.playToggle.textContent = useRealMarket ? '⛓️ Real' : '🎮 Play';
         refreshAll();
     });
+    
+    // Tutorial close
     document.getElementById('closeTutorialBtn')?.addEventListener('click', () => {
         DOM.tutorialOverlay.style.display = 'none';
     });
+    
+    // Create prediction
     DOM.createBtn?.addEventListener('click', createPrediction);
+    
+    // Filters
     DOM.filterSearch?.addEventListener('input', e => {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => {
@@ -48,13 +64,21 @@ function initEventListeners() {
             renderPraedictions();
         }, 200);
     });
+    
+    // Leaderboard category filter
     DOM.leaderboardCategoryFilter?.addEventListener('change', async e => {
         await renderLeaderboard(leaderboardPeriod, e.target.value || null);
     });
+    
+    // Load more predictions
     DOM.loadMoreBtn?.addEventListener('click', loadMorePredictions);
+    
+    // Copy wallet address
     DOM.copyWalletBtn?.addEventListener('click', () => {
         if (walletAddress) navigator.clipboard.writeText(walletAddress).then(() => showToast("Copied!", 'success'));
     });
+    
+    // Creator conviction YES/NO
     DOM.creatorBetYes?.addEventListener('click', () => {
         creatorBetOutcome = 'yes';
         DOM.creatorBetYes.classList.add('selected');
@@ -73,6 +97,8 @@ function initEventListeners() {
             DOM.creatorBetDisplay.style.color = '#FF8888';
         }
     });
+    
+    // Tab switching (new order)
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.addEventListener('click', async function() {
             const tab = this.dataset.tab;
@@ -82,9 +108,12 @@ function initEventListeners() {
             document.getElementById(`tab-${tab}`)?.classList.add('active');
             if (tab === 'profile') await renderProfile();
             else if (tab === 'leaderboard') await renderLeaderboard(leaderboardPeriod);
+            else if (tab === 'watchlist') renderWatchlist();
             else if (tab === 'admin') await loadAdminDashboard();
         });
     });
+    
+    // Save profile (name, avatar)
     DOM.saveProfileBtn?.addEventListener('click', async () => {
         const name = sanitize(DOM.displayNameInput.value, 20);
         const av = DOM.avatarSelect.value;
@@ -102,6 +131,8 @@ function initEventListeners() {
             setLoading(DOM.saveProfileBtn, false);
         }
     });
+    
+    // Save zodiac
     DOM.saveZodiacBtn?.addEventListener('click', async () => {
         const s = DOM.zodiacSelect.value;
         if (!s) return;
@@ -116,9 +147,48 @@ function initEventListeners() {
             setLoading(DOM.saveZodiacBtn, false);
         }
     });
-    DOM.donateBtn?.addEventListener('click', () => {
-        window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
+    
+    // Portfolio toggle
+    let portfolioVisible = false;
+    DOM.showPortfolioBtn?.addEventListener('click', () => {
+        portfolioVisible = !portfolioVisible;
+        if (portfolioVisible) {
+            renderPortfolio();
+            DOM.portfolioView.style.display = 'block';
+            DOM.showPortfolioBtn.textContent = '🔼 Hide';
+        } else {
+            DOM.portfolioView.style.display = 'none';
+            DOM.showPortfolioBtn.textContent = '💼 Portfolio';
+        }
     });
+    
+    // My praedictions (moved to Portfolio section)
+    DOM.showMyPraedictionsBtn?.addEventListener('click', () => {
+        const c = DOM.myPraedictionsList;
+        if (!c) return;
+        if (c.style.display === 'none' || !c.style.display) {
+            const mc = currentPredictions.filter(p => p.creator === walletAddress);
+            const mb = currentPredictions.filter(p => (p.bets || []).some(b => b.user === walletAddress) && p.creator !== walletAddress);
+            let h = '';
+            if (mc.length > 0) {
+                h += '<h4 style="color:var(--accent);">✨ Created</h4>';
+                h += mc.map(p => `<div style="background:var(--card-bg);border-radius:12px;padding:12px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${p.status.toUpperCase()}</span></div>`).join('');
+            }
+            if (mb.length > 0) {
+                h += '<h4 style="color:var(--accent);margin-top:12px;">💰 Bets</h4>';
+                h += mb.map(p => {
+                    const b = p.bets.find(b => b.user === walletAddress);
+                    return `<div style="background:var(--card-bg);border-radius:12px;padding:12px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${b.outcome.toUpperCase()} · ${p.status}</span></div>`;
+                }).join('');
+            }
+            c.innerHTML = h || '<div class="empty-state"><p>No praedictions yet.</p></div>';
+            c.style.display = 'block';
+        } else {
+            c.style.display = 'none';
+        }
+    });
+    
+    // Flip coin (moved to Support tab)
     DOM.flipCoinBtn?.addEventListener('click', async () => {
         if (!walletAddress) return;
         try {
@@ -145,31 +215,11 @@ function initEventListeners() {
             showToast("Failed", 'error');
         }
     });
-    DOM.showMyPraedictionsBtn?.addEventListener('click', () => {
-        const c = DOM.myPraedictionsList;
-        if (!c) return;
-        if (c.style.display === 'none' || !c.style.display) {
-            const mc = currentPredictions.filter(p => p.creator === walletAddress);
-            const mb = currentPredictions.filter(p => (p.bets || []).some(b => b.user === walletAddress) && p.creator !== walletAddress);
-            let h = '';
-            if (mc.length > 0) {
-                h += '<h4 style="color:var(--accent);">✨ Created</h4>';
-                h += mc.map(p => `<div style="background:var(--card-bg);border-radius:12px;padding:12px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${p.status.toUpperCase()}</span></div>`).join('');
-            }
-            if (mb.length > 0) {
-                h += '<h4 style="color:var(--accent);margin-top:12px;">💰 Bets</h4>';
-                h += mb.map(p => {
-                    const b = p.bets.find(b => b.user === walletAddress);
-                    return `<div style="background:var(--card-bg);border-radius:12px;padding:12px;"><strong>${escapeHtml(p.title)}</strong><br><span style="font-size:.8rem;color:var(--text-muted);">${b.outcome.toUpperCase()} · ${p.status}</span></div>`;
-                }).join('');
-            }
-            c.innerHTML = h || '<div class="empty-state"><p>No praedictions yet.</p></div>';
-            c.style.display = 'block';
-        } else {
-            c.style.display = 'none';
-        }
-    });
-    // DELETE DATA: only clears local storage – server data stays intact
+    
+    // Claim signup bonus (renamed button)
+    DOM.claimBonusBtn?.addEventListener('click', claimSignupBonus);
+    
+    // Delete local data (user button)
     document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
         e.preventDefault();
         if (!confirm("⚠️ This will clear your local game data (cached balance, filters, etc.) and disconnect your wallet. Your predictions and bets on the server will remain. Continue?")) return;
@@ -177,6 +227,8 @@ function initEventListeners() {
         disconnectWallet();
         showToast("Local data cleared. Wallet disconnected.", 'info');
     });
+    
+    // Leaderboard period buttons
     document.querySelectorAll('[data-period]').forEach(b => {
         b.addEventListener('click', async function() {
             document.querySelectorAll('[data-period]').forEach(x => x.classList.remove('active-filter'));
@@ -184,6 +236,8 @@ function initEventListeners() {
             await renderLeaderboard(this.dataset.period, DOM.leaderboardCategoryFilter?.value || null);
         });
     });
+    
+    // Email verification
     DOM.sendVerifyEmailBtn?.addEventListener('click', async () => {
         const email = sanitize(DOM.emailInput?.value || '', 100);
         if (!email || !email.includes('@')) return showToast("Enter valid email", 'error');
@@ -212,29 +266,10 @@ function initEventListeners() {
             setLoading(DOM.verifyEmailBtn, false);
         }
     });
+    
+    // Export analytics (already in settings)
     DOM.exportAnalyticsBtn?.addEventListener('click', exportAnalytics);
-
-    // Portfolio toggle
-    let portfolioVisible = false;
-    DOM.showPortfolioBtn?.addEventListener('click', () => {
-        portfolioVisible = !portfolioVisible;
-        if (portfolioVisible) {
-            renderPortfolio();
-            DOM.portfolioView.style.display = 'block';
-            DOM.showPortfolioBtn.textContent = '🔼 Hide';
-        } else {
-            DOM.portfolioView.style.display = 'none';
-            DOM.showPortfolioBtn.textContent = '💼 Portfolio';
-        }
-    });
-    DOM.showRecapBtn?.addEventListener('click', showWeeklyRecap);
-    DOM.accentToggleBtn?.addEventListener('click', toggleAccent);
-    // Signup bonus (replaces faucet)
-    DOM.signupBonusBtn?.addEventListener('click', claimSignupBonus);
-
-    // Push notifications (placeholder)
-    DOM.pushSubscribeBtn?.addEventListener('click', registerPushNotifications);
-
+    
     // Export trade history
     DOM.exportHistoryBtn?.addEventListener('click', async () => {
         if (!walletAddress) return showToast("Connect wallet first", 'error');
@@ -259,7 +294,7 @@ function initEventListeners() {
             setLoading(DOM.exportHistoryBtn, false);
         }
     });
-
+    
     // Support modal
     DOM.supportBtn?.addEventListener('click', () => {
         if (DOM.supportModal) DOM.supportModal.style.display = 'flex';
@@ -272,8 +307,17 @@ function initEventListeners() {
         if (DOM.supportModal) DOM.supportModal.style.display = 'none';
         if (DOM.supportMessage) DOM.supportMessage.value = '';
     });
-
-    initOracleAsk();
+    
+    // Push notifications (settings)
+    DOM.pushSubscribeBtn?.addEventListener('click', registerPushNotifications);
+    
+    // Donate button (support)
+    DOM.donateBtn?.addEventListener('click', () => {
+        window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
+    });
+    
+    // Weekly recap (optional)
+    DOM.showRecapBtn?.addEventListener('click', showWeeklyRecap);
 }
 
 // ============================================================

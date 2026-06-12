@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Initialization (init.js) - FINAL (with accent toggle)
+// PRAEDICTA – Initialization (init.js) - FINAL
 // ============================================================
 
 // Polyfill for element.closest
@@ -35,9 +35,11 @@ function initAccent() {
     if (saved === 'violet') {
         document.body.classList.add('violet');
         if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Turquoise';
+        if (DOM.accentToggleSettings) DOM.accentToggleSettings.textContent = '🎨 Turquoise';
     } else {
         document.body.classList.remove('violet');
         if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Violet';
+        if (DOM.accentToggleSettings) DOM.accentToggleSettings.textContent = '🎨 Violet';
     }
 }
 
@@ -46,10 +48,12 @@ function toggleAccent() {
         document.body.classList.remove('violet');
         localStorage.setItem('praedicta_accent', 'turquoise');
         if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Violet';
+        if (DOM.accentToggleSettings) DOM.accentToggleSettings.textContent = '🎨 Violet';
     } else {
         document.body.classList.add('violet');
         localStorage.setItem('praedicta_accent', 'violet');
         if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Turquoise';
+        if (DOM.accentToggleSettings) DOM.accentToggleSettings.textContent = '🎨 Turquoise';
     }
 }
 
@@ -139,7 +143,6 @@ function init() {
 
     if (typeof startConsolidatedInterval === 'function') startConsolidatedInterval();
     if (typeof initMicroInteractions === 'function') initMicroInteractions();
-    if (typeof updateLiveCounter === 'function') updateLiveCounter();
 
     // Check wallet for surprise drops and milestones
     var checkWalletInterval = setInterval(function() {
@@ -160,16 +163,27 @@ function init() {
             var el = document.querySelector('[data-tab="praedictions"]');
             if (el) el.click();
         } else if (key === '2') {
-            var el = document.querySelector('[data-tab="profile"]');
+            var el = document.querySelector('[data-tab="oracle"]');
             if (el) el.click();
         } else if (key === '3') {
             var el = document.querySelector('[data-tab="leaderboard"]');
             if (el) el.click();
         } else if (key === '4') {
+            var el = document.querySelector('[data-tab="watchlist"]');
+            if (el) el.click();
+        } else if (key === '5') {
+            var el = document.querySelector('[data-tab="profile"]');
+            if (el) el.click();
+        } else if (key === '6') {
             var el = document.querySelector('[data-tab="support"]');
+            if (el) el.click();
+        } else if (key === '7') {
+            var el = document.querySelector('[data-tab="settings"]');
             if (el) el.click();
         } else if (key === 't') {
             toggleTheme();
+        } else if (key === 'a') {
+            toggleAccent();
         }
     });
 

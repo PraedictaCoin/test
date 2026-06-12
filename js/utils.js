@@ -489,23 +489,6 @@ function restoreScrollPosition() {
     }
 }
 
-// ============================================================
-// LIVE COUNTER
-// ============================================================
-function updateLiveCounter() {
-    var activeCount = 0;
-    var betCount = 0;
-    for (var i = 0; i < currentPredictions.length; i++) {
-        if (currentPredictions[i].status === 'active') activeCount++;
-        betCount += (currentPredictions[i].bets || []).length;
-    }
-    onlineUsers = Math.max(5, Math.floor(Math.random() * 20) + 5);
-    var counter = document.getElementById('liveCounter');
-    if (counter) {
-        counter.innerHTML = '🔴 <strong>' + onlineUsers + '</strong> online · <strong>' + activeCount + '</strong> active · <strong>' + betCount + '</strong> bets';
-        counter.style.display = 'block';
-    }
-}
 
 // ============================================================
 // SMART NOTIFICATIONS

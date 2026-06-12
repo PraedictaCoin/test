@@ -117,11 +117,9 @@ function updateFreezeTimer(user) {
     }
 }
 
-// Fallback for missing fetchHoroscopeForZodiac
+// CORRECTED: No recursion, returns mock data immediately
 async function fetchHoroscopeForZodiac(sign) {
-    if (typeof window.fetchHoroscopeForZodiac === 'function') {
-        return await window.fetchHoroscopeForZodiac(sign);
-    }
+    // Return mock data (no external fetch, no recursion)
     return {
         description: `The stars are aligned for ${sign}. Trust your intuition.`,
         luckyNumber: (Math.floor(Math.random() * 99) + 1).toString(),
