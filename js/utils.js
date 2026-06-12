@@ -779,14 +779,19 @@ function sortPredictions(predictions, sortBy) {
 // ============================================================
 function initMicroInteractions() {
     document.addEventListener('mouseleave', function(e) {
+        // Ensure e.target is an element before using .closest
         var card = null;
-        if (e.target && e.target.closest) card = e.target.closest('.praediction-card');
+        if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
+            card = e.target.closest('.praediction-card');
+        }
         if (card) card.style.transform = '';
     }, true);
     
     document.addEventListener('click', function(e) {
         var btn = null;
-        if (e.target && e.target.closest) btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
+        if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
+            btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
+        }
         if (!btn) return;
         var ripple = document.createElement('span');
         var rect = btn.getBoundingClientRect();

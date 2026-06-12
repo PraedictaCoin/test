@@ -102,31 +102,18 @@ function init() {
     setTimeout(function() { clearInterval(checkWalletInterval); }, 30000);
     
     // Keyboard shortcuts
-   document.addEventListener('keydown', function(e) {
-    // Skip if the active element is an input, textarea, or select
-    var tag = document.activeElement ? document.activeElement.tagName : '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    var key = e.key.toLowerCase();
-    var targetEl = e.target && e.target.nodeType === Node.ELEMENT_NODE ? e.target : null;
-    // If target is not an element, we cannot use .closest, so just use document.querySelector
-    if (!targetEl && key === '1') {
-        var el = document.querySelector('[data-tab="praedictions"]');
-        if (el) el.click();
-    } else if (!targetEl && key === '2') {
-        var el = document.querySelector('[data-tab="profile"]');
-        if (el) el.click();
-    } else if (!targetEl && key === '3') {
-        var el = document.querySelector('[data-tab="leaderboard"]');
-        if (el) el.click();
-    } else if (!targetEl && key === '4') {
-        var el = document.querySelector('[data-tab="support"]');
-        if (el) el.click();
-    } else if (key === 'b') {
-        if (typeof toggleBlindVoting === 'function') toggleBlindVoting();
-    } else if (key === 't') {
-        toggleTheme();
-    }
-});
+    document.addEventListener('keydown', function(e) { 
+        var tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return; 
+        var key = e.key.toLowerCase();
+        var el;
+        if (key === '1') { el = document.querySelector('[data-tab="praedictions"]'); if (el) el.click(); }
+        else if (key === '2') { el = document.querySelector('[data-tab="profile"]'); if (el) el.click(); }
+        else if (key === '3') { el = document.querySelector('[data-tab="leaderboard"]'); if (el) el.click(); }
+        else if (key === '4') { el = document.querySelector('[data-tab="support"]'); if (el) el.click(); }
+        else if (key === 'b') { if (typeof toggleBlindVoting === 'function') toggleBlindVoting(); }
+        else if (key === 't') { toggleTheme(); }
+    });
     
     // Mobile FAB
     var fab = document.getElementById('createFab');

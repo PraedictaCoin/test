@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - FINAL v5
+// PRAEDICTA – Utility Functions (utils.js) - FINAL v6 (SECURITY FIXED)
 // ============================================================
 
 var cachedDayKey = '';
@@ -248,7 +248,7 @@ function updateCountdowns() {
         for (var j = 0; j < currentPredictions.length; j++) {
             if (currentPredictions[j].id === id) { prediction = currentPredictions[j]; break; }
         }
-        if (!prediction || !prediction.resolution_date) return;
+        if (!prediction || !prediction.resolution_date) continue;
         var remaining = new Date(prediction.resolution_date) - Date.now();
         if (remaining <= 0) { el.textContent = '⏰ Deadline passed'; continue; }
         var days = Math.floor(remaining / 86400000);
