@@ -1,11 +1,12 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL v2
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL v3 (no referral)
 // ============================================================
 
 async function loadPredictions() {
     try {
+        // Optimized: select only needed fields (optional)
         const { data, error } = await supabaseClient.from('predictions')
-            .select('*')
+            .select('id, title, description, category, status, resolution_date, auto_source, target_value, source_url, created_at, creator, bets, resolved_outcome, unresolvable, payouts')
             .order('created_at', { ascending: false })
             .limit(100);
         if (error) throw error;
@@ -67,7 +68,7 @@ async function loadMorePredictions() {
     predictionsOffset += PREDICTIONS_PER_PAGE;
     try {
         const { data } = await supabaseClient.from('predictions')
-            .select('*')
+            .select('id, title, description, category, status, resolution_date, auto_source, target_value, source_url, created_at, creator, bets, resolved_outcome, unresolvable, payouts')
             .order('created_at', { ascending: false })
             .range(predictionsOffset, predictionsOffset + PREDICTIONS_PER_PAGE - 1);
         if (data && data.length > 0) {
@@ -119,7 +120,6 @@ function updateFreezeTimer(user) {
 
 // Fallback for missing fetchHoroscopeForZodiac
 async function fetchHoroscopeForZodiac(sign) {
-    // If the global function exists, use it; otherwise return mock data
     if (typeof window.fetchHoroscopeForZodiac === 'function') {
         return await window.fetchHoroscopeForZodiac(sign);
     }
@@ -257,7 +257,7 @@ async function renderProfile(userData) {
     updateFreezeTimer(user);
     updateHypeMessage();
     if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
-    if (DOM.referralLink) DOM.referralLink.textContent = `${window.location.origin}/test/?ref=${walletAddress}`;
+    // Removed referral link – no longer displayed
     if (DOM.streakCalendar) renderStreakCalendar();
     await renderWatchlist();
 }

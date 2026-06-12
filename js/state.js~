@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Application State (state.js) - CLEAN
+// PRAEDICTA – Application State (state.js) - CLEAN (no blind voting)
 // ============================================================
 
 // Wallet & authentication
@@ -28,7 +28,6 @@ var searchDebounce = null;
 var previousLeaderboard = [];
 
 // UI state
-var blindVotingEnabled = false;
 var creatorBetOutcome = null;
 var useRealMarket = false;
 var actionCooldown = false;

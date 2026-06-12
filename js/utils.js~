@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - FINAL v7 (CLEAN)
+// PRAEDICTA – Utility Functions (utils.js) - FINAL (no blind voting, no 2FA)
 // ============================================================
 
 var cachedDayKey = '';
@@ -70,6 +70,10 @@ function showToast(msg, options) {
     }, actualDuration);
     
     return t;
+}
+
+function showToastWithUndo(msg, onUndo, duration = 10000) {
+    return showToast(msg, { type: 'info', duration, undoCallback: onUndo, undoLabel: 'Undo' });
 }
 
 function setLoading(btn, on) {
@@ -189,54 +193,6 @@ function updateHypeMessage() {
     if (!hm) return;
     if (typeof HYPE_MESSAGES === 'undefined') return;
     hm.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)];
-}
-
-function applyBlindVoting(container) {
-    if (!container) container = document;
-    var stats = container.querySelectorAll('.vote-stats');
-    for (var i = 0; i < stats.length; i++) {
-        if (blindVotingEnabled) {
-            stats[i].style.filter = 'blur(8px)';
-            stats[i].style.userSelect = 'none';
-        } else {
-            stats[i].style.filter = 'none';
-            stats[i].style.userSelect = '';
-        }
-    }
-}
-
-function toggleBlindVoting() {
-    blindVotingEnabled = !blindVotingEnabled;
-    var cb = document.getElementById('settingsBlindVoting');
-    if (cb) cb.checked = blindVotingEnabled;
-    applyBlindVoting();
-    var rc = document.getElementById('resolvedContainer');
-    var ec = document.getElementById('expiredContainer');
-    if (rc) applyBlindVoting(rc);
-    if (ec) applyBlindVoting(ec);
-    var rvb = document.getElementById('revealVotesBtn');
-    if (rvb) {
-        rvb.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes';
-        if (blindVotingEnabled) rvb.classList.add('active-filter');
-        else rvb.classList.remove('active-filter');
-    }
-}
-
-function toggleBlindVotingFromSettings() {
-    var cb = document.getElementById('settingsBlindVoting');
-    blindVotingEnabled = cb ? cb.checked : false;
-    applyBlindVoting();
-    var rc = document.getElementById('resolvedContainer');
-    var ec = document.getElementById('expiredContainer');
-    if (rc) applyBlindVoting(rc);
-    if (ec) applyBlindVoting(ec);
-    showToast(blindVotingEnabled ? '🙈 Votes hidden' : '👁️ Votes visible', { type: 'info' });
-}
-
-function loadSettingsState() {
-    var cb = document.getElementById('settingsBlindVoting');
-    if (cb) cb.checked = blindVotingEnabled;
-    if (typeof updatePushNotificationUI === 'function') updatePushNotificationUI();
 }
 
 function updateCountdowns() {
@@ -389,7 +345,7 @@ function flashTitle(text) {
 function loadNotificationPrefs() {
     try {
         var prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}');
-        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound'];
         for (var i = 0; i < els.length; i++) {
             var el = document.getElementById(els[i]);
             if (el) el.checked = prefs[els[i].replace('notif', '').toLowerCase()] !== false;
@@ -400,7 +356,7 @@ function loadNotificationPrefs() {
 function saveNotificationPrefs() {
     try {
         var prefs = {};
-        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound'];
         for (var i = 0; i < els.length; i++) {
             var el = document.getElementById(els[i]);
             var key = els[i].replace('notif', '').toLowerCase();
@@ -952,13 +908,6 @@ function handleAvatarUpload(event) {
 }
 
 // ============================================================
-// 2FA
-// ============================================================
-function send2FACode() {
-    showToast("📧 2FA code sent!", { type: 'info' });
-}
-
-// ============================================================
 // SESSION EXPIRY
 // ============================================================
 function checkSessionExpiry() {
@@ -979,7 +928,6 @@ function showShortcutsPopup() {
         { key: '2', desc: 'Profile tab' },
         { key: '3', desc: 'Leaderboard tab' },
         { key: '4', desc: 'Support tab' },
-        { key: 'B', desc: 'Toggle blind voting' },
         { key: 'T', desc: 'Toggle theme' }
     ];
     var modal = document.createElement('div');
@@ -1077,14 +1025,6 @@ async function claimSignupBonus() {
 async function reportPrediction(predictionId, reason) {
     await callSecureRpc('report_prediction', { predictionId, reason });
     showToast("Report submitted. Admin will review.", 'info');
-}
-
-async function deleteMyData() {
-    if (!confirm("⚠️ This will permanently delete all your predictions, bets, watchlist, and user data. This action cannot be undone. Continue?")) return;
-    await callSecureRpc('delete_my_data', {});
-    localStorage.clear();
-    disconnectWallet();
-    showToast("Your data has been deleted.", 'info');
 }
 
 async function acceptTerms(version = "1.0") {

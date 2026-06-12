@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Authentication & Session (auth.js) - FINAL SECURE VERSION
+// PRAEDICTA – Authentication & Session (auth.js) - FINAL
 // ============================================================
 
 async function callSecureRpc(action, params = {}) {
@@ -180,10 +180,18 @@ async function connectWallet() {
         } catch (e) {}
         
         const user = await loadUser(walletAddress);
+        
+        // Load saved theme from database (if any)
+        if (user?.theme) {
+            if (user.theme === 'light') document.body.classList.add('light');
+            else document.body.classList.remove('light');
+            localStorage.setItem('praedicta_theme', user.theme);
+        }
+        
         showWelcomeAnimation(user?.display_name || '');
         await refreshAll();
         
-        // Check for referral in URL (optional, but reward already removed – just notify)
+        // Check for referral in URL (just notify, reward removed)
         const params = new URLSearchParams(window.location.search);
         if (params.get('ref')) {
             showToast("🎁 You were referred! (bonus already applied)", 'success');

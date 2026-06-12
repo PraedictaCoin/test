@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Market & Trading (market.js) - FINAL v15
+// PRAEDICTA – Market & Trading (market.js) - FINAL v16 (Clean)
 // Full Order Book + All Features + Performance
 // ============================================================
 
@@ -261,6 +261,7 @@ async function cancelAllOrders(id) { const market = getMarket(id); const userOrd
 async function cancelMyOrder(id, outcome, index) { if (!confirm(`Cancel this ${outcome.toUpperCase()} order?`)) return; const result = await cancelOrder(id, outcome, index); if (result.error) { showToast(result.error, 'error'); } else { showToastWithUndo(`Order cancelled. ${result.refunded.toFixed(2)} PRAE refunded.`, () => { clearTimeout(result.undoTimeout); cancelledOrders = cancelledOrders.filter(o => o !== result.cancelledOrder); placeLimitOrder(id, outcome, result.cancelledOrder.originalAmount || result.cancelledOrder.amount, result.cancelledOrder.price).then(r => { if (r.success) { showToast('✅ Order restored!', 'success'); refreshAll(); } }); }, 8000); await refreshAll(); } }
 
 function marketBuy(id, outcome, amount) { return placeLimitOrder(id, outcome, amount, outcome === 'yes' ? 0.98 : 0.02); }
+// Keep buySharesMock as an alias for compatibility (used in createPrediction)
 function buySharesMock(id, outcome, amount) { return marketBuy(id, outcome, amount); }
 async function buySharesReal(id, outcome, amount) { showToast("⛓️ Real market coming soon!", 'info'); return { cost: 0 }; }
 
@@ -357,6 +358,12 @@ function renderOrderBook(p) {
 }
 
 function toggleOrderBook(id) { showOrderBook[id] = !showOrderBook[id]; if (showOrderBook[id]) { syncOrderBookIfNeeded(id).then(() => renderPraedictions()); } else { renderPraedictions(); } }
+
+// Missing helper: syncOrderBookIfNeeded
+async function syncOrderBookIfNeeded(id) {
+    if (!mockMarkets[id] || !showOrderBook[id]) return;
+    await syncOrderBookFromServer(id);
+}
 
 // ============================================================
 // ORACLE & RESOLVE

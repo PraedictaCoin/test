@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Rendering Functions (render.js) - FINAL v14 (FIXED)
+// PRAEDICTA – Rendering Functions (render.js) - FINAL v15 (NO BLIND VOTING)
 // ============================================================
 
 function renderPraedictions() {
@@ -10,7 +10,8 @@ function renderPraedictions() {
     let filtered = currentPredictions.filter(p => {
         if (currentFilter.category !== 'all' && p.category !== currentFilter.category) return false;
         if (currentFilter.search && !p.title.toLowerCase().includes(currentFilter.search.toLowerCase())) return false;
-        if (currentFilter.status === 'active') return p.status === 'active';
+        if (currentFilter.creator && !p.creator.toLowerCase().includes(currentFilter.creator.toLowerCase())) return false;
+        if (currentFilter.status === 'active') return p.status === 'active' || p.status === 'expired';
         if (currentFilter.status === 'expired') return p.status === 'expired';
         if (currentFilter.status === 'resolved') return p.status === 'resolved';
         if (currentFilter.status === 'ending-soon') return p.status === 'active' && p.resolution_date && new Date(p.resolution_date) > Date.now();
@@ -53,7 +54,7 @@ function renderPraedictions() {
         return;
     }
 
-    const activeOnly = filtered.filter(p => p.status === 'active');
+    const activeOnly = filtered.filter(p => p.status === 'active' || p.status === 'expired');
     const expiredOnly = filtered.filter(p => p.status === 'expired');
     const resolvedOnly = filtered.filter(p => p.status === 'resolved');
     const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
@@ -67,7 +68,7 @@ function renderPraedictions() {
     } else {
         container.innerHTML = activeOnly.length > 0 ? activeOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div class="empty-state"><p>No active praedictions. Create one below!</p></div>';
         if (DOM.expiredContainer) {
-            DOM.expiredContainer.innerHTML = expiredOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">🕒 Expired – Awaiting Resolution</h3>' + expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '';
+            DOM.expiredContainer.innerHTML = '';
         }
         if (DOM.resolvedContainer) {
             DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '';
@@ -75,11 +76,6 @@ function renderPraedictions() {
     }
 
     bindCardEvents();
-    if (blindVotingEnabled) {
-        applyBlindVoting();
-        if (DOM.resolvedContainer) applyBlindVoting(DOM.resolvedContainer);
-        if (DOM.expiredContainer) applyBlindVoting(DOM.expiredContainer);
-    }
     setTimeout(updateCountdowns, 100);
     renderActivityFeed();
     renderRecentWinners();
@@ -102,6 +98,8 @@ function renderPredictionCard(p, isOracle) {
     const catIcon = CATEGORY_ICONS[p.category] || '📁';
     const controversy = active ? getControversyLabel(yesPrice) : null;
     const timeBadge = active ? getTimeBadge(p.resolution_date) : null;
+    const isOverdue = p.status === 'expired' && p.resolution_date && new Date(p.resolution_date) < Date.now();
+    const overdueBadge = isOverdue ? { text: '⏰ Overdue', class: 'badge-flash' } : null;
     const stateClass = p.status === 'active' ? 'status-active' : p.status === 'expired' ? 'status-expired' : p.unresolvable ? 'status-unresolvable' : 'status-resolved';
 
     // COMPACT MODE
@@ -113,6 +111,7 @@ function renderPredictionCard(p, isOracle) {
         <div class="meta-row" style="margin-bottom:4px;">
         <span>${catIcon} ${p.category}</span><span class="badge ${badgeClass}">${badgeText}</span>
         ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
+        ${overdueBadge ? `<span class="badge ${overdueBadge.class}">${overdueBadge.text}</span>` : ''}
         ${myBet ? `<span style="color:var(--accent);">🎯 ${myBet.outcome?.toUpperCase()} ${myBet.amount}P</span>` : ''}
         </div></div><span style="font-size:1.2rem;color:var(--text-muted);margin-left:8px;">▶</span></div>
         ${active ? renderVoteStats(yesPrice, noPrice) : ''}
@@ -136,6 +135,7 @@ function renderPredictionCard(p, isOracle) {
         <span class="badge ${badgeClass}">${badgeText}</span>
         ${controversy ? `<span class="badge ${controversy.class}">${controversy.text}</span>` : ''}
         ${timeBadge ? `<span class="badge ${timeBadge.class}">${timeBadge.text}</span>` : ''}
+        ${overdueBadge ? `<span class="badge ${overdueBadge.class}">${overdueBadge.text}</span>` : ''}
         <span style="font-size:.6rem;color:var(--text-muted);">${timeAgo(p.created_at)}</span>
     </div>
     ${myBet ? `<div style="font-size:.7rem;margin-bottom:4px;color:var(--accent);">🎯 You bet ${myBet.outcome?.toUpperCase() || '?'} · ${myBet.amount || '?'} PRAE</div>` : ''}
@@ -143,7 +143,6 @@ function renderPredictionCard(p, isOracle) {
     ${active ? `<div style="font-size:.7rem;color:var(--text-muted);margin-bottom:8px;" id="countdown-${p.id}"></div>` : ''}
     ${renderResolutionInfo(p)}
     ${active ? renderOracleInsight(p) : ''}
-    ${active ? renderTradingViewChart(market, p.id) : ''}
     ${active ? renderVoteStats(yesPrice, noPrice) : renderVoteStats(yesPrice, noPrice)}
     
     <!-- Market/Limit Toggle -->
@@ -163,9 +162,8 @@ function renderPredictionCard(p, isOracle) {
         <div id="slippageWarning-${p.id}" class="slippage-warning"></div>
     </div>
     
-    <!-- Price Chart (simple line) -->
+    <!-- Chart containers (placeholder – requires implementation in utils.js) -->
     <div id="candlestick-${p.id}" style="height:200px; margin-top:8px;"></div>
-    <!-- Depth Chart container -->
     <div id="depth-${p.id}" style="height:150px; margin-top:8px;"></div>
     
     <!-- Watchlist buttons -->
@@ -346,26 +344,22 @@ function showLessBets(id) {
 }
 
 // ============================================================
-// EVENT BINDING FOR DYNAMIC BUTTONS (must be called after rendering)
+// EVENT BINDING FOR DYNAMIC BUTTONS
 // ============================================================
 
 function bindCardEvents() {
-    // Market/Limit toggle
     document.querySelectorAll('.order-type-btn').forEach(btn => {
         btn.removeEventListener('click', toggleOrderType);
         btn.addEventListener('click', toggleOrderType);
     });
-    // Market buy buttons
     document.querySelectorAll('.market-buy-btn').forEach(btn => {
         btn.removeEventListener('click', marketBuyClick);
         btn.addEventListener('click', marketBuyClick);
     });
-    // Limit buy buttons (already handled by buyClick in market.js, but ensure they are bound)
     document.querySelectorAll('.buy-btn').forEach(btn => {
         btn.removeEventListener('click', buyClick);
         btn.addEventListener('click', buyClick);
     });
-    // Watchlist add/remove
     document.querySelectorAll('.watchlist-add').forEach(btn => {
         btn.removeEventListener('click', addToWatchlist);
         btn.addEventListener('click', addToWatchlist);
@@ -374,12 +368,10 @@ function bindCardEvents() {
         btn.removeEventListener('click', removeFromWatchlist);
         btn.addEventListener('click', removeFromWatchlist);
     });
-    // Report button
     document.querySelectorAll('.report-btn').forEach(btn => {
         btn.removeEventListener('click', reportPredictionClick);
         btn.addEventListener('click', reportPredictionClick);
     });
-    // Attach slippage listeners for market amount inputs
     document.querySelectorAll('.market-amount').forEach(input => {
         input.removeEventListener('input', onMarketAmountInput);
         input.addEventListener('input', onMarketAmountInput);

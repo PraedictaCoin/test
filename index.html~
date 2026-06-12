@@ -17,14 +17,12 @@
     <title>PRAEDICTA – For Those Who See</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%237C3AED'/><text x='50' y='67' text-anchor='middle' fill='%23F0F0F5' font-size='50' font-weight='bold'>P</text></svg>">
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22PRAEDICTA%22,%22short_name%22:%22PRAEDICTA%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230A0A0F%22,%22theme_color%22:%22%237C3AED%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%237C3AED'/%3E%3Ctext x='50' y='67' text-anchor='middle' fill='%23F0F0F5' font-size='50' font-weight='bold'%3EP%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22}]}">
-    <!-- Lightweight-charts and Chart.js (Chart.js may be removed later) -->
+    <!-- Lightweight-charts and Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.js"></script>
     <style>
-        /* ===== All original CSS from your index.html – keep as is (no changes) ===== */
-        /* (I assume you have the full CSS block – unchanged) */
-        /* For brevity, I'm not repeating the entire CSS here – keep yours exactly as before */
-        /* BUT remove the stray button inside the style block (the export button) */
+        /* ===== YOUR EXISTING CSS GOES HERE (copy your full CSS block from the original index.html) ===== */
+        /* Important: remove the stray export button inside the style block if present */
     </style>
 </head>
 <body>
@@ -32,7 +30,6 @@
 <canvas id="particlesCanvas"></canvas>
 
 <div id="watchlistContainer" style="display:none;" class="card"></div>
-<!-- Changed: faucet button replaced with signup bonus button -->
 <button id="signupBonusBtn" class="icon-btn" style="margin-left:8px;">🎁 Claim Bonus</button>
 <button id="pushSubscribeBtn" class="icon-btn">🔔 Enable Push</button>
 
@@ -110,7 +107,6 @@
         </div>
         <div class="right-tab-items">
             <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="icon-btn">📱 Telegram</a>
-            <!-- REMOVED DexScreener link -->
             <button id="oracleBtn" class="icon-btn" title="Ask the Oracle">🔮</button>
             <button id="notifCenterBtn" class="icon-btn" style="position:relative;" onclick="toggleNotifCenter()">🔔<span id="notifBadge" style="position:absolute;top:-4px;right:-4px;background:var(--error-color);color:#FFF;border-radius:50%;width:18px;height:18px;font-size:.6rem;display:none;align-items:center;justify-content:center;">0</span></button>
             <button id="playToggle" class="icon-btn">🎮 Play</button>
@@ -121,7 +117,6 @@
     </nav>
 
     <section id="tab-praedictions" class="tab-content active" role="tabpanel">
-        <!-- same content as before, no changes -->
         <div id="quickStartWidget"></div>
         <div id="voiceMessage" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
         <div class="category-carousel" id="categoryCarousel">
@@ -148,7 +143,7 @@
                 <option value="technology">🔧 Tech</option><option value="space">🚀 Space</option><option value="wildcard">🎲 Wildcard</option>
             </select>
             <input type="text" id="filterSearch" placeholder="Search..." inputmode="search">
-            <button id="revealVotesBtn" class="status-filter-btn">👁️ Hide Votes</button>
+            <input type="text" id="filterCreator" placeholder="Creator wallet" inputmode="search">
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
             <select id="filterSortBy" onchange="applyAdvancedFilters()" style="font-size:.7rem;background:var(--input-bg);border:1px solid var(--input-border);border-radius:20px;padding:4px 12px;color:var(--text);">
@@ -237,7 +232,6 @@
                     <div id="portfolioView" style="display:none; margin-top:8px;"></div>
                     <button id="showRecapBtn" class="btn" style="width:100%; margin-top:8px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">📊 Weekly Recap</button>
                     <button id="exportAnalyticsBtn" class="btn" style="width:100%; margin-top:8px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">📊 Export Analytics</button>
-                    <!-- Moved export history button here from CSS -->
                     <button id="exportHistoryBtn" class="btn" style="width:100%; margin-top:8px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">📥 Export Trade History (CSV)</button>
                 </div>
             </div>
@@ -261,7 +255,6 @@
                 <div class="profile-section-header"><span>⚡ Actions</span><span class="section-toggle-icon">▶</span></div>
                 <div class="profile-section-content">
                     <button id="flipCoinBtn" class="btn" style="width:100%; margin-top:8px;">🪙 Flip Coin (1 available)</button>
-                    <!-- Referral box removed -->
                     <button id="showMyPraedictionsBtn" class="btn" style="width:100%; margin-top:12px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent);">📋 My Praedictions</button>
                     <div id="myPraedictionsList" style="display:none; margin-top:8px;"></div>
                 </div>
@@ -275,8 +268,6 @@
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);"><input type="checkbox" id="notifStreak" checked onchange="saveNotificationPrefs()"> Streak milestones</label>
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);"><input type="checkbox" id="notifLeaderboard" checked onchange="saveNotificationPrefs()"> Leaderboard changes</label>
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);"><input type="checkbox" id="notifSound" checked onchange="saveNotificationPrefs()"> Sound effects</label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);"><input type="checkbox" id="notifTwoFactor" onchange="saveNotificationPrefs()"> 🔐 Two-Factor Authentication</label>
-                    <button id="send2FACodeBtn" class="social-btn" style="width:100%;margin-top:8px;font-size:.7rem;">📧 Send 2FA Code</button>
                 </div>
             </div>
 
@@ -313,27 +304,10 @@
             <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:16px 0;">
                 <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" class="social-btn">📱 Telegram</a>
                 <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" class="social-btn">🐦 X</a>
-                <!-- Removed DexScreener link -->
             </div>
             <button id="donateBtn" class="btn" style="width:100%;margin-top:20px;">Support 👁️</button>
         </div>
-        <div class="card" style="margin-top:20px;">
-            <h3 style="color:var(--accent);text-align:center;">🏆 Tournaments</h3>
-            <p style="text-align:center;color:var(--text-muted);font-size:.75rem;margin-bottom:12px;">Compete with other Seers for glory and prizes!</p>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;">
-                <div style="padding:16px;background:var(--card-bg);border:1px solid var(--accent-glow);border-radius:16px;text-align:center;"><div style="font-size:1.2rem;font-weight:600;color:var(--accent);">📅 Weekly Cup</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">🎯 Most accurate<br>💰 500 points pool</div><button onclick="joinTournament('weekly')" class="btn" style="width:100%;margin-top:12px;font-size:.7rem;">Join · 10 points</button></div>
-                <div style="padding:16px;background:var(--card-bg);border:1px solid var(--oracle-color);border-radius:16px;text-align:center;"><div style="font-size:1.2rem;font-weight:600;color:var(--oracle-color);">🏆 Monthly Championship</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">🎯 Highest profit<br>💰 2,000 points pool</div><button onclick="joinTournament('monthly')" class="btn" style="width:100%;margin-top:12px;font-size:.7rem;background:var(--oracle-color);">Join · 25 points</button></div>
-                <div style="padding:16px;background:var(--card-bg);border:1px solid var(--success-color);border-radius:16px;text-align:center;"><div style="font-size:1.2rem;font-weight:600;color:var(--success-color);">🎪 Special Event</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">🎯 Sponsored<br>💰 Varies</div><button onclick="joinTournament('special')" class="btn" style="width:100%;margin-top:12px;font-size:.7rem;background:var(--success-color);">View Details</button></div>
-            </div>
-        </div>
-        <div class="card" style="margin-top:20px;">
-            <h3 style="color:var(--accent);text-align:center;">🤝 Sponsor a Tournament</h3>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px;">
-                <div style="padding:16px;background:var(--card-bg);border-radius:12px;text-align:center;"><div style="font-size:2rem;">🥉</div><h4 style="color:var(--accent);">Bronze</h4><div style="font-size:1.2rem;font-weight:700;">500 points</div><button onclick="becomeSponsor('bronze')" class="btn" style="width:100%;margin-top:8px;font-size:.7rem;">Sponsor</button></div>
-                <div style="padding:16px;background:var(--card-bg);border:1px solid var(--accent);border-radius:12px;text-align:center;"><div style="font-size:2rem;">🥈</div><h4 style="color:var(--accent);">Silver</h4><div style="font-size:1.2rem;font-weight:700;">2,000 points</div><button onclick="becomeSponsor('silver')" class="btn" style="width:100%;margin-top:8px;font-size:.7rem;">Sponsor</button></div>
-                <div style="padding:16px;background:var(--card-bg);border:1px solid var(--oracle-color);border-radius:12px;text-align:center;"><div style="font-size:2rem;">🥇</div><h4 style="color:var(--oracle-color);">Gold</h4><div style="font-size:1.2rem;font-weight:700;">10,000 points</div><button onclick="becomeSponsor('gold')" class="btn" style="width:100%;margin-top:8px;font-size:.7rem;background:var(--oracle-color);">Sponsor</button></div>
-            </div>
-        </div>
+        <!-- Removed Tournaments and Sponsor sections -->
         <div class="card" style="margin-top:20px;"><h3>❓ FAQ</h3><div id="faqContainer"></div></div>
     </section>
 
@@ -342,7 +316,7 @@
     </section>
 </div>
 
-<!-- Terms Modal (required for legal acceptance) -->
+<!-- Terms Modal -->
 <div id="termsModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; align-items:center; justify-content:center;">
     <div style="background:var(--bg); border-radius:24px; padding:24px; max-width:500px; text-align:center;">
         <h2>Terms of Use</h2>
