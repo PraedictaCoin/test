@@ -14,7 +14,7 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="PRAEDICTA – For Those Who See">
     <meta name="twitter:description" content="Test your predictions with virtual PRAE tokens. Auto-resolved by 46+ APIs.">
-    <!-- CSP removed for development – re‑add after proper configuration -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://akjxouwzsbewihvrdzyn.supabase.co wss://akjxouwzsbewihvrdzyn.supabase.co https://cdn.jsdelivr.net https://api.devnet.solana.com https://api.mainnet-beta.solana.com wss://api.devnet.solana.com; style-src 'self' 'unsafe-inline'; img-src data: https:; media-src 'self' data:; manifest-src data:;">
     <title>PRAEDICTA – For Those Who See</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%237C3AED'/><text x='50' y='67' text-anchor='middle' fill='%23F0F0F5' font-size='50' font-weight='bold'>P</text></svg>">
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22PRAEDICTA%22,%22short_name%22:%22PRAEDICTA%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230A0A0F%22,%22theme_color%22:%22%237C3AED%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%237C3AED'/%3E%3Ctext x='50' y='67' text-anchor='middle' fill='%23F0F0F5' font-size='50' font-weight='bold'%3EP%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22}]}">
@@ -509,16 +509,24 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/state.js"></script>
-<script src="js/dom.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/events.js"></script>
-<script src="js/init.js"></script>
-<script src="js/market.js"></script>
-<script src="js/render.js"></script>
-<script src="js/profile.js"></script>
-<script src="js/admin.js"></script>
+<script src="js/config.js"></script><script src="js/state.js"></script><script src="js/dom.js"></script>
+<script src="js/utils.js"></script><script src="js/market.js"></script><script src="js/render.js"></script>
+<script src="js/profile.js"></script><script src="js/auth.js"></script><script src="js/events.js"></script><script src="js/admin.js"></script><script src="js/init.js"></script>
+
+<script>
+(function(){const canvas=document.getElementById('particlesCanvas');if(!canvas)return;const ctx=canvas.getContext('2d');let particles=[];const maxParticles=40;function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}window.addEventListener('resize',resize);resize();class Particle{constructor(){this.reset()}reset(){this.x=Math.random()*canvas.width;this.y=canvas.height+Math.random()*100;this.size=Math.random()*3+1;this.speed=Math.random()*0.5+0.2;this.opacity=Math.random()*0.5+0.3;this.wobble=Math.random()*Math.PI*2}update(){this.y-=this.speed;this.wobble+=0.01;this.x+=Math.sin(this.wobble)*0.3;if(this.y<-10)this.reset()}draw(){const accent=getComputedStyle(document.body).getPropertyValue('--accent').trim()||'#7C3AED';ctx.fillStyle=accent;ctx.globalAlpha=this.opacity;ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);ctx.fill()}}for(let i=0;i<maxParticles;i++)particles.push(new Particle());function animate(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(p=>{p.update();p.draw()});ctx.globalAlpha=1;requestAnimationFrame(animate)}animate()})();
+</script>
+<script>
+const sounds={flip:()=>{try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=800;g.gain.value=0.1;o.start();g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.3);o.stop(a.currentTime+0.3)}catch(e){}},win:()=>{try{const a=new AudioContext();[523,659,784].forEach((f,i)=>{const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.value=0.1;o.start(a.currentTime+i*0.15);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+i*0.15+0.4);o.stop(a.currentTime+i*0.15+0.4)})}catch(e){}},create:()=>{try{const a=new AudioContext();const o=a.createOscillator();const g=a.createGain();o.connect(g);g.connect(a.destination);o.type='sine';o.frequency.setValueAtTime(600,a.currentTime);o.frequency.linearRampToValueAtTime(1200,a.currentTime+0.2);g.gain.value=0.1;o.start();g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.3);o.stop(a.currentTime+0.3)}catch(e){}}};
+(function(){const _flip=sounds.flip,_win=sounds.win,_create=sounds.create;sounds.flip=function(){try{if(JSON.parse(localStorage.getItem('praedicta_notif_prefs')||'{}').sound!==false)_flip()}catch(e){_flip()}};sounds.win=function(){try{if(JSON.parse(localStorage.getItem('praedicta_notif_prefs')||'{}').sound!==false)_win()}catch(e){_win()}};sounds.create=function(){try{if(JSON.parse(localStorage.getItem('praedicta_notif_prefs')||'{}').sound!==false)_create()}catch(e){_create()}}})();
+</script>
+<script>
+(function(){const faqData=[{q:'👁️ How does PRAEDICTA work?',a:'Seers create praedictions about future events. The community commits YES or NO with virtual PRAE tokens. 46+ APIs auto-resolve the outcome.'},{q:'🤖 How does auto-resolve work?',a:'46+ APIs automatically resolve praedictions: CoinGecko, RedStone, Binance (crypto), Yahoo (stocks), Open-Meteo (weather), TheSportsDB (sports), USGS, NOAA, SpaceX, YouTube, Spotify, Twitch, Reddit, F1, Wikipedia, and many more.'},{q:'📊 What categories exist?',a:'Finance, Politics, Sports, Weather, Entertainment, Technology, Space, Health, Wildcard.'},{q:'🏅 What are Prophet Titles?',a:'Earn reputation ranks: 🌱 Novice (0), 👁️ Seer (100), 👁️‍🗨️ High Seer (250), 🔮 Prophet (500), 🦉 Oracle (1000+).'},{q:'⚖️ Is this gambling?',a:'<strong>NO.</strong> PRAEDICTA is a free prediction game. No real money. No gambling.'},{q:'💰 Can I win real money?',a:'No. PRAE tokens are virtual. They have no cash value. This is for fun and reputation.'},{q:'📱 Can I install as an app?',a:'YES! PWA. Mobile: Chrome → Add to Home Screen. Desktop: click install icon.'}];const c=document.getElementById('faqContainer');if(c)faqData.forEach(i=>{const q=document.createElement('div');q.style.cssText='color:var(--accent);margin-top:16px;font-weight:500;';q.textContent=i.q;const a=document.createElement('div');a.style.cssText='margin-top:4px;color:var(--text-secondary);font-size:.9rem;';a.innerHTML=i.a;c.appendChild(q);c.appendChild(a)})})();
+</script>
+<script>
+(function(){const avatars=['','👁️','🦉','🔮','✨','🐉','🦊','🐺','🦅','🐍','🦋','🐙','🦄','🌋','👻','🧙','🧿','🗿','👧','👨','🧘','💻','📈','📜','📡','📶','🚀','⚽','🏈','⛳','⚾','🏀','🏁','🎾'];const s=document.getElementById('avatarSelect');if(s)s.innerHTML=avatars.map(a=>`<option value="${a}">${a||'No avatar'}</option>`).join('')})();
+(function(){const z=[{value:'',label:'Select'},{value:'aries',label:'♈ Aries'},{value:'taurus',label:'♉ Taurus'},{value:'gemini',label:'♊ Gemini'},{value:'cancer',label:'♋ Cancer'},{value:'leo',label:'♌ Leo'},{value:'virgo',label:'♍ Virgo'},{value:'libra',label:'♎ Libra'},{value:'scorpio',label:'♏ Scorpio'},{value:'sagittarius',label:'♐ Sagittarius'},{value:'capricorn',label:'♑ Capricorn'},{value:'aquarius',label:'♒ Aquarius'},{value:'pisces',label:'♓ Pisces'}];const s=document.getElementById('zodiacSelect');if(s)s.innerHTML=z.map(x=>`<option value="${x.value}">${x.label}</option>`).join('')})();
+document.addEventListener('click',function(e){const link=e.target.closest('.legal-link');if(!link)return;e.preventDefault();alert('📜 PRAEDICTA is a free prediction game. Virtual tokens only. No real money.')});
+</script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Rendering Functions (render.js) - FINAL v13 (XSS FIXED)
+// PRAEDICTA – Rendering Functions (render.js) - FINAL v12
 // Diff-based rendering + TradingView charts + Mini order book
 // ============================================================
 
@@ -199,9 +199,9 @@ function renderOracleResolveButtons(p) {
 function renderActivityFeed() {
     if (!DOM.activityFeed) return;
     const recent = [];
-    currentPredictions.forEach(p => { (p.bets || []).forEach(b => { recent.push({ time: b.time || p.created_at || Date.now(), text: `💰 ${escapeHtml((b.user || '???').slice(0, 6))}... bet ${b.amount || '?'} PRAE on ${(b.outcome || '?').toUpperCase()} for "${escapeHtml(p.title).slice(0, 30)}..."`, type: 'bet' }); }); });
-    currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at).forEach(p => { recent.push({ time: new Date(p.resolved_at).getTime(), text: `✅ "${escapeHtml(p.title).slice(0, 40)}..." resolved ${p.resolved_outcome === 'yes' ? 'YES' : 'NO'}${p.unresolvable ? ' (UNRESOLVABLE)' : ''}`, type: 'resolve' }); });
-    currentPredictions.filter(p => p.created_at).forEach(p => { recent.push({ time: new Date(p.created_at).getTime(), text: `🆕 ${escapeHtml((p.creator || '').slice(0, 6))}... created "${escapeHtml(p.title).slice(0, 40)}..."`, type: 'create' }); });
+    currentPredictions.forEach(p => { (p.bets || []).forEach(b => { recent.push({ time: b.time || p.created_at || Date.now(), text: `💰 ${(b.user || '').slice(0, 6)}... bet ${b.amount || '?'} PRAE on ${(b.outcome || '?').toUpperCase()} for "${(p.title || '').slice(0, 30)}..."`, type: 'bet' }); }); });
+    currentPredictions.filter(p => p.status === 'resolved' && p.resolved_at).forEach(p => { recent.push({ time: new Date(p.resolved_at).getTime(), text: `✅ "${(p.title || '').slice(0, 40)}..." resolved ${p.resolved_outcome === 'yes' ? 'YES' : 'NO'}${p.unresolvable ? ' (UNRESOLVABLE)' : ''}`, type: 'resolve' }); });
+    currentPredictions.filter(p => p.created_at).forEach(p => { recent.push({ time: new Date(p.created_at).getTime(), text: `🆕 ${(p.creator || '').slice(0, 6)}... created "${(p.title || '').slice(0, 40)}..."`, type: 'create' }); });
     recent.sort((a, b) => b.time - a.time);
     const displayItems = recent.slice(0, 20);
     DOM.activityFeed.innerHTML = displayItems.length > 0 ? '<h4 style="color:var(--accent);margin-bottom:8px;">📡 Live Activity</h4>' + displayItems.map(r => `<div style="font-size:.75rem;padding:6px 0;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><span style="flex:1;">${r.text}</span><span style="font-size:.65rem;color:var(--text-muted);margin-left:8px;white-space:nowrap;">${timeAgo(new Date(r.time).toISOString())}</span></div>`).join('') : '<div style="text-align:center;padding:12px;color:var(--text-muted);">No activity yet. Be the first!</div>';
@@ -215,7 +215,7 @@ function renderRecentWinners() {
 }
 
 // ============================================================
-// Bet List with Pagination + Copy Trade (XSS FIXED: escape user wallet)
+// Bet List with Pagination + Copy Trade
 // ============================================================
 
 function renderBetList(p) {
@@ -226,18 +226,11 @@ function renderBetList(p) {
     const totalAmount = sortedBets.reduce((s, b) => s + (b.amount || 0), 0);
     const uniqueBettors = new Set(sortedBets.map(b => b.user)).size;
     let html = `<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);"><div style="display:flex; gap:12px; font-size:.7rem; color:var(--text-muted); margin-bottom:6px;"><span>💰 ${totalAmount} PRAE bet</span><span>👥 ${uniqueBettors} bettors</span><span>📊 ${sortedBets.length} total bets</span></div><div style="max-height:${betLimit * 32}px; overflow-y:auto; margin-bottom:4px;">`;
-    visibleBets.forEach(b => {
-        const userShort = escapeHtml((b.user || '???').slice(0, 6)) + '...';
-        const timeStr = b.time ? timeAgo(new Date(b.time).toISOString()) : '';
-        const isWin = p.status === 'resolved' && b.outcome === p.resolved_outcome;
-        const betColor = isWin ? 'var(--success-color)' : p.status === 'resolved' ? 'var(--error-color)' : 'var(--accent)';
-        html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:.65rem; padding:2px 0; color:var(--text-muted);"><span>${userShort} · <span style="color:${betColor};">${(b.outcome || '?').toUpperCase()}</span></span><span style="display:flex; gap:8px;align-items:center;"><span style="color:var(--accent);">${b.amount || 0} PRAE</span>${timeStr ? `<span style="font-size:.6rem;">${timeStr}</span>` : ''}<button onclick="event.stopPropagation();copyTrade('${p.id}','${b.outcome}','${b.amount || CONFIG.MIN_BET}')" title="Copy trade" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:0 4px;cursor:pointer;font-size:.55rem;">📋</button></span></div>`;
-    });
+    visibleBets.forEach(b => { const userShort = (b.user || '???').slice(0, 6) + '...'; const timeStr = b.time ? timeAgo(new Date(b.time).toISOString()) : ''; const isWin = p.status === 'resolved' && b.outcome === p.resolved_outcome; const betColor = isWin ? 'var(--success-color)' : p.status === 'resolved' ? 'var(--error-color)' : 'var(--accent)'; html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:.65rem; padding:2px 0; color:var(--text-muted);"><span>${userShort} · <span style="color:${betColor};">${(b.outcome || '?').toUpperCase()}</span></span><span style="display:flex; gap:8px;align-items:center;"><span style="color:var(--accent);">${b.amount || 0} PRAE</span>${timeStr ? `<span style="font-size:.6rem;">${timeStr}</span>` : ''}<button onclick="event.stopPropagation();copyTrade('${p.id}','${b.outcome}','${b.amount || CONFIG.MIN_BET}')" title="Copy trade" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:0 4px;cursor:pointer;font-size:.55rem;">📋</button></span></div>`; });
     html += `</div>`;
     if (hasMore) html += `<button onclick="showMoreBets('${p.id}')" style="width:100%; padding:4px; background:var(--accent-glow); border:1px solid var(--accent); border-radius:12px; color:var(--accent); cursor:pointer; font-size:.65rem;">👁️ Show all ${sortedBets.length} bets</button>`;
     if (betLimit > BETS_PER_CARD) html += `<button onclick="showLessBets('${p.id}')" style="width:100%; padding:4px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:.6rem; margin-top:2px;">Show less</button>`;
-    html += `</div>`;
-    return html;
+    html += `</div>`; return html;
 }
 
 function showMoreBets(id) { const p = currentPredictions.find(p => p.id === id); if (!p) return; betDisplayLimits[id] = (p.bets || []).length; renderPraedictions(); }
