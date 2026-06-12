@@ -1,20 +1,19 @@
 // ============================================================
-// PRAEDICTA – DOM Cache (dom.js) - FINAL (keeps all existing elements)
+// PRAEDICTA – DOM Cache (dom.js) - FINAL
 // ============================================================
 
 const DOM = {};
 function cacheDOM() {
-    // Core UI
     DOM.gate = document.getElementById('gate');
     DOM.mainApp = document.getElementById('mainApp');
     DOM.tutorialOverlay = document.getElementById('tutorialOverlay');
     DOM.voiceMessage = document.getElementById('voiceMessage');
-    DOM.profileHoroscope = document.getElementById('profileHoroscope');   // kept
+    DOM.profileHoroscope = document.getElementById('profileHoroscope');
     DOM.praedictionsContainer = document.getElementById('praedictionsContainer');
     DOM.hypeMessage = document.getElementById('hypeMessage');
     DOM.leaderboardList = document.getElementById('leaderboardList');
     DOM.seerOfTheDay = document.getElementById('seerOfTheDay');
-    DOM.weeklyOracleMessage = document.getElementById('weeklyOracleMessage'); // kept
+    DOM.weeklyOracleMessage = document.getElementById('weeklyOracleMessage');
     DOM.profileStats = document.getElementById('profileStats');
     DOM.walletDisplay = document.getElementById('walletDisplay');
     DOM.oracleIndicatorTop = document.getElementById('oracleIndicatorTop');
@@ -41,7 +40,7 @@ function cacheDOM() {
     DOM.displayNameInput = document.getElementById('displayNameInput');
     DOM.avatarSelect = document.getElementById('avatarSelect');
     DOM.profileNameSection = document.getElementById('profileNameSection');
-    DOM.donateBtn = document.getElementById('donateBtn');                // kept
+    DOM.donateBtn = document.getElementById('donateBtn');
     DOM.myPraedictionsList = document.getElementById('myPraedictionsList');
     DOM.ageCheckbox = document.getElementById('ageCheckbox');
     DOM.gateMessage = document.getElementById('gateMessage');
@@ -122,5 +121,7 @@ function cacheDOM() {
     DOM.supportModal = document.getElementById('supportModal');
     DOM.supportMessage = document.getElementById('supportMessage');
     DOM.sendSupportBtn = document.getElementById('sendSupportBtn');
+    DOM.oracleBtn = document.getElementById('oracleBtn');
+    DOM.faqContainer = document.getElementById('faqContainer');
 }
 cacheDOM();

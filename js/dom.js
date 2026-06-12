@@ -1,10 +1,9 @@
 // ============================================================
-// PRAEDICTA – DOM Cache (dom.js) - CORRECTED
+// PRAEDICTA – DOM Cache (dom.js) - FINAL
 // ============================================================
 
 const DOM = {};
 function cacheDOM() {
-    // Core UI
     DOM.gate = document.getElementById('gate');
     DOM.mainApp = document.getElementById('mainApp');
     DOM.tutorialOverlay = document.getElementById('tutorialOverlay');
@@ -23,14 +22,13 @@ function cacheDOM() {
     DOM.zodiacRealHeadline = document.getElementById('zodiacRealHeadline');
     DOM.zodiacHoroscopeDisplay = document.getElementById('zodiacHoroscopeDisplay');
     DOM.zodiacSelectorWrapper = document.getElementById('zodiacSelectorWrapper');
-    // Referral removed
     DOM.totalActive = document.getElementById('totalActive');
     DOM.totalPraedicts = document.getElementById('totalPraedicts');
     DOM.totalSeerscore = document.getElementById('totalSeerscore');
     DOM.totalVolume = document.getElementById('totalVolume');
     DOM.filterSearch = document.getElementById('filterSearch');
     DOM.filterCategory = document.getElementById('filterCategory');
-    DOM.filterCreator = document.getElementById('filterCreator'); // added
+    DOM.filterCreator = document.getElementById('filterCreator');
     DOM.connectBtn = document.getElementById('connectBtn');
     DOM.disconnectBtn = document.getElementById('disconnectBtn');
     DOM.themeToggleSmall = document.getElementById('themeToggleSmall');
@@ -42,7 +40,7 @@ function cacheDOM() {
     DOM.displayNameInput = document.getElementById('displayNameInput');
     DOM.avatarSelect = document.getElementById('avatarSelect');
     DOM.profileNameSection = document.getElementById('profileNameSection');
-    DOM.donateBtn = document.getElementById('donateBtn'); // kept
+    DOM.donateBtn = document.getElementById('donateBtn');
     DOM.myPraedictionsList = document.getElementById('myPraedictionsList');
     DOM.ageCheckbox = document.getElementById('ageCheckbox');
     DOM.gateMessage = document.getElementById('gateMessage');
@@ -59,7 +57,6 @@ function cacheDOM() {
     DOM.flipCoinBtn = document.getElementById('flipCoinBtn');
     DOM.streakRewards = document.getElementById('streakRewards');
     DOM.streakStory = document.getElementById('streakStory');
-    // REMOVED revealVotesBtn, settingsBlindVoting
     DOM.leaderboardCategoryFilter = document.getElementById('leaderboardCategoryFilter');
     DOM.dailyDigest = document.getElementById('dailyDigest');
     DOM.hallOfFameList = document.getElementById('hallOfFameList');
@@ -96,13 +93,11 @@ function cacheDOM() {
     DOM.notifStreak = document.getElementById('notifStreak');
     DOM.notifLeaderboard = document.getElementById('notifLeaderboard');
     DOM.notifSound = document.getElementById('notifSound');
-    // REMOVED notifTwoFactor, send2FACodeBtn
     DOM.exportAnalyticsBtn = document.getElementById('exportAnalyticsBtn');
     DOM.streakCalendar = document.getElementById('streakCalendar');
     DOM.showPortfolioBtn = document.getElementById('showPortfolioBtn');
     DOM.portfolioView = document.getElementById('portfolioView');
     DOM.showRecapBtn = document.getElementById('showRecapBtn');
-    // REMOVED send2FACodeBtn
     DOM.notifCenterBtn = document.getElementById('notifCenterBtn');
     DOM.notifBadge = document.getElementById('notifBadge');
     DOM.notifCenter = document.getElementById('notifCenter');
@@ -116,17 +111,17 @@ function cacheDOM() {
     DOM.filterSortBy = document.getElementById('filterSortBy');
     DOM.filterMinVolume = document.getElementById('filterMinVolume');
     DOM.filterMaxVolume = document.getElementById('filterMaxVolume');
-    // REMOVED gameStoreBtn
-    // New elements
-    DOM.signupBonusBtn = document.getElementById('signupBonusBtn');
     DOM.watchlistContainer = document.getElementById('watchlistContainer');
     DOM.pushSubscribeBtn = document.getElementById('pushSubscribeBtn');
     DOM.exportHistoryBtn = document.getElementById('exportHistoryBtn');
+    DOM.signupBonusBtn = document.getElementById('signupBonusBtn');
     DOM.termsModal = document.getElementById('termsModal');
     DOM.acceptTermsBtn = document.getElementById('acceptTermsBtn');
     DOM.supportBtn = document.getElementById('supportBtn');
     DOM.supportModal = document.getElementById('supportModal');
     DOM.supportMessage = document.getElementById('supportMessage');
     DOM.sendSupportBtn = document.getElementById('sendSupportBtn');
+    DOM.oracleBtn = document.getElementById('oracleBtn');
+    DOM.faqContainer = document.getElementById('faqContainer');
 }
 cacheDOM();

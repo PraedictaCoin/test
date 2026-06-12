@@ -444,6 +444,7 @@ function toggleCreateForm() {
 // PROFILE SECTION ACCORDIONS
 // ============================================================
 function toggleProfileSection(header) {
+    if (!header || !header.nextElementSibling) return;
     var content = header.nextElementSibling;
     var icon = header.querySelector('.section-toggle-icon');
     if (content.classList.contains('open')) {

@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - FINAL (no blind voting, no 2FA)
+// PRAEDICTA – Utility Functions (utils.js) - CORRECTED
 // ============================================================
 
 var cachedDayKey = '';
@@ -725,22 +725,19 @@ function sortPredictions(predictions, sortBy) {
 }
 
 // ============================================================
-// MICRO-INTERACTIONS
+// MICRO-INTERACTIONS (FIXED: guard against non-element targets)
 // ============================================================
 function initMicroInteractions() {
     document.addEventListener('mouseleave', function(e) {
-        var card = null;
         if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
-            card = e.target.closest('.praediction-card');
+            var card = e.target.closest('.praediction-card');
+            if (card) card.style.transform = '';
         }
-        if (card) card.style.transform = '';
     }, true);
     
     document.addEventListener('click', function(e) {
-        var btn = null;
-        if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
-            btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
-        }
+        if (!e.target || e.target.nodeType !== Node.ELEMENT_NODE) return;
+        var btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
         if (!btn) return;
         var ripple = document.createElement('span');
         var rect = btn.getBoundingClientRect();
@@ -888,7 +885,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================================
-// TOURNAMENTS & SPONSORSHIPS
+// TOURNAMENTS & SPONSORSHIPS (removed – kept as stubs)
 // ============================================================
 function joinTournament(type) {
     if (!walletAddress) return showToast("Connect wallet first", { type: 'error' });
@@ -920,7 +917,7 @@ function checkSessionExpiry() {
 }
 
 // ============================================================
-// KEYBOARD SHORTCUTS
+// KEYBOARD SHORTCUTS (blind voting removed)
 // ============================================================
 function showShortcutsPopup() {
     var shortcuts = [
@@ -996,7 +993,6 @@ async function simulateMarketImpact(predictionId, outcome, amount) {
 
 // Placeholders for chart functions – actual implementation uses lightweight-charts
 function renderCandlestickChart(predictionId, priceHistory) {
-    // Will be replaced by real implementation in render.js
     console.log('renderCandlestickChart called (stub)');
 }
 
