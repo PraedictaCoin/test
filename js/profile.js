@@ -1,5 +1,6 @@
 // ============================================================
 // PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL
+// (No zodiac selector, no display name input – handled during registration)
 // ============================================================
 
 // Helper for retrying failed requests
@@ -127,7 +128,7 @@ function updateFreezeTimer(user) {
 }
 
 // ============================================================
-// HOROSCOPE FETCHING (real, with retry, working)
+// HOROSCOPE FETCHING (real, with retry) – uses zodiac from user profile (if any)
 // ============================================================
 async function fetchHoroscopeForZodiac(sign) {
     const signToNumber = {
@@ -183,7 +184,7 @@ async function fetchHoroscopeForZodiac(sign) {
 }
 
 // ============================================================
-// RENDER PROFILE
+// RENDER PROFILE (no zodiac selector or name input – those are in registration modal)
 // ============================================================
 async function renderProfile(userData) {
     if (!walletAddress) return;
@@ -195,11 +196,10 @@ async function renderProfile(userData) {
     const displayName = user.display_name || `${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)}`;
     const seerScore = user.seerscore || 0;
     const prophetTitle = getProphetTitle(seerScore);
+    const avatarSymbol = user.avatar || '👁️';
+
     if (DOM.walletDisplay) {
-        const ad = (user.avatar_type === 'image' || (user.avatar || '').startsWith('http') || (user.avatar || '').startsWith('data:'))
-            ? `<img src="${escapeHtml(user.avatar || '')}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;" alt="">`
-            : (user.avatar || '');
-        DOM.walletDisplay.innerHTML = `${ad} ${escapeHtml(displayName)}`;
+        DOM.walletDisplay.innerHTML = `${avatarSymbol} ${escapeHtml(displayName)}`;
     }
     if (DOM.profileWalletAddress) DOM.profileWalletAddress.textContent = `${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}`;
     if (DOM.profileStats) {
@@ -290,28 +290,30 @@ async function renderProfile(userData) {
     }
     const moon = getLunarPhase();
     if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji}`; // only emoji, centered via CSS
+    // Zodiac display – only show if user has zodiac in DB (optional)
     const hasZodiac = !!user.zodiac;
-    if (DOM.zodiacSelectorWrapper) DOM.zodiacSelectorWrapper.style.display = hasZodiac ? 'none' : 'flex';
-    if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.style.display = hasZodiac ? 'block' : 'none';
-    if (hasZodiac) {
-        if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.textContent = signSymbols[user.zodiac] || '';
+    if (hasZodiac && DOM.userZodiacDisplay) {
+        DOM.userZodiacDisplay.style.display = 'block';
+        DOM.userZodiacDisplay.textContent = signSymbols[user.zodiac] || '';
+    } else if (DOM.userZodiacDisplay) {
+        DOM.userZodiacDisplay.style.display = 'none';
+    }
+    if (hasZodiac && DOM.zodiacRealHeadline && DOM.zodiacHoroscopeDisplay) {
         const horo = await fetchHoroscopeForZodiac(user.zodiac);
-        if (horo && DOM.zodiacRealHeadline && DOM.zodiacHoroscopeDisplay) {
+        if (horo) {
             DOM.zodiacRealHeadline.style.display = 'block';
             DOM.zodiacHoroscopeDisplay.innerHTML = `<div style="text-align:center;">${escapeHtml(horo.description)}<br><br>🍀 Lucky: ${horo.luckyNumber}<br>😌 ${horo.mood}</div>`;
+        } else {
+            DOM.zodiacRealHeadline.style.display = 'none';
+            DOM.zodiacHoroscopeDisplay.innerHTML = '<div style="text-align:center;">No horoscope available</div>';
         }
-    }
-    if (user.display_name) {
-        if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'none';
-    } else {
-        if (DOM.profileNameSection) DOM.profileNameSection.style.display = 'flex';
-        if (DOM.displayNameInput) DOM.displayNameInput.value = '';
+    } else if (DOM.zodiacHoroscopeDisplay) {
+        DOM.zodiacHoroscopeDisplay.innerHTML = '<div style="text-align:center;">Select your zodiac during registration to see your daily praediction.</div>';
     }
     updateStreakDisplay(user);
     updateStreakStory(user);
     updateFreezeTimer(user);
     updateHypeMessage();
-    if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
     if (DOM.streakCalendar) renderStreakCalendar();
     await renderWatchlist();
 }

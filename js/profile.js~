@@ -1,15 +1,24 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL (with horoscope)
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL
 // ============================================================
+
+// Helper for retrying failed requests
+async function fetchWithRetry(fn, retries = 2, delay = 1000) {
+    for (let i = 0; i <= retries; i++) {
+        try { return await fn(); } catch (e) { if (i === retries) throw e; await new Promise(r => setTimeout(r, delay)); }
+    }
+}
 
 async function loadPredictions() {
     try {
-        const { data, error } = await supabaseClient.from('predictions')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(100);
-        if (error) throw error;
-        return data || [];
+        return await fetchWithRetry(async () => {
+            const { data, error } = await supabaseClient.from('predictions')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+            if (error) throw error;
+            return data || [];
+        });
     } catch (err) {
         console.error('Load predictions error:', err);
         showToast('Failed to load predictions.', 'error');
@@ -118,21 +127,18 @@ function updateFreezeTimer(user) {
 }
 
 // ============================================================
-// HOROSCOPE FETCHING (real, working)
+// HOROSCOPE FETCHING (real, with retry, working)
 // ============================================================
 async function fetchHoroscopeForZodiac(sign) {
-    // Map zodiac sign to number used by horoscope.com
     const signToNumber = {
         aries: 1, taurus: 2, gemini: 3, cancer: 4, leo: 5, virgo: 6,
         libra: 7, scorpio: 8, sagittarius: 9, capricorn: 10, aquarius: 11, pisces: 12
     };
     const num = signToNumber[sign];
     if (!num) return null;
-    const url = `https://www.horoscope.com/us/horoscopes/general/horoscope-general-daily-today.aspx?sign=${num}`;
     try {
-        const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const resp = await fetch(`https://www.horoscope.com/us/horoscopes/general/horoscope-general-daily-today.aspx?sign=${num}`, { headers: { "User-Agent": "Mozilla/5.0" } });
         const html = await resp.text();
-        // Parse horoscope text
         let horoscope = '';
         const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
         if (mainMatch) {
@@ -150,7 +156,6 @@ async function fetchHoroscopeForZodiac(sign) {
             }
         }
         if (horoscope) {
-            // Generate lucky number based on sign and today's date
             const today = getUTCDayKey();
             let hash = 0;
             const seed = today + sign;
@@ -284,7 +289,7 @@ async function renderProfile(userData) {
         }
     }
     const moon = getLunarPhase();
-    if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji}`; // only emoji, no name
+    if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji}`; // only emoji, centered via CSS
     const hasZodiac = !!user.zodiac;
     if (DOM.zodiacSelectorWrapper) DOM.zodiacSelectorWrapper.style.display = hasZodiac ? 'none' : 'flex';
     if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.style.display = hasZodiac ? 'block' : 'none';
@@ -293,7 +298,7 @@ async function renderProfile(userData) {
         const horo = await fetchHoroscopeForZodiac(user.zodiac);
         if (horo && DOM.zodiacRealHeadline && DOM.zodiacHoroscopeDisplay) {
             DOM.zodiacRealHeadline.style.display = 'block';
-            DOM.zodiacHoroscopeDisplay.innerHTML = `${escapeHtml(horo.description)}<br><br>🍀 Lucky: ${horo.luckyNumber}<br>😌 ${horo.mood}`;
+            DOM.zodiacHoroscopeDisplay.innerHTML = `<div style="text-align:center;">${escapeHtml(horo.description)}<br><br>🍀 Lucky: ${horo.luckyNumber}<br>😌 ${horo.mood}</div>`;
         }
     }
     if (user.display_name) {

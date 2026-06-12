@@ -1,9 +1,9 @@
 // ============================================================
-// PRAEDICTA – Authentication & Session (auth.js) - FINAL
+// auth.js – final (reduced signatures, registration modal)
 // ============================================================
 
 async function callSecureRpc(action, params = {}) {
-    // Email verification uses its own edge function (public)
+    // Email verification
     if (['send_verification_email', 'verify_email_code', 'check_email_status'].includes(action)) {
         const mappedAction = action === 'send_verification_email' ? 'send_verification' : action === 'verify_email_code' ? 'verify_code' : 'check_status';
         const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/email_verify`, {
@@ -13,7 +13,7 @@ async function callSecureRpc(action, params = {}) {
         });
         return await res.json();
     }
-    // Admin actions use separate edge function (authenticated by Oracle wallet)
+    // Admin actions
     if (['admin_get_stats', 'admin_action'].includes(action)) {
         const res = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/admin`, {
             method: 'POST',
@@ -27,7 +27,7 @@ async function callSecureRpc(action, params = {}) {
         return await res.json();
     }
     
-    // Try session token first
+    // Use session token if available and not expired
     if (sessionToken && sessionExpiresAt > Date.now()) {
         try {
             const res = await fetch(CONFIG.SECURE_RPC_URL, {
@@ -36,13 +36,13 @@ async function callSecureRpc(action, params = {}) {
                 body: JSON.stringify({ action: 'session_action', params: { action, params }, token: sessionToken })
             });
             if (res.ok) return await res.json();
-            // Token invalid/expired – fall through
+            // Token invalid – fall through to fresh authentication
             sessionToken = null;
             sessionExpiresAt = null;
         } catch (e) {}
     }
     
-    // Fresh authentication required
+    // For actions that require a fresh signature (login_bonus, create, market_order, place_order)
     if (!walletAddress) throw new Error("Wallet not connected");
     if (!window.solana || !window.solana.signMessage) throw new Error("Phantom wallet required");
     
@@ -50,8 +50,8 @@ async function callSecureRpc(action, params = {}) {
     const { data: nonce, error: nonceErr } = await supabaseClient.rpc('get_auth_nonce', { p_wallet: walletAddress });
     if (nonceErr || !nonce) throw new Error("Authentication failed.");
     
-    // Sign message with nonce (security fix)
-    const message = `Login to PRAEDICTA at praedictacoin.github.io\nNonce: ${nonce}`;
+    // Sign message with a clear description of what the user is agreeing to
+    const message = `Login to PRAEDICTA at praedictacoin.github.io\nNonce: ${nonce}\n\nBy signing, you agree to the Terms of Use and confirm that this is a free prediction game with virtual points. No real money involved. Points have no cash value.`;
     const encoded = new TextEncoder().encode(message);
     let signed;
     try {
@@ -87,7 +87,6 @@ async function loginBonus() {
 }
 
 async function connectWallet() {
-    if (!DOM.ageCheckbox || !DOM.ageCheckbox.checked) return showToast("Confirm age and Terms");
     if (!window.solana) return alert("Install Phantom wallet.");
     setLoading(DOM.connectBtn, true);
     try {
@@ -104,69 +103,51 @@ async function connectWallet() {
         if (result.error?.includes('Insufficient PRAE')) {
             const balance = result.balance || 0;
             const required = result.required || 7;
-            if (DOM.gateMessage) DOM.gateMessage.innerHTML = `<div style="text-align:center;margin-top:20px;"><p style="color:#FF8888;">💰 Insufficient points</p><p>You have: <strong>${balance} points</strong></p><p>Required: <strong>${required} points</strong></p><p style="margin-top:12px;font-size:.75rem;">This is a free game – points are virtual and cannot be purchased.</p></div>`;
+            if (DOM.gateMessage) DOM.gateMessage.innerHTML = `<div style="text-align:center;"><p style="color:#FF8888;">💰 Insufficient points</p><p>You have: ${balance} points</p><p>Required: ${required} points</p></div>`;
             await window.solana.disconnect();
             walletAddress = null;
-            walletPublicKey = null;
             return;
         }
         
-        // --- Age verification (required) ---
-        let dob = localStorage.getItem(`dob_${walletAddress}`);
-        if (!dob) {
-            dob = prompt("To play, please enter your date of birth (DD/MM/YYYY):");
-            if (!dob) throw new Error("Age verification required");
-            // Validate format and calculate age
-            const parts = dob.split('/');
-            if (parts.length !== 3) throw new Error("Invalid date format. Use DD/MM/YYYY");
-            const day = parseInt(parts[0]);
-            const month = parseInt(parts[1]) - 1;
-            const year = parseInt(parts[2]);
-            const birthDate = new Date(year, month, day);
-            if (isNaN(birthDate.getTime())) throw new Error("Invalid date");
-            const age = (new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000);
-            if (age < 18) throw new Error("You must be 18 or older to use this game.");
-            localStorage.setItem(`dob_${walletAddress}`, dob);
-            await callSecureRpc('set_birthdate', { dob });
-        }
-        
-        // --- Terms acceptance (required) ---
-        const termsCheck = await callSecureRpc('check_terms', {});
-        if (termsCheck.needsAccept) {
-            const termsModal = document.getElementById('termsModal');
-            if (termsModal) {
-                termsModal.style.display = 'flex';
-                const acceptBtn = document.getElementById('acceptTermsBtn');
-                await new Promise((resolve) => {
-                    acceptBtn.onclick = async () => {
-                        await callSecureRpc('accept_terms', { version: termsCheck.currentVersion });
-                        termsModal.style.display = 'none';
-                        resolve();
-                    };
-                });
-            } else {
-                if (!confirm("You must accept the Terms of Use to continue. This is a free prediction game with virtual points. No real money involved. Accept?")) {
-                    throw new Error("Terms not accepted");
-                }
-                await callSecureRpc('accept_terms', { version: termsCheck.currentVersion });
-            }
-        }
-        
-        // --- One-time signup bonus ---
-        const bonusResult = await callSecureRpc('claim_signup_bonus', {});
-        if (bonusResult.success && bonusResult.newBalance !== undefined) {
-            userPRAEBalance = bonusResult.newBalance;
-            saveBalance();
-            showToast("🎁 Welcome! You received 10 virtual points.", 'success');
+        // Check if user already registered
+        const user = await loadUser(walletAddress);
+        if (!user || !user.display_name) {
+            // Show registration modal
+            const modal = document.getElementById('registrationModal');
+            if (modal) modal.style.display = 'flex';
+            const completeBtn = document.getElementById('completeRegistrationBtn');
+            const regName = document.getElementById('regName');
+            const regBirthdate = document.getElementById('regBirthdate');
+            const regSymbol = document.getElementById('regSymbol');
+            const awaitRegistration = new Promise((resolve, reject) => {
+                completeBtn.onclick = async () => {
+                    const name = regName.value.trim();
+                    const birthdate = regBirthdate.value;
+                    const symbol = regSymbol.value;
+                    if (!name || !birthdate) {
+                        showToast("Please enter name and birthdate", 'error');
+                        return;
+                    }
+                    // Age check (18+)
+                    const birth = new Date(birthdate);
+                    const age = (new Date() - birth) / (365.25 * 24 * 60 * 60 * 1000);
+                    if (age < 18) {
+                        showToast("You must be 18 or older", 'error');
+                        return;
+                    }
+                    await callSecureRpc('update_profile', { display_name: name, avatar: symbol, birthdate: birthdate });
+                    modal.style.display = 'none';
+                    resolve();
+                };
+            });
+            await awaitRegistration;
         }
         
         rotateVoice();
         DOM.gate.style.display = 'none';
         DOM.mainApp.style.display = 'block';
         if (DOM.disconnectBtn) DOM.disconnectBtn.style.display = 'inline-block';
-        if (walletAddress === CONFIG.ORACLE_WALLET) {
-            if (DOM.adminTabBtn) DOM.adminTabBtn.style.display = 'inline-block';
-        }
+        if (walletAddress === CONFIG.ORACLE_WALLET && DOM.adminTabBtn) DOM.adminTabBtn.style.display = 'inline-block';
         if (!localStorage.getItem('tutorialShown')) {
             if (DOM.tutorialOverlay) DOM.tutorialOverlay.style.display = 'flex';
             localStorage.setItem('tutorialShown', 'true');
@@ -174,34 +155,26 @@ async function connectWallet() {
         if (DOM.flipCoinBtn) {
             const today = getUTCDayKey();
             const stored = JSON.parse(localStorage.getItem('prae_last_flip') || '{}');
-            DOM.flipCoinBtn.textContent = stored[walletAddress] === today ? '🪙 Flip Coin (done for today)' : '🪙 Flip Coin (1 available)';
+            DOM.flipCoinBtn.textContent = stored[walletAddress] === today ? '🪙 Flip Coin (done)' : '🪙 Flip Coin';
         }
         
-        // Email verification status (optional)
-        try {
-            const status = await callSecureRpc('check_email_status', { wallet: walletAddress });
-            if (status?.data?.email && !status?.data?.verified) {
-                if (DOM.emailVerifySection) DOM.emailVerifySection.style.display = 'block';
-            }
-        } catch (e) {}
+        // Claim signup bonus if not claimed
+        const bonusResult = await callSecureRpc('claim_signup_bonus', {});
+        if (bonusResult.success && bonusResult.newBalance !== undefined) {
+            userPRAEBalance = bonusResult.newBalance;
+            saveBalance();
+            showToast("🎁 Welcome! You received 10 virtual points.", 'success');
+        }
         
-        const user = await loadUser(walletAddress);
-        
-        // Load saved theme from database (if any)
-        if (user?.theme) {
-            if (user.theme === 'light') document.body.classList.add('light');
+        const freshUser = await loadUser(walletAddress);
+        // Load saved theme from database
+        if (freshUser?.theme) {
+            if (freshUser.theme === 'light') document.body.classList.add('light');
             else document.body.classList.remove('light');
-            localStorage.setItem('praedicta_theme', user.theme);
+            localStorage.setItem('praedicta_theme', freshUser.theme);
         }
-        
-        showWelcomeAnimation(user?.display_name || '');
+        showWelcomeAnimation(freshUser?.display_name || '');
         await refreshAll();
-        
-        // Check for referral in URL (just notify, reward removed)
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('ref')) {
-            showToast("🎁 You were referred! (bonus already applied)", 'success');
-        }
     } catch (err) {
         console.error('Connection error:', err);
         showToast(err.message || "Connection failed");
@@ -224,6 +197,11 @@ function disconnectWallet() {
     if (DOM.gate) DOM.gate.style.display = 'flex';
     if (DOM.disconnectBtn) DOM.disconnectBtn.style.display = 'none';
     if (DOM.adminTabBtn) DOM.adminTabBtn.style.display = 'none';
+}
+
+async function createPrediction() {
+    // unchanged – already uses callSecureRpc which will prompt signature only if session expired
+    // ... (keep your existing createPrediction function)
 }
 
 async function createPrediction() {
