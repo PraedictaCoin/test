@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Admin Dashboard (admin.js) - FINAL WITH USER SEARCH
+// PRAEDICTA – Admin Dashboard (admin.js) - WITH DELETE USER DATA
 // ============================================================
 
 let adminData = {};
@@ -40,15 +40,6 @@ function renderAdminDashboard() {
                 <button onclick="adminDeleteUserDataPrompt()" class="btn" style="font-size:.7rem;background:var(--error-color);">🗑️ Delete User Data</button>
                 <button onclick="exportAdminCSV()" class="btn" style="font-size:.7rem;background:var(--card-bg);color:var(--accent);border:1px solid var(--accent);">📥 CSV</button>
             </div>
-            
-            <!-- User Search Section -->
-            <h3 style="color:var(--accent);margin-top:16px;">🔍 Search User</h3>
-            <div style="display:flex;gap:8px;margin-bottom:16px;">
-                <input type="text" id="adminUserSearch" placeholder="Wallet address or display name" style="flex:1; background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; padding:8px 16px; color:var(--text);">
-                <button onclick="adminSearchUser()" class="btn" style="font-size:.7rem;">Search</button>
-            </div>
-            <div id="adminUserResult" style="margin-bottom:16px;"></div>
-            
             <h3 style="color:var(--accent);">🏆 Top Seers</h3>
             <div style="max-height:200px;overflow-y:auto;margin-bottom:16px;">
                 ${(topSeers || []).map((u, i) => `
@@ -122,43 +113,12 @@ function adminBanPrompt() {
     adminAction('ban_user', { targetWallet: wallet });
 }
 
+// NEW: Delete all data for a specific user (admin only)
 function adminDeleteUserDataPrompt() {
     const wallet = sanitize(prompt("Enter wallet address to DELETE ALL DATA (predictions, bets, orders, etc.):"), 50);
     if (!wallet) return;
     if (!confirm(`⚠️ PERMANENT ACTION: This will delete ALL predictions, bets, orders, fills, watchlist, and profile data for wallet ${wallet}. This cannot be undone. Continue?`)) return;
     adminAction('delete_user_data', { targetWallet: wallet });
-}
-
-async function adminSearchUser() {
-    const query = document.getElementById('adminUserSearch')?.value;
-    if (!query) return;
-    const resultContainer = document.getElementById('adminUserResult');
-    resultContainer.innerHTML = '<div class="card">Loading...</div>';
-    try {
-        const result = await callSecureRpc('admin_action', { action: 'search_user', params: { query } });
-        if (result.error) throw new Error(result.error);
-        if (!result.data || result.data.length === 0) {
-            resultContainer.innerHTML = '<div class="card">No users found.</div>';
-            return;
-        }
-        // Display users in a table
-        let html = '<div class="card"><h3 style="color:var(--accent);">Search Results</h3><div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:.8rem;">';
-        html += '<thead><tr><th style="text-align:left;">Wallet</th><th>Display Name</th><th>Balance</th><th>SeerScore</th><th>Email</th><th>Banned</th></tr></thead><tbody>';
-        for (const u of result.data) {
-            html += `<tr style="border-bottom:1px solid var(--border);">
-                        <td style="padding:4px;">${escapeHtml(u.address.slice(0,8))}...</td>
-                        <td style="padding:4px;">${escapeHtml(u.display_name || '-')}</td>
-                        <td style="padding:4px;">${u.prae_balance || 0}</td>
-                        <td style="padding:4px;">${u.seerscore || 0}</td>
-                        <td style="padding:4px;">${u.email ? (u.email_verified ? '✅' : '❌') : '-'}</td>
-                        <td style="padding:4px;">${u.banned ? '🚫 Yes' : '❌ No'}</td>
-                     </tr>`;
-        }
-        html += '</tbody></table></div></div>';
-        resultContainer.innerHTML = html;
-    } catch (err) {
-        resultContainer.innerHTML = `<div class="card">Error: ${err.message}</div>`;
-    }
 }
 
 function exportAdminCSV() {

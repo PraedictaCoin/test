@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Event Listeners (events.js) - FINAL v12 (CLEAN)
+// PRAEDICTA – Event Listeners (events.js) - FINAL v11 (SECURE)
 // ============================================================
 
 function initOracleAsk() {
@@ -40,17 +40,10 @@ function initEventListeners() {
         saveFilters();
         renderPraedictions();
     });
-    DOM.filterCreator?.addEventListener('input', e => {
-        clearTimeout(searchDebounce);
-        searchDebounce = setTimeout(() => {
-            currentFilter.creator = e.target.value;
-            saveFilters();
-            renderPraedictions();
-        }, 200);
-    });
     DOM.leaderboardCategoryFilter?.addEventListener('change', async e => {
         await renderLeaderboard(leaderboardPeriod, e.target.value || null);
     });
+    DOM.revealVotesBtn?.addEventListener('click', toggleBlindVoting);
     DOM.loadMoreBtn?.addEventListener('click', loadMorePredictions);
     DOM.copyWalletBtn?.addEventListener('click', () => {
         if (walletAddress) navigator.clipboard.writeText(walletAddress).then(() => showToast("Copied!", 'success'));
@@ -169,14 +162,14 @@ function initEventListeners() {
             c.style.display = 'none';
         }
     });
-    // DELETE DATA: only clears local storage – server data stays intact
-    document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
-        e.preventDefault();
-        if (!confirm("⚠️ This will clear your local game data (cached balance, filters, etc.) and disconnect your wallet. Your predictions and bets on the server will remain. Continue?")) return;
-        localStorage.clear();
-        disconnectWallet();
-        showToast("Local data cleared. Wallet disconnected.", 'info');
-    });
+   // DELETE DATA: only clears local storage – server data stays intact
+document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
+    e.preventDefault();
+    if (!confirm("⚠️ This will clear your local game data (cached balance, filters, etc.) and disconnect your wallet. Your predictions and bets on the server will remain. Continue?")) return;
+    localStorage.clear();
+    disconnectWallet();
+    showToast("Local data cleared. Wallet disconnected.", 'info');
+});
     document.querySelectorAll('[data-period]').forEach(b => {
         b.addEventListener('click', async function() {
             document.querySelectorAll('[data-period]').forEach(x => x.classList.remove('active-filter'));
@@ -228,6 +221,7 @@ function initEventListeners() {
         }
     });
     DOM.showRecapBtn?.addEventListener('click', showWeeklyRecap);
+    DOM.send2FACodeBtn?.addEventListener('click', send2FACode);
 
     // Signup bonus (replaces faucet)
     DOM.signupBonusBtn?.addEventListener('click', claimSignupBonus);
@@ -258,19 +252,6 @@ function initEventListeners() {
         } finally {
             setLoading(DOM.exportHistoryBtn, false);
         }
-    });
-
-    // Support modal
-    DOM.supportBtn?.addEventListener('click', () => {
-        if (DOM.supportModal) DOM.supportModal.style.display = 'flex';
-    });
-    DOM.sendSupportBtn?.addEventListener('click', async () => {
-        const msg = DOM.supportMessage?.value;
-        if (!msg) return showToast("Message required", 'error');
-        await callSecureRpc('send_support', { message: msg });
-        showToast("Support request sent!", 'success');
-        if (DOM.supportModal) DOM.supportModal.style.display = 'none';
-        if (DOM.supportMessage) DOM.supportMessage.value = '';
     });
 
     initOracleAsk();

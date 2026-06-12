@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - FINAL v6 (SECURITY FIXED)
+// PRAEDICTA – Utility Functions (utils.js) - FINAL v7 (CLEAN)
 // ============================================================
 
 var cachedDayKey = '';
@@ -353,14 +353,8 @@ function detectAutoSource(title) {
     return null;
 }
 
-function trackReferral() {
-    if (typeof supabaseClient === 'undefined') return;
-    var params = new URLSearchParams(window.location.search);
-    var ref = params.get('ref');
-    if (ref && ref !== walletAddress && walletAddress) {
-        try { supabaseClient.from('users').update({ referred_by: ref }).eq('address', walletAddress); } catch (e) {}
-    }
-}
+// Referral removed – kept as empty function to avoid errors
+function trackReferral() {}
 
 function showSkeleton() {
     var sc = document.getElementById('skeletonContainer');
@@ -780,13 +774,17 @@ function sortPredictions(predictions, sortBy) {
 function initMicroInteractions() {
     document.addEventListener('mouseleave', function(e) {
         var card = null;
-        if (e.target && e.target.closest) card = e.target.closest('.praediction-card');
+        if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
+            card = e.target.closest('.praediction-card');
+        }
         if (card) card.style.transform = '';
     }, true);
     
     document.addEventListener('click', function(e) {
         var btn = null;
-        if (e.target && e.target.closest) btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
+        if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
+            btn = e.target.closest('.btn, .btn-praedict, .btn-suggest, .quick-bet-btn');
+        }
         if (!btn) return;
         var ripple = document.createElement('span');
         var rect = btn.getBoundingClientRect();
@@ -1008,9 +1006,7 @@ function showPriceAlertModal(predictionId, currentPrice) {
     showToast("🔔 Price alerts coming soon!", { type: 'info' });
 }
 
-function checkPriceAlerts() {
-    // Stub - full implementation would check triggered alerts
-}
+function checkPriceAlerts() {}
 
 // ============================================================
 // GAME PACKS
@@ -1020,11 +1016,9 @@ function showGamePacksStore() {
 }
 
 // ============================================================
-// TRADINGVIEW CHART
+// TRADINGVIEW CHART (stub)
 // ============================================================
-function renderTradingViewChart(market, id) {
-    return '';
-}
+function renderTradingViewChart(market, id) { return ''; }
 
 // ============================================================
 // WELCOME & FIRST WIN
@@ -1042,10 +1036,91 @@ function showFirstWinCelebration(amount) {
 }
 
 // ============================================================
-// PUSH NOTIFICATIONS
+// NEW FEATURES (market simulation, charts, signup bonus, etc.)
 // ============================================================
+
+async function simulateMarketImpact(predictionId, outcome, amount) {
+    try {
+        const result = await callSecureRpc('simulate_market_impact', { predictionId, outcome, amount });
+        return result;
+    } catch { return null; }
+}
+
+// Placeholders for chart functions – actual implementation uses lightweight-charts
+function renderCandlestickChart(predictionId, priceHistory) {
+    // Will be replaced by real implementation in render.js
+    console.log('renderCandlestickChart called (stub)');
+}
+
+function renderDepthChart(predictionId, yesBids, noBids) {
+    console.log('renderDepthChart called (stub)');
+}
+
+async function claimSignupBonus() {
+    if (!walletAddress) return showToast("Connect wallet first", 'error');
+    setLoading(DOM.signupBonusBtn, true);
+    try {
+        const result = await callSecureRpc('claim_signup_bonus', {});
+        if (result.error) throw new Error(result.error);
+        userPRAEBalance = result.newBalance;
+        saveBalance();
+        showToast("🎁 Welcome bonus: +10 PRAE!", 'success');
+        DOM.signupBonusBtn.disabled = true;
+        DOM.signupBonusBtn.textContent = "Bonus claimed";
+    } catch (e) {
+        showToast(e.message || "Already claimed", 'error');
+    } finally {
+        setLoading(DOM.signupBonusBtn, false);
+    }
+}
+
+async function reportPrediction(predictionId, reason) {
+    await callSecureRpc('report_prediction', { predictionId, reason });
+    showToast("Report submitted. Admin will review.", 'info');
+}
+
+async function deleteMyData() {
+    if (!confirm("⚠️ This will permanently delete all your predictions, bets, watchlist, and user data. This action cannot be undone. Continue?")) return;
+    await callSecureRpc('delete_my_data', {});
+    localStorage.clear();
+    disconnectWallet();
+    showToast("Your data has been deleted.", 'info');
+}
+
+async function acceptTerms(version = "1.0") {
+    await callSecureRpc('accept_terms', { version });
+    document.getElementById('termsModal').style.display = 'none';
+}
+
+async function checkTerms() {
+    const result = await callSecureRpc('check_terms', {});
+    if (result.needsAccept) {
+        document.getElementById('termsModal').style.display = 'flex';
+    }
+}
+
+// ============================================================
+// SHARE WIN (social)
+// ============================================================
+async function shareWin(prediction, amount) {
+    const shareUrl = `https://praedictacoin.github.io/share?title=${encodeURIComponent(prediction.title)}&outcome=${prediction.resolved_outcome}&amount=${amount}`;
+    if (navigator.share) {
+        navigator.share({ title: 'I won on PRAEDICTA!', text: `I won ${amount} PRAE on "${prediction.title}"`, url: shareUrl });
+    } else {
+        navigator.clipboard.writeText(shareUrl);
+        showToast("📋 Share link copied!", 'success');
+    }
+}
+
+// ============================================================
+// PUSH NOTIFICATIONS (disabled – placeholder)
+// ============================================================
+function registerPushNotifications() {
+    showToast("Push notifications coming soon!", { type: 'info' });
+}
+
 function togglePushNotifications() {
-    showToast("📱 Push notifications coming soon!", { type: 'info' });
+    showToast("Push notifications coming soon!", { type: 'info' });
 }
 
 function updatePushNotificationUI() {
@@ -1056,7 +1131,7 @@ function updatePushNotificationUI() {
 }
 
 // ============================================================
-// PERFORMANCE
+// PERFORMANCE & INTERVALS
 // ============================================================
 function startConsolidatedInterval() {
     if (consolidatedInterval) return;
@@ -1080,9 +1155,7 @@ function stopAllIntervals() {
     }
 }
 
-function autoRefreshLightweight() {
-    // Stub - lightweight refresh
-}
+function autoRefreshLightweight() {}
 
 function updateStatsOnly(predictions) {
     var ta = document.getElementById('totalActive');
@@ -1091,6 +1164,7 @@ function updateStatsOnly(predictions) {
     if (tp) tp.textContent = predictions.length;
 }
 
+// Stubs for order book caching (real functions are in market.js)
 function getCachedOrderBook(id) { return null; }
 function setCachedOrderBook(id, data) {}
 function syncOrderBookIfNeeded(id) {}

@@ -1,4 +1,4 @@
-// PRAEDICTA Service Worker – offline support
+// PRAEDICTA Service Worker – offline support (v2)
 const CACHE_NAME = 'praedicta-v2';
 
 const ASSETS_TO_CACHE = [
@@ -42,16 +42,21 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
+  // Never cache Supabase or Solana API requests – let them go to network
   if (event.request.url.includes('supabase.co') ||
       event.request.url.includes('solana.com')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
+      // Return cached version if available, else fetch from network
       return cachedResponse || fetch(event.request).then(networkResponse => {
+        // Cache successful responses for future offline use
         if (networkResponse.ok && event.request.url.startsWith('https://')) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => {

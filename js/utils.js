@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Utility Functions (utils.js) - FINAL v6 (SECURITY FIXED)
+// PRAEDICTA – Utility Functions (utils.js) - FINAL (no blind voting, no 2FA)
 // ============================================================
 
 var cachedDayKey = '';
@@ -70,6 +70,10 @@ function showToast(msg, options) {
     }, actualDuration);
     
     return t;
+}
+
+function showToastWithUndo(msg, onUndo, duration = 10000) {
+    return showToast(msg, { type: 'info', duration, undoCallback: onUndo, undoLabel: 'Undo' });
 }
 
 function setLoading(btn, on) {
@@ -191,54 +195,6 @@ function updateHypeMessage() {
     hm.textContent = HYPE_MESSAGES[Math.floor(Math.random() * HYPE_MESSAGES.length)];
 }
 
-function applyBlindVoting(container) {
-    if (!container) container = document;
-    var stats = container.querySelectorAll('.vote-stats');
-    for (var i = 0; i < stats.length; i++) {
-        if (blindVotingEnabled) {
-            stats[i].style.filter = 'blur(8px)';
-            stats[i].style.userSelect = 'none';
-        } else {
-            stats[i].style.filter = 'none';
-            stats[i].style.userSelect = '';
-        }
-    }
-}
-
-function toggleBlindVoting() {
-    blindVotingEnabled = !blindVotingEnabled;
-    var cb = document.getElementById('settingsBlindVoting');
-    if (cb) cb.checked = blindVotingEnabled;
-    applyBlindVoting();
-    var rc = document.getElementById('resolvedContainer');
-    var ec = document.getElementById('expiredContainer');
-    if (rc) applyBlindVoting(rc);
-    if (ec) applyBlindVoting(ec);
-    var rvb = document.getElementById('revealVotesBtn');
-    if (rvb) {
-        rvb.textContent = blindVotingEnabled ? '👁️ Show Votes' : '👁️ Hide Votes';
-        if (blindVotingEnabled) rvb.classList.add('active-filter');
-        else rvb.classList.remove('active-filter');
-    }
-}
-
-function toggleBlindVotingFromSettings() {
-    var cb = document.getElementById('settingsBlindVoting');
-    blindVotingEnabled = cb ? cb.checked : false;
-    applyBlindVoting();
-    var rc = document.getElementById('resolvedContainer');
-    var ec = document.getElementById('expiredContainer');
-    if (rc) applyBlindVoting(rc);
-    if (ec) applyBlindVoting(ec);
-    showToast(blindVotingEnabled ? '🙈 Votes hidden' : '👁️ Votes visible', { type: 'info' });
-}
-
-function loadSettingsState() {
-    var cb = document.getElementById('settingsBlindVoting');
-    if (cb) cb.checked = blindVotingEnabled;
-    if (typeof updatePushNotificationUI === 'function') updatePushNotificationUI();
-}
-
 function updateCountdowns() {
     var els = document.querySelectorAll('[id^="countdown-"]');
     for (var i = 0; i < els.length; i++) {
@@ -353,14 +309,8 @@ function detectAutoSource(title) {
     return null;
 }
 
-function trackReferral() {
-    if (typeof supabaseClient === 'undefined') return;
-    var params = new URLSearchParams(window.location.search);
-    var ref = params.get('ref');
-    if (ref && ref !== walletAddress && walletAddress) {
-        try { supabaseClient.from('users').update({ referred_by: ref }).eq('address', walletAddress); } catch (e) {}
-    }
-}
+// Referral removed – kept as empty function to avoid errors
+function trackReferral() {}
 
 function showSkeleton() {
     var sc = document.getElementById('skeletonContainer');
@@ -395,7 +345,7 @@ function flashTitle(text) {
 function loadNotificationPrefs() {
     try {
         var prefs = JSON.parse(localStorage.getItem('praedicta_notif_prefs') || '{}');
-        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound'];
         for (var i = 0; i < els.length; i++) {
             var el = document.getElementById(els[i]);
             if (el) el.checked = prefs[els[i].replace('notif', '').toLowerCase()] !== false;
@@ -406,7 +356,7 @@ function loadNotificationPrefs() {
 function saveNotificationPrefs() {
     try {
         var prefs = {};
-        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound', 'notifTwoFactor'];
+        var els = ['notifResolved', 'notifWon', 'notifStreak', 'notifLeaderboard', 'notifSound'];
         for (var i = 0; i < els.length; i++) {
             var el = document.getElementById(els[i]);
             var key = els[i].replace('notif', '').toLowerCase();
@@ -779,7 +729,6 @@ function sortPredictions(predictions, sortBy) {
 // ============================================================
 function initMicroInteractions() {
     document.addEventListener('mouseleave', function(e) {
-        // Ensure e.target is an element before using .closest
         var card = null;
         if (e.target && e.target.nodeType === Node.ELEMENT_NODE) {
             card = e.target.closest('.praediction-card');
@@ -959,13 +908,6 @@ function handleAvatarUpload(event) {
 }
 
 // ============================================================
-// 2FA
-// ============================================================
-function send2FACode() {
-    showToast("📧 2FA code sent!", { type: 'info' });
-}
-
-// ============================================================
 // SESSION EXPIRY
 // ============================================================
 function checkSessionExpiry() {
@@ -986,7 +928,6 @@ function showShortcutsPopup() {
         { key: '2', desc: 'Profile tab' },
         { key: '3', desc: 'Leaderboard tab' },
         { key: '4', desc: 'Support tab' },
-        { key: 'B', desc: 'Toggle blind voting' },
         { key: 'T', desc: 'Toggle theme' }
     ];
     var modal = document.createElement('div');
@@ -1013,9 +954,7 @@ function showPriceAlertModal(predictionId, currentPrice) {
     showToast("🔔 Price alerts coming soon!", { type: 'info' });
 }
 
-function checkPriceAlerts() {
-    // Stub - full implementation would check triggered alerts
-}
+function checkPriceAlerts() {}
 
 // ============================================================
 // GAME PACKS
@@ -1025,11 +964,9 @@ function showGamePacksStore() {
 }
 
 // ============================================================
-// TRADINGVIEW CHART
+// TRADINGVIEW CHART (stub)
 // ============================================================
-function renderTradingViewChart(market, id) {
-    return '';
-}
+function renderTradingViewChart(market, id) { return ''; }
 
 // ============================================================
 // WELCOME & FIRST WIN
@@ -1047,10 +984,83 @@ function showFirstWinCelebration(amount) {
 }
 
 // ============================================================
-// PUSH NOTIFICATIONS
+// NEW FEATURES (market simulation, charts, signup bonus, etc.)
 // ============================================================
+
+async function simulateMarketImpact(predictionId, outcome, amount) {
+    try {
+        const result = await callSecureRpc('simulate_market_impact', { predictionId, outcome, amount });
+        return result;
+    } catch { return null; }
+}
+
+// Placeholders for chart functions – actual implementation uses lightweight-charts
+function renderCandlestickChart(predictionId, priceHistory) {
+    // Will be replaced by real implementation in render.js
+    console.log('renderCandlestickChart called (stub)');
+}
+
+function renderDepthChart(predictionId, yesBids, noBids) {
+    console.log('renderDepthChart called (stub)');
+}
+
+async function claimSignupBonus() {
+    if (!walletAddress) return showToast("Connect wallet first", 'error');
+    setLoading(DOM.signupBonusBtn, true);
+    try {
+        const result = await callSecureRpc('claim_signup_bonus', {});
+        if (result.error) throw new Error(result.error);
+        userPRAEBalance = result.newBalance;
+        saveBalance();
+        showToast("🎁 Welcome bonus: +10 PRAE!", 'success');
+        DOM.signupBonusBtn.disabled = true;
+        DOM.signupBonusBtn.textContent = "Bonus claimed";
+    } catch (e) {
+        showToast(e.message || "Already claimed", 'error');
+    } finally {
+        setLoading(DOM.signupBonusBtn, false);
+    }
+}
+
+async function reportPrediction(predictionId, reason) {
+    await callSecureRpc('report_prediction', { predictionId, reason });
+    showToast("Report submitted. Admin will review.", 'info');
+}
+
+async function acceptTerms(version = "1.0") {
+    await callSecureRpc('accept_terms', { version });
+    document.getElementById('termsModal').style.display = 'none';
+}
+
+async function checkTerms() {
+    const result = await callSecureRpc('check_terms', {});
+    if (result.needsAccept) {
+        document.getElementById('termsModal').style.display = 'flex';
+    }
+}
+
+// ============================================================
+// SHARE WIN (social)
+// ============================================================
+async function shareWin(prediction, amount) {
+    const shareUrl = `https://praedictacoin.github.io/share?title=${encodeURIComponent(prediction.title)}&outcome=${prediction.resolved_outcome}&amount=${amount}`;
+    if (navigator.share) {
+        navigator.share({ title: 'I won on PRAEDICTA!', text: `I won ${amount} PRAE on "${prediction.title}"`, url: shareUrl });
+    } else {
+        navigator.clipboard.writeText(shareUrl);
+        showToast("📋 Share link copied!", 'success');
+    }
+}
+
+// ============================================================
+// PUSH NOTIFICATIONS (disabled – placeholder)
+// ============================================================
+function registerPushNotifications() {
+    showToast("Push notifications coming soon!", { type: 'info' });
+}
+
 function togglePushNotifications() {
-    showToast("📱 Push notifications coming soon!", { type: 'info' });
+    showToast("Push notifications coming soon!", { type: 'info' });
 }
 
 function updatePushNotificationUI() {
@@ -1061,7 +1071,7 @@ function updatePushNotificationUI() {
 }
 
 // ============================================================
-// PERFORMANCE
+// PERFORMANCE & INTERVALS
 // ============================================================
 function startConsolidatedInterval() {
     if (consolidatedInterval) return;
@@ -1085,9 +1095,7 @@ function stopAllIntervals() {
     }
 }
 
-function autoRefreshLightweight() {
-    // Stub - lightweight refresh
-}
+function autoRefreshLightweight() {}
 
 function updateStatsOnly(predictions) {
     var ta = document.getElementById('totalActive');
@@ -1096,6 +1104,7 @@ function updateStatsOnly(predictions) {
     if (tp) tp.textContent = predictions.length;
 }
 
+// Stubs for order book caching (real functions are in market.js)
 function getCachedOrderBook(id) { return null; }
 function setCachedOrderBook(id, data) {}
 function syncOrderBookIfNeeded(id) {}
