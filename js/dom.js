@@ -73,7 +73,6 @@ function cacheDOM() {
     DOM.creatorBetYes = document.getElementById('creatorBetYes');
     DOM.creatorBetNo = document.getElementById('creatorBetNo');
     DOM.creatorBetDisplay = document.getElementById('creatorBetDisplay');
-    DOM.emailInput = document.getElementById('emailInput');
     DOM.quickWeather = document.getElementById('quickWeather');
     DOM.skeletonContainer = document.getElementById('skeletonContainer');
     DOM.activityFeed = document.getElementById('activityFeed');

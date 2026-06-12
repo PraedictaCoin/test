@@ -122,6 +122,11 @@ function cacheDOM() {
     DOM.supportMessage = document.getElementById('supportMessage');
     DOM.sendSupportBtn = document.getElementById('sendSupportBtn');
     DOM.oracleBtn = document.getElementById('oracleBtn');
+    DOM.oracleAskBtn = document.getElementById('oracleAskBtn');
+DOM.themeToggleSettings = document.getElementById('themeToggleSettings');
+DOM.accentToggleSettings = document.getElementById('accentToggleSettings');
+DOM.claimBonusBtn = document.getElementById('claimBonusBtn');
+// Remove old references that are no longer needed (e.g., liveCounter)
     DOM.faqContainer = document.getElementById('faqContainer');
 }
 cacheDOM();

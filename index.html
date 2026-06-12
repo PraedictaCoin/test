@@ -36,7 +36,7 @@
             --badge-resolved: #aa66ff;
             --select-option-bg: #0A0A0A;
         }
-        body.violet {
+        body.cosmic {
             --accent: #7C3AED;
             --accent-glow: rgba(124, 58, 237, 0.3);
             --border: rgba(124, 58, 237, 0.1);
@@ -184,7 +184,10 @@
         @media(min-width:769px) {
             .create-fab{display:none!important}
             .create-praediction{max-height:none!important;overflow:visible!important}
-        }
+      body.cosmic { --accent: #7C3AED; --accent-glow: rgba(124,58,237,0.3); --border: rgba(124,58,237,0.1); --card-bg: rgba(124,58,237,0.03); --card-border: rgba(124,58,237,0.1); --stat-bg: rgba(124,58,237,0.05); --badge-resolved: #A78BFA; }
+        /* Particles canvas style */
+        #particlesCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none; opacity:0.6; }
+        body.light #particlesCanvas { opacity:0.35; }
     </style>
 </head>
 <body>
@@ -205,7 +208,7 @@
     </div>
 </div>
 
-<!-- Registration Modal (appears after wallet connect) -->
+<!-- Registration Modal -->
 <div id="registrationModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.9); z-index:10000; align-items:center; justify-content:center;">
     <div style="background:var(--bg); border-radius:24px; padding:32px; max-width:450px; width:90%; text-align:center;">
         <h2 style="color:var(--accent);">Welcome, Seer</h2>
@@ -213,16 +216,9 @@
         <input type="text" id="regName" placeholder="Display name" maxlength="20" style="width:100%; padding:12px; margin-bottom:12px; background:var(--input-bg); border-radius:40px;">
         <input type="date" id="regBirthdate" style="width:100%; padding:12px; margin-bottom:12px; background:var(--input-bg); border-radius:40px;">
         <select id="regSymbol" style="width:100%; padding:12px; margin-bottom:16px; background:var(--input-bg); border-radius:40px;">
-            <option value="👁️">👁️ Eye</option>
-            <option value="🦉">🦉 Owl</option>
-            <option value="🔮">🔮 Crystal</option>
-            <option value="✨">✨ Sparkle</option>
-            <option value="🐉">🐉 Dragon</option>
-            <option value="🦊">🦊 Fox</option>
-            <option value="🐺">🐺 Wolf</option>
-            <option value="🦅">🦅 Eagle</option>
-            <option value="🌋">🌋 Volcano</option>
-            <option value="🧙">🧙 Wizard</option>
+            <option value="👁️">👁️ Eye</option><option value="🦉">🦉 Owl</option><option value="🔮">🔮 Crystal</option><option value="✨">✨ Sparkle</option>
+            <option value="🐉">🐉 Dragon</option><option value="🦊">🦊 Fox</option><option value="🐺">🐺 Wolf</option><option value="🦅">🦅 Eagle</option>
+            <option value="🌋">🌋 Volcano</option><option value="🧙">🧙 Wizard</option>
         </select>
         <button id="completeRegistrationBtn" class="btn">Start Journey</button>
     </div>
@@ -232,7 +228,7 @@
     <div class="gate-card">
         <div class="eye-container"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div>
         <h2>PRAEDICTA</h2><div class="tagline" style="color:var(--text-muted); margin-bottom:24px;">for those who see</div>
-        <input type="email" id="emailInput" placeholder="Email for notifications (optional)" style="width:100%; padding:12px; background:var(--input-bg); border:1px solid var(--input-border); border-radius:40px; margin-bottom:12px;">
+        <!-- Email input removed -->
         <button id="connectBtn" class="btn"><span>Connect Wallet</span><span class="loader" style="display:none;"></span></button>
         <p style="color:var(--text-muted); font-size:.7rem; margin-top:8px;">🔐 Free to play – no real money</p>
         <div id="gateMessage" style="margin-top:20px;"></div>
@@ -250,13 +246,10 @@
 <div id="mainApp" class="main-app">
     <header class="app-header">
         <div class="logo-area"><div class="logo-eye"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div><div><h1>PRAEDICTA</h1><div class="tagline">for those who see</div></div></div>
-        <div class="stats" id="headerStats">
-            <div class="stat"><div class="stat-value" id="totalActive">0</div><div>Active</div></div>
-            <div class="stat"><div class="stat-value" id="totalPraedicts">0</div><div>Staked</div></div>
-            <div class="stat"><div class="stat-value" id="totalVolume">0</div><div>Volume</div></div>
-            <div class="stat"><div class="stat-value" id="totalPredictions">0</div><div>Total</div></div>
-            <div class="stat"><div class="stat-value" id="totalUsers">0</div><div>Seers</div></div>
-            <div class="stat"><div class="stat-value" id="totalSeerscore">0</div><div>Score</div></div>
+        <div class="right-tab-items">
+            <button id="createTabBtn" class="icon-btn">✨ Create</button>
+            <button id="settingsGearBtn" class="icon-btn">⚙️</button>
+            <button id="notifCenterBtn" class="icon-btn" onclick="toggleNotifCenter()">🔔<span id="notifBadge" style="position:absolute;top:-4px;right:-4px;background:#EF4444;color:#FFF;border-radius:50%;width:18px;height:18px;font-size:.6rem;display:none;align-items:center;justify-content:center;">0</span></button>
         </div>
     </header>
     <div id="offlineBanner" class="offline-banner" style="display:none; background:#EF4444; color:#FFF; text-align:center; padding:8px; border-radius:12px; margin-bottom:16px; cursor:pointer;">⚠️ Connection lost. Tap to retry.</div>
@@ -264,120 +257,64 @@
         <div class="tabs-left">
             <button class="tab-btn active" data-tab="praedictions">🌌 Praedictions</button>
             <button class="tab-btn" data-tab="watchlist">⭐ Watchlist</button>
+            <button class="tab-btn" data-tab="create">✨ Create</button>   <!-- new tab -->
             <button class="tab-btn" data-tab="leaderboard">🏆 Leaderboard</button>
             <button class="tab-btn" data-tab="profile">👤 Profile</button>
             <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
             <button class="tab-btn" data-tab="support">💛 Support</button>
             <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display:none;">🦉 Admin</button>
         </div>
-        <div class="right-tab-items">
-            <button id="notifCenterBtn" class="icon-btn" onclick="toggleNotifCenter()">🔔<span id="notifBadge" style="position:absolute;top:-4px;right:-4px;background:#EF4444;color:#FFF;border-radius:50%;width:18px;height:18px;font-size:.6rem;display:none;align-items:center;justify-content:center;">0</span></button>
-        </div>
     </nav>
-    <!-- Praedictions Tab (unchanged) -->
+
+    <!-- Praedictions Tab -->
     <section id="tab-praedictions" class="tab-content active">...</section>
     <!-- Watchlist Tab -->
     <section id="tab-watchlist" class="tab-content"><div id="watchlistContainer" class="card"></div></section>
-    <!-- Leaderboard Tab -->
-    <section id="tab-leaderboard" class="tab-content"><div id="leaderboardList"></div><div id="seerOfTheDay" style="margin-top:20px;"></div><div class="card" style="margin-top:20px;"><h3 style="color:var(--accent);">🏛️ Hall of Fame</h3><div id="hallOfFameList"></div></div></section>
-    <!-- Profile Tab (without zodiac/name inputs) -->
-    <section id="tab-profile" class="tab-content">
-        <div class="card">
-            <h2 style="color:var(--accent); text-align:center;"><span id="walletDisplay"></span><span id="oracleIndicatorProfile" style="display:none;" class="oracle-badge">🦉 ORACLE</span></h2>
-            <div id="lunarPhase" style="text-align:center;font-size:1.2rem;"></div>
-            <div id="zodiacRealHeadline" style="color:var(--accent); text-align:center;">Your Daily Praediction:</div>
-            <div id="zodiacHoroscopeDisplay" style="margin-top:8px; padding:12px; background:var(--card-bg); border-radius:20px; text-align:center;"></div>
-            <div id="profileStats" style="margin-top:12px;"></div>
-            <div id="streakRewards" style="margin-top:8px; padding:12px; background:var(--card-bg); border-radius:12px; text-align:center;">🔥 Streak: <strong id="streakCount">0</strong> days</div>
-            <div id="streakCalendar"></div>
-            <div class="profile-section" onclick="toggleProfileSection(this)">
-                <div class="profile-section-header"><span>💼 Portfolio</span><span class="section-toggle-icon">▼</span></div>
-                <div class="profile-section-content open">
-                    <button id="showPortfolioBtn" class="btn" style="width:100%; margin-top:8px;">💼 View Portfolio</button>
-                    <div id="portfolioView" style="display:none; margin-top:8px;"></div>
-                    <button id="showMyPraedictionsBtn" class="btn" style="width:100%; margin-top:8px;">📋 My Praedictions</button>
-                    <div id="myPraedictionsList" style="display:none; margin-top:8px;"></div>
-                </div>
+    <!-- Create Tab (contains the prediction creation form) -->
+    <section id="tab-create" class="tab-content">
+        <div class="create-praediction card">
+            <h3>I praedict that…</h3>
+            <input type="text" id="title" placeholder="BTC will reach $120,000 by July 2026" maxlength="200">
+            <textarea id="description" rows="2" placeholder="With ETF inflows..." maxlength="1000"></textarea>
+            <select id="category">...</select>
+            <input type="datetime-local" id="resolutionDate">
+            <select id="autoSource">...</select>
+            <input type="text" id="autoSourceDetail" placeholder="City, team, or page name" style="display:none;">
+            <input type="text" id="targetValue" placeholder="Target value">
+            <input type="url" id="sourceUrl" placeholder="Proof URL">
+            <div style="margin:12px 0; padding:12px; background:var(--accent-glow); border-radius:12px;">
+                <p style="color:var(--accent);">Your conviction (required - 7 points):</p>
+                <div style="display:flex; gap:8px;"><button id="creatorBetYes" class="btn-praedict" type="button">✅ Commit YES</button><button id="creatorBetNo" class="btn-praedict" type="button">❌ Commit NO</button></div>
+                <p id="creatorBetDisplay" style="text-align:center; margin-top:8px;">Select your conviction</p>
             </div>
-            <div class="legal-banner" style="text-align:center;padding:16px;margin-top:16px;font-size:.75rem;">
-                🎮 Free prediction game · Virtual points only · No real money · <a href="#" class="legal-link" data-doc="terms">Rules</a> | <a href="#" class="legal-link" data-doc="privacy">Privacy</a> | <a href="#" id="deleteAccountLink" style="color:#ff8888;">Clear Data</a>
-            </div>
+            <button id="createBtn" class="btn" style="width:100%;">✨ Create & Stake 7 points</button>
         </div>
     </section>
-    <!-- Settings Tab (includes avatar upload as part of Plus package) -->
-    <section id="tab-settings" class="tab-content">
-        <div class="card"><h3>🎨 Appearance</h3><button id="themeToggleSettings" class="btn" style="width:100%; margin-bottom:8px;">🌓 Dark/Light Mode</button><button id="accentToggleSettings" class="btn" style="width:100%;">🎨 Switch Accent</button></div>
-        <div class="card"><h3>🔔 Notifications</h3><label><input type="checkbox" id="notifResolved" checked> Resolved predictions</label><label><input type="checkbox" id="notifWon" checked> Won predictions</label><label><input type="checkbox" id="notifStreak" checked> Streak milestones</label><label><input type="checkbox" id="notifLeaderboard" checked> Leaderboard changes</label><label><input type="checkbox" id="notifSound"> Sound effects</label><button id="pushSubscribeBtn" class="btn" style="width:100%; margin-top:8px;">🔔 Enable Push</button></div>
-        <div class="card"><h3>📊 Data</h3><button id="exportAnalyticsBtn" class="btn" style="width:100%; margin-bottom:8px;">📊 Export Analytics</button><button id="exportHistoryBtn" class="btn" style="width:100%;">📥 Export Trade History</button></div>
-        <div class="card"><h3>⭐ PRAEDICTA+ (Gimmick Package)</h3><button id="upgradePlusBtn" class="btn" style="width:100%; margin-bottom:8px;">✨ Get Plus</button><div id="plusFeatures" style="display:none; margin-top:12px;"><input type="file" id="avatarFileInput" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)"><button onclick="document.getElementById('avatarFileInput').click()" class="btn" style="width:100%; margin-bottom:8px;">📷 Upload Avatar (Plus)</button><button id="cosmicThemeBtn" class="btn" style="width:100%; margin-bottom:8px;">🌌 Cosmic UI Theme</button><button id="soundPackBtn" class="btn" style="width:100%;">🎵 Sound Pack</button></div></div>
-        <div class="card"><h3>🔌 Account</h3><button id="disconnectBtn" class="btn" style="width:100%;">🔌 Disconnect Wallet</button></div>
-    </section>
-    <!-- Support Tab (reordered) -->
+    <!-- Leaderboard Tab -->
+    <section id="tab-leaderboard" class="tab-content"><div id="leaderboardList"></div><div id="seerOfTheDay" style="margin-top:20px;"></div><div class="card" style="margin-top:20px;"><h3>🏛️ Hall of Fame</h3><div id="hallOfFameList"></div></div></section>
+    <!-- Profile Tab (simplified) -->
+    <section id="tab-profile" class="tab-content">...</section>
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-content">...</section>
+    <!-- Support Tab (stats moved here) -->
     <section id="tab-support" class="tab-content">
         <div class="card">
-            <h3 style="color:var(--accent);">💛 Your Support keeps PRAE in the Game</h3>
-            <button id="donateBtn" class="btn" style="width:100%; margin-bottom:8px;">☕ Buy me a coffee / Add liquidity</button>
-            <button id="upgradePlusBtnSupport" class="btn" style="width:100%; margin-bottom:8px;">✨ Get PRAEDICTA+ (Gimmick Package)</button>
+            <h3 style="color:var(--accent);">📊 Platform Statistics</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:12px;">
+                <div class="stat"><div class="stat-value" id="totalActiveSupport">0</div><div>Active</div></div>
+                <div class="stat"><div class="stat-value" id="totalPraedictsSupport">0</div><div>Staked</div></div>
+                <div class="stat"><div class="stat-value" id="totalVolumeSupport">0</div><div>Volume</div></div>
+                <div class="stat"><div class="stat-value" id="totalPredictionsSupport">0</div><div>Total</div></div>
+                <div class="stat"><div class="stat-value" id="totalUsersSupport">0</div><div>Seers</div></div>
+                <div class="stat"><div class="stat-value" id="totalSeerscoreSupport">0</div><div>Score</div></div>
+            </div>
         </div>
-        <div class="card">
-            <h3 style="color:var(--accent);">🎁 Bonuses</h3>
-            <button id="oracleAskBtn" class="btn" style="width:100%; margin-bottom:8px;">🔮 Ask the Oracle</button>
-            <button id="flipCoinBtn" class="btn" style="width:100%; margin-bottom:8px;">🪙 Flip Coin</button>
-            <button id="claimBonusBtn" class="btn" style="width:100%;">🎁 Claim Signup Bonus</button>
-        </div>
-        <div class="card">
-            <h3 style="color:var(--accent);">📱 Get Support</h3>
-            <a href="https://t.me/praedictacoin" target="_blank" class="btn" style="width:100%; margin-bottom:8px;">📱 Telegram Channel</a>
-            <a href="https://t.me/praedictacoingroup" target="_blank" class="btn" style="width:100%;">👥 Telegram Group</a>
-        </div>
-        <div class="card">
-            <h3>❓ Frequently Asked Questions</h3>
-            <div id="faqContainer"></div>
-        </div>
+        <div class="card"><h3>🎁 Bonuses</h3><button id="oracleAskBtn" class="btn">🔮 Ask the Oracle</button><button id="flipCoinBtn" class="btn">🪙 Flip Coin</button><button id="claimBonusBtn" class="btn">🎁 Claim Signup Bonus</button></div>
+        <div class="card"><h3>💛 Support</h3><a href="https://t.me/praedictacoin" target="_blank" class="btn">📱 Telegram Channel</a><a href="https://t.me/praedictacoingroup" target="_blank" class="btn">👥 Telegram Group</a><button id="donateBtn" class="btn">☕ Buy me a coffee</button></div>
+        <div class="card"><h3>❓ FAQ</h3><div id="faqContainer"></div></div>
     </section>
     <section id="tab-admin" class="tab-content"><div id="adminDashboard"></div></section>
 </div>
-
-<!-- FAQ Generator (new version) -->
-<script>
-(function() {
-    const faqData = [
-        { q: '👁️ How does PRAEDICTA work?', a: 'Seers create praedictions about future events. The community buys YES or NO shares. The Oracle resolves after the deadline.' },
-        { q: '🔮 What can I PRAEdict?', a: 'Anything with a <span style="color:var(--accent);">VERIFIABLE</span> outcome! Finance, sports, politics, world events, or Wildcard.' },
-        { q: '📜 What features does PRAEDICTA offer?', a: `<ul style="padding-left:20px;"><li>✨ Create up to 3 free praedictions daily</li><li>💰 Buy YES or NO shares with PRAE tokens</li><li>🎮 Play Money mode – test strategies without risk</li><li>⛓️ Real Market mode – coming soon with on-chain PRAE</li><li>🏅 Prophet Titles – Novice, Seer, Prophet, Oracle</li><li>⚡ Controversy Meter – see when the crowd is split</li><li>⏰ Countdown Badges – know what's closing soon</li><li>👁️ Blind Voting – toggle to hide/reveal vote counts</li><li>🦉 Oracle Decide – let fate choose your vote</li><li>🔮 Reactions (🔥😱🤔👀) on predictions</li><li>🌙 Daily Horoscope & Moon Phase for your zodiac</li><li>🔥 Login Streak tracking with milestone stories</li><li>❄️ Streak Freeze timer</li><li>🪙 Daily Coin Flip – win bonus PRAE</li><li>🌟 Seer Spotlight – daily featured Seer</li><li>🏆 Leaderboard – Top Seers ranked by SeerScore</li><li>🏛️ Hall of Fame – most accurate resolved predictions</li><li>📊 Filter by category, status, and search</li><li>🔗 Share predictions via link</li><li>👥 Referral system</li><li>🌓 Light/Dark theme toggle</li><li>📱 PWA – install as mobile or desktop app</li><li>🔒 Secure Phantom Wallet authentication</li><li>🔮 Ask the Oracle – one mystical answer per session</li><li>📎 Source URL required for verifiable predictions</li><li style="color:var(--text-muted);">🎁 Mystery Box – coming soon</li><li style="color:var(--text-muted);">🎵 Sound Themes – coming soon</li></ul>` },
-        { q: '📎 Why do I need a source URL?', a: 'Every prediction must be verifiable. Provide a URL where the result will be publicly posted. Auto-resolve (CoinGecko) predictions are exempt.' },
-        { q: '🦉 How does the Oracle resolve predictions?', a: 'The Oracle checks the source URL or auto-resolve data after the deadline. If unresolvable, all bets are refunded.' },
-        { q: '💰 What is PRAE and where can I get it?', a: 'PRAE is the prediction token on Solana. Get it on <a href="https://dexscreener.com/solana/7C2Y5NebLFG37wMbB85TbMqYERTSkq9tEi58wv28MCzt" target="_blank" rel="noopener" style="color:var(--accent);">DexScreener</a>.' },
-        { q: '🎮 Play Money vs Real Market?', a: 'Play Money uses a built-in AMM to test strategies. Real Market (coming soon) uses actual PRAE tokens on Solana.' },
-        { q: '👁️ What is Blind Voting?', a: 'Toggle to blur all vote counts. Vote without seeing what others chose – test your intuition!' },
-        { q: '🏅 What are Prophet Titles?', a: 'Earn ranks based on your SeerScore: 🌱 Novice (0), 👁️ Seer (100), 👁️‍🗨️ High Seer (250), 🔮 Prophet (500), 🦉 Oracle (1000+).' },
-        { q: '⚡ What is the Controversy Meter?', a: 'When YES and NO are nearly tied, a "Split Opinion" or "Heated Debate" badge appears on the prediction card.' },
-        { q: '🔥 What are Streaks?', a: 'Login daily to build your streak. Milestones unlock stories and bonuses. Use Streak Freeze to protect your progress.' },
-        { q: '👥 Is there a community?', a: '<span style="color:var(--accent);">Yes!</span> Join our Telegram: <a href="https://t.me/praedictacoin" target="_blank" rel="noopener" style="color:var(--accent);">t.me/praedictacoin</a> or X: <a href="https://x.com/PraedictaCoin" target="_blank" rel="noopener" style="color:var(--accent);">@PraedictaCoin</a>.' },
-        { q: '📱 Can I install this as an app?', a: 'YES! This is a PWA. On mobile: Chrome → "Add to Home Screen". On desktop: click the install icon in your browser.' },
-        { q: '⚖️ Legal disclaimer', a: 'Free game for entertainment. SeerScore is for reputation only. Points have no cash value.' },
-        { q: '📜 Terms of Service', a: 'Read our Terms <a href="#" class="legal-link" data-doc="terms" style="color:var(--accent);">here</a>.' },
-        { q: '🔒 Privacy Policy', a: 'Read our Privacy Policy <a href="#" class="legal-link" data-doc="privacy" style="color:var(--accent);">here</a>.' },
-        { q: '⚖️ Imprint', a: 'View imprint <a href="#" class="legal-link" data-doc="imprint" style="color:var(--accent);">here</a>.' }
-    ];
-    const container = document.getElementById('faqContainer');
-    if (container) {
-        faqData.forEach(item => {
-            const qDiv = document.createElement('div');
-            qDiv.style.cssText = 'color:var(--accent);margin-top:16px;font-weight:500;cursor:pointer;';
-            qDiv.textContent = item.q;
-            const aDiv = document.createElement('div');
-            aDiv.style.cssText = 'margin-top:4px;color:var(--text-secondary);font-size:.9rem;display:none;';
-            aDiv.innerHTML = item.a;
-            qDiv.addEventListener('click', () => {
-                aDiv.style.display = aDiv.style.display === 'none' ? 'block' : 'none';
-            });
-            container.appendChild(qDiv);
-            container.appendChild(aDiv);
-        });
-    }
-})();
-</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
