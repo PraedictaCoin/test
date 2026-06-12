@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL (no live counter)
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL (with horoscope)
 // ============================================================
 
 async function loadPredictions() {
@@ -117,15 +117,69 @@ function updateFreezeTimer(user) {
     }
 }
 
-// CORRECTED: No recursion, returns mock data immediately
+// ============================================================
+// HOROSCOPE FETCHING (real, working)
+// ============================================================
 async function fetchHoroscopeForZodiac(sign) {
-    return {
-        description: `The stars are aligned for ${sign}. Trust your intuition.`,
-        luckyNumber: (Math.floor(Math.random() * 99) + 1).toString(),
-        mood: 'optimistic'
+    // Map zodiac sign to number used by horoscope.com
+    const signToNumber = {
+        aries: 1, taurus: 2, gemini: 3, cancer: 4, leo: 5, virgo: 6,
+        libra: 7, scorpio: 8, sagittarius: 9, capricorn: 10, aquarius: 11, pisces: 12
     };
+    const num = signToNumber[sign];
+    if (!num) return null;
+    const url = `https://www.horoscope.com/us/horoscopes/general/horoscope-general-daily-today.aspx?sign=${num}`;
+    try {
+        const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const html = await resp.text();
+        // Parse horoscope text
+        let horoscope = '';
+        const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+        if (mainMatch) {
+            const mainContent = mainMatch[1];
+            const pMatch = mainContent.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+            if (pMatch) horoscope = pMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        }
+        if (!horoscope) {
+            const pars = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+            if (pars) {
+                for (const p of pars) {
+                    const content = p.replace(/<[^>]+>/g, "").trim();
+                    if (content.length > 100) { horoscope = content; break; }
+                }
+            }
+        }
+        if (horoscope) {
+            // Generate lucky number based on sign and today's date
+            const today = getUTCDayKey();
+            let hash = 0;
+            const seed = today + sign;
+            for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+            const lucky = (Math.abs(hash) % 99) + 1;
+            const moods = ["inspired", "focused", "calm", "energetic", "reflective", "playful", "determined", "curious"];
+            const mood = moods[Math.abs(hash) % moods.length];
+            return { description: horoscope, luckyNumber: lucky.toString(), mood };
+        } else {
+            // Fallback
+            return {
+                description: `The stars are aligned for ${sign}. Trust your intuition.`,
+                luckyNumber: (Math.floor(Math.random() * 99) + 1).toString(),
+                mood: 'optimistic'
+            };
+        }
+    } catch (err) {
+        console.warn("Horoscope fetch failed:", err);
+        return {
+            description: `The stars are aligned for ${sign}. Trust your intuition.`,
+            luckyNumber: (Math.floor(Math.random() * 99) + 1).toString(),
+            mood: 'optimistic'
+        };
+    }
 }
 
+// ============================================================
+// RENDER PROFILE
+// ============================================================
 async function renderProfile(userData) {
     if (!walletAddress) return;
     const user = userData || await loadUser(walletAddress);
@@ -230,7 +284,7 @@ async function renderProfile(userData) {
         }
     }
     const moon = getLunarPhase();
-    if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji}`;
+    if (DOM.lunarPhase) DOM.lunarPhase.innerHTML = `${moon.emoji}`; // only emoji, no name
     const hasZodiac = !!user.zodiac;
     if (DOM.zodiacSelectorWrapper) DOM.zodiacSelectorWrapper.style.display = hasZodiac ? 'none' : 'flex';
     if (DOM.userZodiacDisplay) DOM.userZodiacDisplay.style.display = hasZodiac ? 'block' : 'none';
@@ -416,7 +470,6 @@ async function refreshAll() {
         if (DOM.loadMoreBtn && predictions.length >= 100) DOM.loadMoreBtn.style.display = 'block';
         else if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
         updateHypeMessage();
-        // updateLiveCounter() removed (no longer exists)
         hideSkeleton();
     } catch (err) {
         console.error('Refresh error:', err);

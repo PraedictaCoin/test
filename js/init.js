@@ -154,7 +154,7 @@ function init() {
     }, 1000);
     setTimeout(function() { clearInterval(checkWalletInterval); }, 30000);
 
-    // Keyboard shortcuts (blind voting removed)
+    // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         var tag = document.activeElement ? document.activeElement.tagName : '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -163,22 +163,19 @@ function init() {
             var el = document.querySelector('[data-tab="praedictions"]');
             if (el) el.click();
         } else if (key === '2') {
-            var el = document.querySelector('[data-tab="oracle"]');
+            var el = document.querySelector('[data-tab="watchlist"]');
             if (el) el.click();
         } else if (key === '3') {
             var el = document.querySelector('[data-tab="leaderboard"]');
             if (el) el.click();
         } else if (key === '4') {
-            var el = document.querySelector('[data-tab="watchlist"]');
+            var el = document.querySelector('[data-tab="profile"]');
             if (el) el.click();
         } else if (key === '5') {
-            var el = document.querySelector('[data-tab="profile"]');
+            var el = document.querySelector('[data-tab="settings"]');
             if (el) el.click();
         } else if (key === '6') {
             var el = document.querySelector('[data-tab="support"]');
-            if (el) el.click();
-        } else if (key === '7') {
-            var el = document.querySelector('[data-tab="settings"]');
             if (el) el.click();
         } else if (key === 't') {
             toggleTheme();

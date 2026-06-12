@@ -1,23 +1,23 @@
 // ============================================================
-// PRAEDICTA – Event Listeners (events.js) - FINAL v13 (clean layout)
+// PRAEDICTA – Event Listeners (events.js) - FINAL
 // ============================================================
 
 function initEventListeners() {
     loadNotificationPrefs();
-    
-    // Theme toggles (both header and settings)
+
+    // Theme toggles (header + settings)
     DOM.themeToggleSmall?.addEventListener('click', toggleTheme);
     DOM.themeToggleSettings?.addEventListener('click', toggleTheme);
-    
-    // Accent toggle (both)
+
+    // Accent toggles (header + settings)
     DOM.accentToggleBtn?.addEventListener('click', toggleAccent);
     DOM.accentToggleSettings?.addEventListener('click', toggleAccent);
-    
-    // Connect/Disconnect
+
+    // Connect / Disconnect
     DOM.connectBtn?.addEventListener('click', connectWallet);
     DOM.disconnectBtn?.addEventListener('click', disconnectWallet);
-    
-    // Oracle ask (new tab)
+
+    // Oracle ask (in Support tab)
     DOM.oracleAskBtn?.addEventListener('click', () => {
         if (oracleAsked) return showToast("🦉 Once per login.", 'info');
         const question = prompt("What do you wish to know?");
@@ -26,23 +26,23 @@ function initEventListeners() {
         const answer = ORACLE_ANSWERS[Math.floor(Math.random() * ORACLE_ANSWERS.length)];
         showToast(`🔮 ${answer}`, 'info');
     });
-    
-    // Play toggle (optional, keep)
+
+    // Play toggle (optional – keep)
     DOM.playToggle?.addEventListener('click', () => {
         useRealMarket = !useRealMarket;
         DOM.playToggle.textContent = useRealMarket ? '⛓️ Real' : '🎮 Play';
         refreshAll();
     });
-    
+
     // Tutorial close
     document.getElementById('closeTutorialBtn')?.addEventListener('click', () => {
         DOM.tutorialOverlay.style.display = 'none';
     });
-    
+
     // Create prediction
     DOM.createBtn?.addEventListener('click', createPrediction);
-    
-    // Filters
+
+    // Filter: search
     DOM.filterSearch?.addEventListener('input', e => {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => {
@@ -51,33 +51,63 @@ function initEventListeners() {
             renderPraedictions();
         }, 200);
     });
-    DOM.filterCategory?.addEventListener('change', e => {
-        currentFilter.category = e.target.value;
+
+    // Filter: sort
+    DOM.filterSortBy?.addEventListener('change', e => {
+        currentFilter.sort = e.target.value;
         saveFilters();
         renderPraedictions();
     });
-    DOM.filterCreator?.addEventListener('input', e => {
-        clearTimeout(searchDebounce);
-        searchDebounce = setTimeout(() => {
-            currentFilter.creator = e.target.value;
+
+    // Filter: min volume
+    DOM.filterMinVolume?.addEventListener('input', e => {
+        currentFilter.minVolume = parseFloat(e.target.value) || 0;
+        saveFilters();
+        renderPraedictions();
+    });
+
+    // Filter: max volume
+    DOM.filterMaxVolume?.addEventListener('input', e => {
+        currentFilter.maxVolume = parseFloat(e.target.value) || Infinity;
+        saveFilters();
+        renderPraedictions();
+    });
+
+    // Category carousel
+    document.querySelectorAll('.category-carousel-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.category-carousel-btn').forEach(b => b.classList.remove('active-filter'));
+            this.classList.add('active-filter');
+            currentFilter.category = this.dataset.category;
             saveFilters();
             renderPraedictions();
-        }, 200);
+        });
     });
-    
+
+    // Status filter buttons (Active, Expired, Resolved, Ending Soon)
+    document.querySelectorAll('.status-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.status-filter-btn').forEach(b => b.classList.remove('active-filter'));
+            this.classList.add('active-filter');
+            currentFilter.status = this.dataset.status;
+            saveFilters();
+            renderPraedictions();
+        });
+    });
+
     // Leaderboard category filter
     DOM.leaderboardCategoryFilter?.addEventListener('change', async e => {
         await renderLeaderboard(leaderboardPeriod, e.target.value || null);
     });
-    
+
     // Load more predictions
     DOM.loadMoreBtn?.addEventListener('click', loadMorePredictions);
-    
-    // Copy wallet address
+
+    // Copy wallet address (Profile settings)
     DOM.copyWalletBtn?.addEventListener('click', () => {
         if (walletAddress) navigator.clipboard.writeText(walletAddress).then(() => showToast("Copied!", 'success'));
     });
-    
+
     // Creator conviction YES/NO
     DOM.creatorBetYes?.addEventListener('click', () => {
         creatorBetOutcome = 'yes';
@@ -97,7 +127,7 @@ function initEventListeners() {
             DOM.creatorBetDisplay.style.color = '#FF8888';
         }
     });
-    
+
     // Tab switching (new order)
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.addEventListener('click', async function() {
@@ -112,7 +142,7 @@ function initEventListeners() {
             else if (tab === 'admin') await loadAdminDashboard();
         });
     });
-    
+
     // Save profile (name, avatar)
     DOM.saveProfileBtn?.addEventListener('click', async () => {
         const name = sanitize(DOM.displayNameInput.value, 20);
@@ -131,7 +161,7 @@ function initEventListeners() {
             setLoading(DOM.saveProfileBtn, false);
         }
     });
-    
+
     // Save zodiac
     DOM.saveZodiacBtn?.addEventListener('click', async () => {
         const s = DOM.zodiacSelect.value;
@@ -147,7 +177,7 @@ function initEventListeners() {
             setLoading(DOM.saveZodiacBtn, false);
         }
     });
-    
+
     // Portfolio toggle
     let portfolioVisible = false;
     DOM.showPortfolioBtn?.addEventListener('click', () => {
@@ -161,8 +191,8 @@ function initEventListeners() {
             DOM.showPortfolioBtn.textContent = '💼 Portfolio';
         }
     });
-    
-    // My praedictions (moved to Portfolio section)
+
+    // My praedictions (in Portfolio section)
     DOM.showMyPraedictionsBtn?.addEventListener('click', () => {
         const c = DOM.myPraedictionsList;
         if (!c) return;
@@ -187,8 +217,8 @@ function initEventListeners() {
             c.style.display = 'none';
         }
     });
-    
-    // Flip coin (moved to Support tab)
+
+    // Flip coin (Support tab)
     DOM.flipCoinBtn?.addEventListener('click', async () => {
         if (!walletAddress) return;
         try {
@@ -215,10 +245,10 @@ function initEventListeners() {
             showToast("Failed", 'error');
         }
     });
-    
-    // Claim signup bonus (renamed button)
+
+    // Claim signup bonus (Support tab)
     DOM.claimBonusBtn?.addEventListener('click', claimSignupBonus);
-    
+
     // Delete local data (user button)
     document.getElementById('deleteAccountLink')?.addEventListener('click', async e => {
         e.preventDefault();
@@ -227,8 +257,8 @@ function initEventListeners() {
         disconnectWallet();
         showToast("Local data cleared. Wallet disconnected.", 'info');
     });
-    
-    // Leaderboard period buttons
+
+    // Leaderboard period buttons (All Time / This Month)
     document.querySelectorAll('[data-period]').forEach(b => {
         b.addEventListener('click', async function() {
             document.querySelectorAll('[data-period]').forEach(x => x.classList.remove('active-filter'));
@@ -236,7 +266,7 @@ function initEventListeners() {
             await renderLeaderboard(this.dataset.period, DOM.leaderboardCategoryFilter?.value || null);
         });
     });
-    
+
     // Email verification
     DOM.sendVerifyEmailBtn?.addEventListener('click', async () => {
         const email = sanitize(DOM.emailInput?.value || '', 100);
@@ -266,11 +296,11 @@ function initEventListeners() {
             setLoading(DOM.verifyEmailBtn, false);
         }
     });
-    
-    // Export analytics (already in settings)
+
+    // Export analytics (Settings tab)
     DOM.exportAnalyticsBtn?.addEventListener('click', exportAnalytics);
-    
-    // Export trade history
+
+    // Export trade history (Settings tab)
     DOM.exportHistoryBtn?.addEventListener('click', async () => {
         if (!walletAddress) return showToast("Connect wallet first", 'error');
         setLoading(DOM.exportHistoryBtn, true);
@@ -294,7 +324,7 @@ function initEventListeners() {
             setLoading(DOM.exportHistoryBtn, false);
         }
     });
-    
+
     // Support modal
     DOM.supportBtn?.addEventListener('click', () => {
         if (DOM.supportModal) DOM.supportModal.style.display = 'flex';
@@ -307,16 +337,16 @@ function initEventListeners() {
         if (DOM.supportModal) DOM.supportModal.style.display = 'none';
         if (DOM.supportMessage) DOM.supportMessage.value = '';
     });
-    
-    // Push notifications (settings)
+
+    // Push notifications (Settings tab)
     DOM.pushSubscribeBtn?.addEventListener('click', registerPushNotifications);
-    
-    // Donate button (support)
+
+    // Donate button (Support tab)
     DOM.donateBtn?.addEventListener('click', () => {
         window.open('https://ko-fi.com/yourusername', '_blank', 'noopener');
     });
-    
-    // Weekly recap (optional)
+
+    // Weekly recap (optional – kept)
     DOM.showRecapBtn?.addEventListener('click', showWeeklyRecap);
 }
 
