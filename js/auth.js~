@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Authentication & Session (auth.js) - FINAL
+// PRAEDICTA – Authentication & Session (auth.js) - FINAL CORRECTED
 // ============================================================
 
 async function callSecureRpc(action, params = {}) {
@@ -51,7 +51,7 @@ async function callSecureRpc(action, params = {}) {
     const { data: nonce, error: nonceErr } = await supabaseClient.rpc('get_auth_nonce', { p_wallet: walletAddress });
     if (nonceErr || !nonce) throw new Error("Authentication failed.");
     
-    // Sign message with nonce
+    // Sign message with nonce (security fix)
     const message = `Login to PRAEDICTA at praedictacoin.github.io\nNonce: ${nonce}`;
     const encoded = new TextEncoder().encode(message);
     let signed;

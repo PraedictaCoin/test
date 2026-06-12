@@ -5,22 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#00F0FF">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="description" content="PRAEDICTA - The prediction game where you test your foresight with virtual points. Crypto, weather, sports, politics, and more. Auto-resolved by 46+ APIs.">
-    <meta property="og:title" content="PRAEDICTA – For Those Who See">
-    <meta property="og:description" content="Test your predictions with virtual points. Auto-resolved by 46+ APIs.">
-    <meta property="og:image" content="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%2300F0FF'/><text x='50' y='67' text-anchor='middle' fill='%230A0A0A' font-size='50' font-weight='bold'>P</text></svg>">
-    <meta property="og:url" content="https://praedictacoin.github.io/test/">
-    <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="PRAEDICTA – For Those Who See">
-    <meta name="twitter:description" content="Test your predictions with virtual points. Auto-resolved by 46+ APIs.">
     <title>PRAEDICTA – For Those Who See</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%2300F0FF'/><text x='50' y='67' text-anchor='middle' fill='%230A0A0A' font-size='50' font-weight='bold'>P</text></svg>">
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22PRAEDICTA%22,%22short_name%22:%22PRAEDICTA%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230A0A0A%22,%22theme_color%22:%22%2300F0FF%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%2300F0FF'/%3E%3Ctext x='50' y='67' text-anchor='middle' fill='%230A0A0A' font-size='50' font-weight='bold'%3EP%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22}]}">
-    <!-- Lightweight-charts and Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.js"></script>   
-    <style>
+    
+     <style>
         /* ========== FULL CSS (turquoise default + violet option) ========== */
         :root {
             --bg: #0A0A0A; --text: #FFFFFF; --accent: #00F0FF;
@@ -239,7 +229,7 @@
             <div class="logo-eye" id="logoEyeWrapper" aria-hidden="true"><div class="eye"><div class="iris"><div class="pupil"></div></div></div></div>
             <div><h1>PRAEDICTA</h1><div class="tagline">for those who see</div></div>
         </div>
-        <!-- Stats bar removed – moved to Support tab -->
+        <!-- Stats bar removed (moved to Support tab) -->
     </header>
 
     <div id="offlineBanner" class="offline-banner" onclick="refreshAll()">⚠️ Connection lost. Tap to retry.</div>
@@ -247,16 +237,15 @@
     <nav class="tabs" role="tablist">
         <div class="tabs-left">
             <button class="tab-btn active" data-tab="praedictions">🌌 Praedictions</button>
-            <button class="tab-btn" data-tab="oracle">🔮 Oracle</button>
             <button class="tab-btn" data-tab="leaderboard">🏆 Leaderboard</button>
             <button class="tab-btn" data-tab="watchlist">⭐ Watchlist</button>
+            <button class="tab-btn" data-tab="expired">🕒 Expired</button>
             <button class="tab-btn" data-tab="profile">👤 Profile</button>
             <button class="tab-btn" data-tab="support">💛 Support</button>
             <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
             <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display:none;">🦉 Admin</button>
         </div>
         <div class="right-tab-items">
-            <button id="oracleBtn" class="icon-btn" title="Ask the Oracle" style="display:none;">🔮</button>
             <button id="notifCenterBtn" class="icon-btn" style="position:relative;" onclick="toggleNotifCenter()">🔔<span id="notifBadge" style="position:absolute;top:-4px;right:-4px;background:var(--error-color);color:#FFF;border-radius:50%;width:18px;height:18px;font-size:.6rem;display:none;align-items:center;justify-content:center;">0</span></button>
         </div>
     </nav>
@@ -265,14 +254,43 @@
     <section id="tab-praedictions" class="tab-content active" role="tabpanel">
         <div id="quickStartWidget"></div>
         <div id="voiceMessage" style="text-align:center;padding:8px;color:var(--accent);font-style:italic;"></div>
-        <div class="category-carousel" id="categoryCarousel">...</div>
-        <div class="filter-bar">...</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
-            <select id="filterSortBy" onchange="applyAdvancedFilters()">...</select>
-            <input type="number" id="filterMinVolume" placeholder="Min Points">...
-            <span class="filter-tag">...</span>
+        <div class="category-carousel" id="categoryCarousel">
+            <button class="category-carousel-btn active-filter" data-category="all">All</button>
+            <button class="category-carousel-btn" data-category="finance">💰 Finance</button>
+            <button class="category-carousel-btn" data-category="politics">🏛️ Politics</button>
+            <button class="category-carousel-btn" data-category="sports">⚽ Sports</button>
+            <button class="category-carousel-btn" data-category="weather">🌤️ Weather</button>
+            <button class="category-carousel-btn" data-category="entertainment">🎬 Entertainment</button>
+            <button class="category-carousel-btn" data-category="technology">🔧 Tech</button>
+            <button class="category-carousel-btn" data-category="space">🚀 Space</button>
+            <button class="category-carousel-btn" data-category="wildcard">🎲 Wildcard</button>
         </div>
-        <!-- Hottest, Live Activity, Recent Winners ticker (inline) -->
+        <div class="filter-bar">
+            <div class="status-filter-btns">
+                <button class="status-filter-btn active-filter" data-status="active">Active</button>
+                <button class="status-filter-btn" data-status="resolved">Resolved</button>
+                <button class="status-filter-btn" data-status="ending-soon">⏰ Ending</button>
+            </div>
+            <select id="filterCategory" aria-label="Filter">
+                <option value="all">All</option><option value="finance">💰 Finance</option><option value="politics">🏛️ Politics</option>
+                <option value="sports">⚽ Sports</option><option value="weather">🌤️ Weather</option><option value="entertainment">🎬 Entertainment</option>
+                <option value="technology">🔧 Tech</option><option value="space">🚀 Space</option><option value="wildcard">🎲 Wildcard</option>
+            </select>
+            <input type="text" id="filterSearch" placeholder="Search..." inputmode="search">
+            <input type="text" id="filterCreator" placeholder="Creator wallet" inputmode="search">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+            <select id="filterSortBy" onchange="applyAdvancedFilters()" style="font-size:.7rem;background:var(--input-bg);border:1px solid var(--input-border);border-radius:20px;padding:4px 12px;color:var(--text);">
+                <option value="newest">🆕 Newest</option><option value="oldest">📅 Oldest</option><option value="volume">💰 Highest Volume</option><option value="controversial">⚡ Most Controversial</option><option value="ending-soon">⏰ Ending Soon</option><option value="bettors">👥 Most Bettors</option>
+            </select>
+            <input type="number" id="filterMinVolume" placeholder="Min Points" onchange="applyAdvancedFilters()" style="width:80px;font-size:.7rem;background:var(--input-bg);border:1px solid var(--input-border);border-radius:20px;padding:4px 8px;color:var(--text);">
+            <span style="color:var(--text-muted);font-size:.7rem;">–</span>
+            <input type="number" id="filterMaxVolume" placeholder="Max Points" onchange="applyAdvancedFilters()" style="width:80px;font-size:.7rem;background:var(--input-bg);border:1px solid var(--input-border);border-radius:20px;padding:4px 8px;color:var(--text);">
+            <span class="filter-tag" data-tag="crypto" onclick="this.classList.toggle('active-filter');applyAdvancedFilters()">🪙 Crypto</span>
+            <span class="filter-tag" data-tag="stocks" onclick="this.classList.toggle('active-filter');applyAdvancedFilters()">📈 Stocks</span>
+            <span class="filter-tag" data-tag="weather" onclick="this.classList.toggle('active-filter');applyAdvancedFilters()">🌤️ Weather</span>
+            <span class="filter-tag" data-tag="sports" onclick="this.classList.toggle('active-filter');applyAdvancedFilters()">⚽ Sports</span>
+        </div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; margin-bottom:16px;">
             <div id="hottestCategory" style="flex:1;"></div>
             <div id="activityFeedTicker" style="flex:1; max-width:300px;"></div>
@@ -282,35 +300,47 @@
         <div id="progressBars" style="margin-bottom:8px;"></div>
         <div id="skeletonContainer" class="praedictions-grid"><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div></div>
         <div id="praedictionsContainer" class="praedictions-grid" style="display:none;"></div>
-        <div id="expiredContainer"></div>
         <div id="resolvedContainer"></div>
         <button id="loadMoreBtn" class="btn" style="width:100%; margin-top:16px; background:var(--card-bg); color:var(--accent); border:1px solid var(--accent); display:none;">Load More</button>
-        <div class="create-praediction-wrapper">...</div>
+        <div class="create-praediction-wrapper">
+            <div class="create-praediction card">
+                <h3 style="margin-bottom:12px;">I praedict that…</h3>
+                <input type="text" id="title" placeholder="BTC will reach $120,000 by July 2026" maxlength="200" autocomplete="off">
+                <textarea id="description" rows="2" placeholder="With ETF inflows and halving effects..." maxlength="1000" autocomplete="off"></textarea>
+                <select id="category" aria-label="Category">...</select>
+                <input type="datetime-local" id="resolutionDate" aria-label="Resolution date">
+                <select id="autoSource" aria-label="Auto-resolve source">...</select>
+                <input type="text" id="autoSourceDetail" placeholder="City, team, or page name" maxlength="100" style="display:none;">
+                <input type="text" id="targetValue" placeholder="Target value (price, temperature, score)" maxlength="50">
+                <input type="url" id="sourceUrl" placeholder="Proof URL (required if no auto-resolve)" maxlength="500">
+                <div style="margin:12px 0; padding:12px; background:var(--accent-glow); border-radius:12px;">
+                    <p style="color:var(--accent); font-weight:500;">Your conviction (required - 7 points):</p>
+                    <div style="display:flex; gap:8px;"><button id="creatorBetYes" class="btn-praedict" type="button">✅ Commit YES</button><button id="creatorBetNo" class="btn-praedict" type="button">❌ Commit NO</button></div>
+                    <p id="creatorBetDisplay" style="text-align:center; margin-top:8px;">Select your conviction</p>
+                </div>
+                <button id="createBtn" class="btn" style="width:100%;">✨ Create & Stake 7 points</button>
+            </div>
+        </div>
         <button class="create-fab" id="createFab" onclick="toggleCreateForm()">✨</button>
     </section>
 
-    <!-- Oracle Tab (replaces separate Ask Oracle button) -->
-    <section id="tab-oracle" class="tab-content" role="tabpanel">
-        <div class="card">
-            <h2 style="color:var(--accent);">🔮 Ask the Oracle</h2>
-            <p>Pose a question and receive a mysterious answer.</p>
-            <button id="oracleAskBtn" class="btn" style="margin-top:16px;">Ask the Oracle</button>
-        </div>
+    <!-- Expired Tab (separate) -->
+    <section id="tab-expired" class="tab-content" role="tabpanel">
+        <div id="expiredContainer" class="praedictions-grid"></div>
     </section>
 
-    <!-- Leaderboard Tab (unchanged) -->
+    <!-- Leaderboard Tab -->
     <section id="tab-leaderboard" class="tab-content" role="tabpanel">...</section>
 
-    <!-- Watchlist Tab (new, shows only watchlist predictions) -->
+    <!-- Watchlist Tab -->
     <section id="tab-watchlist" class="tab-content" role="tabpanel">
         <div id="watchlistContainer" class="card" style="display:block;"></div>
     </section>
 
-    <!-- Profile Tab (reordered) -->
+    <!-- Profile Tab (restructured) -->
     <section id="tab-profile" class="tab-content" role="tabpanel">
         <div class="card">
             <h2 style="color:var(--accent); text-align:center;"><span id="walletDisplay"></span><span id="oracleIndicatorProfile" style="display:none;" class="oracle-badge">🦉 ORACLE</span></h2>
-            <div style="margin-top:4px; font-size:.7rem; text-align:center;"><span id="profileWalletAddress"></span><button id="copyWalletBtn" class="social-btn" style="font-size:.65rem; padding:2px 8px;">📋</button></div>
             <div id="lunarPhase" style="text-align:center;font-size:1.2rem;margin-top:8px;"></div>
             <div id="zodiacRealHeadline" style="color:var(--accent); text-align:center;margin-top:8px;">Your Daily Praediction:</div>
             <div id="zodiacHoroscopeDisplay" style="margin-top:8px; padding:12px; background:var(--card-bg); border-radius:20px;"></div>
@@ -329,6 +359,7 @@
             <div class="profile-section" onclick="toggleProfileSection(this)">
                 <div class="profile-section-header"><span>👤 Profile Settings</span><span class="section-toggle-icon">▶</span></div>
                 <div class="profile-section-content">
+                    <div style="margin-top:8px; font-size:.7rem; color:var(--text-muted);"><span id="profileWalletAddress"></span><button id="copyWalletBtn" class="social-btn" style="font-size:.65rem; padding:2px 8px;">📋</button></div>
                     <div id="profileNameSection" style="margin-top:8px; display:flex; gap:12px; align-items:center;"><input type="text" id="displayNameInput" placeholder="Your Seer name" maxlength="20" style="flex:1;"><select id="avatarSelect">...</select><button id="saveProfileBtn" class="social-btn">Save</button></div>
                     <div style="margin-top:8px;"><input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="handleAvatarUpload(event)"><button onclick="document.getElementById('avatarFileInput').click()" class="social-btn" style="font-size:.7rem;">📷 Upload Avatar</button><div id="avatarPreview" style="display:none; width:40px; height:40px; border-radius:50%; overflow:hidden; border:2px solid var(--accent);"><img id="avatarPreviewImg" src="" style="width:100%;height:100%;object-fit:cover;"></div></div>
                     <div id="zodiacSelectorWrapper" style="margin-top:8px;"><span style="color:var(--accent);">⭐ Zodiac:</span> <select id="zodiacSelect"></select> <button id="saveZodiacBtn" class="social-btn">Save</button></div>
@@ -340,7 +371,7 @@
         </div>
     </section>
 
-    <!-- Support Tab (now contains stats, claim bonus, flip coin, donate, FAQ) -->
+    <!-- Support Tab (stats, bonuses, ask oracle, telegram, donate, FAQ) -->
     <section id="tab-support" class="tab-content" role="tabpanel">
         <div class="card">
             <h3 style="color:var(--accent);">📊 Platform Statistics</h3>
@@ -356,17 +387,19 @@
         <div class="card">
             <h3 style="color:var(--accent);">🎁 Bonuses</h3>
             <button id="claimBonusBtn" class="btn" style="width:100%; margin-bottom:8px;">🎁 Claim Signup Bonus</button>
-            <button id="flipCoinBtn" class="btn" style="width:100%;">🪙 Flip Coin (daily)</button>
+            <button id="flipCoinBtn" class="btn" style="width:100%; margin-bottom:8px;">🪙 Flip Coin (daily)</button>
+            <button id="oracleAskBtn" class="btn" style="width:100%;">🔮 Ask the Oracle</button>
         </div>
         <div class="card">
             <h3 style="color:var(--accent);">💛 Support</h3>
+            <a href="https://t.me/praedictacoin" target="_blank" class="btn" style="width:100%; margin-bottom:8px;">📱 Telegram</a>
             <button id="donateBtn" class="btn" style="width:100%; margin-bottom:8px;">Support 👁️</button>
             <button id="supportBtn" class="btn" style="width:100%;">📧 Contact Support</button>
         </div>
         <div class="card"><h3>❓ FAQ</h3><div id="faqContainer"></div></div>
     </section>
 
-    <!-- Settings Tab -->
+    <!-- Settings Tab (appearance, notifications, data, account) -->
     <section id="tab-settings" class="tab-content" role="tabpanel">
         <div class="card">
             <h3 style="color:var(--accent);">🎨 Appearance</h3>
@@ -379,7 +412,7 @@
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="notifWon" checked onchange="saveNotificationPrefs()"> Won predictions</label>
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="notifStreak" checked onchange="saveNotificationPrefs()"> Streak milestones</label>
             <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="notifLeaderboard" checked onchange="saveNotificationPrefs()"> Leaderboard changes</label>
-            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="notifSound" checked onchange="saveNotificationPrefs()"> Sound effects</label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="notifSound" onchange="saveNotificationPrefs()"> Sound effects</label>
             <button id="pushSubscribeBtn" class="btn" style="width:100%; margin-top:8px;">🔔 Enable Push</button>
         </div>
         <div class="card">
@@ -389,7 +422,6 @@
         </div>
         <div class="card">
             <h3 style="color:var(--accent);">🔌 Account</h3>
-            <a href="https://t.me/praedictacoin" target="_blank" class="btn" style="width:100%; margin-bottom:8px;">📱 Telegram</a>
             <button id="disconnectBtn" class="btn" style="width:100%;">🔌 Disconnect Wallet</button>
         </div>
     </section>
@@ -407,6 +439,34 @@
         <button id="acceptTermsBtn" class="btn">Accept</button>
     </div>
 </div>
+
+<!-- FAQ Generator -->
+<script>
+(function() {
+    const faqData = [
+        { q: '👁️ How does PRAEDICTA work?', a: 'Seers create predictions about future events. The community commits YES or NO with virtual points. 46+ APIs auto-resolve the outcome.' },
+        { q: '🤖 How does auto-resolve work?', a: '46+ APIs automatically resolve predictions: CoinGecko, RedStone, Binance (crypto), Yahoo (stocks), Open-Meteo (weather), TheSportsDB (sports), USGS, NOAA, SpaceX, YouTube, Spotify, Twitch, Reddit, F1, Wikipedia, and many more.' },
+        { q: '📊 What categories exist?', a: 'Finance, Politics, Sports, Weather, Entertainment, Technology, Space, Health, Wildcard.' },
+        { q: '🏅 What are Prophet Titles?', a: 'Earn reputation ranks: 🌱 Novice (0), 👁️ Seer (100), 👁️‍🗨️ High Seer (250), 🔮 Prophet (500), 🦉 Oracle (1000+).' },
+        { q: '⚖️ Is this gambling?', a: '<strong>NO.</strong> PRAEDICTA is a free prediction game. No real money. No gambling.' },
+        { q: '💰 Can I win real money?', a: 'No. Points are virtual. They have no cash value. This is for fun and reputation.' },
+        { q: '📱 Can I install as an app?', a: 'YES! PWA. Mobile: Chrome → Add to Home Screen. Desktop: click install icon.' }
+    ];
+    const container = document.getElementById('faqContainer');
+    if (container) {
+        faqData.forEach(item => {
+            const qDiv = document.createElement('div');
+            qDiv.style.cssText = 'color:var(--accent);margin-top:16px;font-weight:500;';
+            qDiv.textContent = item.q;
+            const aDiv = document.createElement('div');
+            aDiv.style.cssText = 'margin-top:4px;color:var(--text-secondary);font-size:.9rem;';
+            aDiv.innerHTML = item.a;
+            container.appendChild(qDiv);
+            container.appendChild(aDiv);
+        });
+    }
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>

@@ -1,23 +1,44 @@
 // ============================================================
-// PRAEDICTA – Rendering Functions (render.js) - FINAL
+// PRAEDICTA – Rendering Functions (render.js) - FINAL (expired tab, no charts)
 // ============================================================
 
 function renderPraedictions() {
     saveScrollPosition();
-    const container = DOM.praedictionsContainer; if (!container) return;
+    const container = DOM.praedictionsContainer;
+    if (!container) return;
     hideSkeleton();
 
+    // Check if expired tab is active
+    const expiredTab = document.getElementById('tab-expired')?.classList.contains('active');
+    if (expiredTab) {
+        const expiredOnly = currentPredictions.filter(p => p.status === 'expired');
+        const expiredContainer = document.getElementById('expiredContainer');
+        if (expiredContainer) {
+            expiredContainer.innerHTML = expiredOnly.length > 0
+                ? expiredOnly.map(p => renderPredictionCard(p, false)).join('')
+                : '<div class="empty-state">No expired predictions.</div>';
+        }
+        return;
+    }
+
+    // Filter for active/resolved tabs
     let filtered = currentPredictions.filter(p => {
-        if (currentFilter.category !== 'all' && p.category !== currentFilter.category) return false;
-        if (currentFilter.search && !p.title.toLowerCase().includes(currentFilter.search.toLowerCase())) return false;
-        if (currentFilter.creator && !p.creator.toLowerCase().includes(currentFilter.creator.toLowerCase())) return false;
-        if (currentFilter.status === 'active') return p.status === 'active' || p.status === 'expired';
-        if (currentFilter.status === 'expired') return p.status === 'expired';
+        if (currentFilter.status === 'active') return p.status === 'active';
         if (currentFilter.status === 'resolved') return p.status === 'resolved';
         if (currentFilter.status === 'ending-soon') return p.status === 'active' && p.resolution_date && new Date(p.resolution_date) > Date.now();
         return true;
     });
 
+    // Apply other filters
+    if (currentFilter.category !== 'all') {
+        filtered = filtered.filter(p => p.category === currentFilter.category);
+    }
+    if (currentFilter.search) {
+        filtered = filtered.filter(p => p.title.toLowerCase().includes(currentFilter.search.toLowerCase()));
+    }
+    if (currentFilter.creator) {
+        filtered = filtered.filter(p => p.creator && p.creator.toLowerCase().includes(currentFilter.creator.toLowerCase()));
+    }
     if (currentFilter.minVolume > 0) {
         filtered = filtered.filter(p => (p.bets || []).reduce((s, b) => s + (b.amount || 0), 0) >= currentFilter.minVolume);
     }
@@ -35,7 +56,6 @@ function renderPraedictions() {
 
     if (currentPredictions.length === 0 && currentFilter.status === 'active' && currentFilter.category === 'all' && !currentFilter.search) {
         container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔮</div><h3 style="color:var(--accent);">The Oracle awaits your first praediction</h3><p style="margin:16px 0;line-height:1.6;">1. Describe what will happen<br>2. Provide a proof URL<br>3. Choose YES or NO<br>4. Stake 7 points<br>5. Earn SeerScore when you're right!</p></div>`;
-        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
         if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
         if (DOM.loadMoreBtn) DOM.loadMoreBtn.style.display = 'none';
         renderActivityFeed();
@@ -47,29 +67,21 @@ function renderPraedictions() {
     if (filtered.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No praedictions match your filters.</p></div>';
         if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
-        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
         renderActivityFeed();
         renderRecentWinners();
         restoreScrollPosition();
         return;
     }
 
-    const activeOnly = filtered.filter(p => p.status === 'active' || p.status === 'expired');
-    const expiredOnly = filtered.filter(p => p.status === 'expired');
+    const activeOnly = filtered.filter(p => p.status === 'active');
     const resolvedOnly = filtered.filter(p => p.status === 'resolved');
     const isOracle = (walletAddress === CONFIG.ORACLE_WALLET);
 
-    if (currentFilter.status === 'expired') {
-        container.innerHTML = expiredOnly.length > 0 ? expiredOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div class="empty-state"><p>No expired predictions.</p></div>';
-        if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
-    } else if (currentFilter.status === 'resolved') {
+    if (currentFilter.status === 'resolved') {
         container.innerHTML = resolvedOnly.length > 0 ? resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div class="empty-state"><p>No resolved predictions.</p></div>';
-        if (DOM.expiredContainer) DOM.expiredContainer.innerHTML = '';
+        if (DOM.resolvedContainer) DOM.resolvedContainer.innerHTML = '';
     } else {
         container.innerHTML = activeOnly.length > 0 ? activeOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '<div class="empty-state"><p>No active praedictions. Create one below!</p></div>';
-        if (DOM.expiredContainer) {
-            DOM.expiredContainer.innerHTML = '';
-        }
         if (DOM.resolvedContainer) {
             DOM.resolvedContainer.innerHTML = resolvedOnly.length > 0 ? '<h3 style="color:var(--accent);margin-bottom:12px;">✅ Resolved Predictions</h3>' + resolvedOnly.map(p => renderPredictionCard(p, isOracle)).join('') : '';
         }
@@ -116,13 +128,18 @@ function renderPredictionCard(p, isOracle) {
         </div></div><span style="font-size:1.2rem;color:var(--text-muted);margin-left:8px;">▶</span></div>
         ${active ? renderVoteStats(yesPrice, noPrice) : ''}
         ${active ? renderMiniOrderBook(p) : ''}
+        <div style="display:flex; gap:8px; margin-top:8px;">
+            <span class="badge ${badgeClass}" style="margin-right:auto;">${badgeText}</span>
+            <button onclick="event.stopPropagation();toggleOrderBook('${p.id}')" style="background:transparent;border:1px solid var(--accent-glow);color:var(--text-muted);padding:3px 12px;border-radius:12px;cursor:pointer;font-size:.6rem;">${showOrderBook[p.id] ? '▲ Hide Depth' : '▼ View Depth'}</button>
+            ${active ? `<button onclick="event.stopPropagation();showPriceAlertModal('${p.id}', ${yesPrice})" style="background:transparent;border:1px solid var(--accent-glow);color:var(--text-muted);padding:3px 10px;border-radius:12px;cursor:pointer;font-size:.6rem;">🔔 Alert</button>` : ''}
+        </div>
         ${active && !isCreator ? `<div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="yes" style="font-size:.7rem;padding:6px 12px;" onclick="event.stopPropagation();">Buy YES</button><button class="btn-praedict buy-btn" data-id="${p.id}" data-outcome="no" style="font-size:.7rem;padding:6px 12px;background:rgba(239,68,68,0.8);" onclick="event.stopPropagation();">Buy NO</button></div>` : ''}
         ${active && isCreator ? '<div style="text-align:center;padding:4px;color:var(--text-muted);font-size:.7rem;">You staked on this</div>' : ''}
         ${!active ? `<div style="text-align:center;margin-top:8px;font-size:.8rem;color:var(--accent);">${p.unresolvable ? '🚫 UNRESOLVABLE' : `RESOLVED: ${p.resolved_outcome?.toUpperCase()}`}</div>` : ''}
         </div>`;
     }
 
-    // EXPANDED MODE
+    // EXPANDED MODE (no charts, no oracle insight)
     let html = `<div class="praediction-card expanded-mode ${stateClass}" data-prediction-id="${p.id}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <span style="font-size:.7rem;color:var(--text-muted);cursor:pointer;" onclick="toggleCardExpand('${p.id}')">▶ Compact</span>
@@ -160,10 +177,6 @@ function renderPredictionCard(p, isOracle) {
         <button class="btn-praedict market-buy-btn" data-id="${p.id}" data-outcome="no">Market NO</button>
         <div id="slippageWarning-${p.id}" class="slippage-warning"></div>
     </div>
-    
-    <!-- Chart containers (placeholder – requires implementation in utils.js) -->
-    <div id="candlestick-${p.id}" style="height:200px; margin-top:8px;"></div>
-    <div id="depth-${p.id}" style="height:150px; margin-top:8px;"></div>
     
     <!-- Watchlist buttons -->
     ${watchlist.includes(p.id) ? `<button class="watchlist-remove" data-id="${p.id}" style="margin-top:8px;">⭐ Remove from Watchlist</button>` : `<button class="watchlist-add" data-id="${p.id}" style="margin-top:8px;">☆ Add to Watchlist</button>`}
