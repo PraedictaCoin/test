@@ -228,7 +228,7 @@ function initEventListeners() {
         }
     });
     DOM.showRecapBtn?.addEventListener('click', showWeeklyRecap);
-
+    DOM.accentToggleBtn?.addEventListener('click', toggleAccent);
     // Signup bonus (replaces faucet)
     DOM.signupBonusBtn?.addEventListener('click', claimSignupBonus);
 

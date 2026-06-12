@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Event Listeners (events.js) - CORRECTED
+// PRAEDICTA – Event Listeners (events.js) - FINAL (fixed)
 // ============================================================
 
 function initOracleAsk() {
@@ -60,7 +60,7 @@ function initEventListeners() {
         DOM.creatorBetYes.classList.add('selected');
         DOM.creatorBetNo.classList.remove('selected');
         if (DOM.creatorBetDisplay) {
-            DOM.creatorBetDisplay.innerHTML = '✅ You believe <strong>YES</strong> – 7 PRAE staked';
+            DOM.creatorBetDisplay.innerHTML = '✅ You believe <strong>YES</strong> – 7 points staked';
             DOM.creatorBetDisplay.style.color = 'var(--accent)';
         }
     });
@@ -69,7 +69,7 @@ function initEventListeners() {
         DOM.creatorBetNo.classList.add('selected');
         DOM.creatorBetYes.classList.remove('selected');
         if (DOM.creatorBetDisplay) {
-            DOM.creatorBetDisplay.innerHTML = '❌ You believe <strong>NO</strong> – 7 PRAE staked';
+            DOM.creatorBetDisplay.innerHTML = '❌ You believe <strong>NO</strong> – 7 points staked';
             DOM.creatorBetDisplay.style.color = '#FF8888';
         }
     });
@@ -136,7 +136,7 @@ function initEventListeners() {
             if (r.data?.won) {
                 userPRAEBalance += 0.1;
                 saveBalance();
-                showToast("+0.1 PRAE! 🎉', 'success');
+                showToast("+0.1 points! 🎉", 'success');
             } else {
                 showToast("Better luck next time.", 'info');
             }
@@ -330,9 +330,9 @@ function showWinShare(prediction, amount) {
     toast.style.cssText = 'bottom:80px;cursor:pointer;max-width:300px;z-index:2000;';
     toast.innerHTML = `<div style="text-align:center;">
         <div style="font-size:1.5rem;">🏆</div>
-        <div><strong>+${amount} PRAE!</strong></div>
+        <div><strong>+${amount} points!</strong></div>
         <div style="font-size:.7rem;">"${escapeHtml(prediction.title).slice(0,50)}..."</div>
-        <button onclick="navigator.clipboard.writeText('🏆 I won ${amount} PRAE on PRAEDICTA!')" style="font-size:.7rem;padding:4px 12px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">📋 Share</button>
+        <button onclick="navigator.clipboard.writeText('🏆 I won ${amount} points on PRAEDICTA!')" style="font-size:.7rem;padding:4px 12px;border-radius:20px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;">📋 Share</button>
     </div>`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 8000);

@@ -443,10 +443,11 @@ function toggleCreateForm() {
 // ============================================================
 // PROFILE SECTION ACCORDIONS
 // ============================================================
-function toggleProfileSection(header) {
-    if (!header || !header.nextElementSibling) return;
-    var content = header.nextElementSibling;
-    var icon = header.querySelector('.section-toggle-icon');
+function toggleProfileSection(section) {
+    if (!section) return;
+    var content = section.querySelector('.profile-section-content');
+    var icon = section.querySelector('.section-toggle-icon');
+    if (!content) return;
     if (content.classList.contains('open')) {
         content.classList.remove('open');
         if (icon) icon.textContent = '▶';

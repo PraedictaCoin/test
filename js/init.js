@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Initialization (init.js) - CORRECTED
+// PRAEDICTA – Initialization (init.js) - FINAL (with accent toggle)
 // ============================================================
 
 // Polyfill for element.closest
@@ -14,29 +14,52 @@ if (!Element.prototype.closest) {
     };
 }
 
-function initTheme() { 
-    var saved = localStorage.getItem('praedicta_theme'); 
-    if (saved === 'light') document.body.classList.add('light'); 
-    else if (saved === 'dark') document.body.classList.remove('light'); 
-    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) document.body.classList.add('light'); 
+function initTheme() {
+    var saved = localStorage.getItem('praedicta_theme');
+    if (saved === 'light') document.body.classList.add('light');
+    else if (saved === 'dark') document.body.classList.remove('light');
+    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) document.body.classList.add('light');
 }
 
-function toggleTheme() { 
+function toggleTheme() {
     const newTheme = document.body.classList.contains('light') ? 'dark' : 'light';
-    document.body.classList.toggle('light'); 
+    document.body.classList.toggle('light');
     localStorage.setItem('praedicta_theme', newTheme);
-    // Sync theme to database if wallet connected
     if (walletAddress) {
         callSecureRpc('update_theme', { theme: newTheme }).catch(console.error);
     }
 }
 
+function initAccent() {
+    var saved = localStorage.getItem('praedicta_accent');
+    if (saved === 'violet') {
+        document.body.classList.add('violet');
+        if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Turquoise';
+    } else {
+        document.body.classList.remove('violet');
+        if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Violet';
+    }
+}
+
+function toggleAccent() {
+    if (document.body.classList.contains('violet')) {
+        document.body.classList.remove('violet');
+        localStorage.setItem('praedicta_accent', 'turquoise');
+        if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Violet';
+    } else {
+        document.body.classList.add('violet');
+        localStorage.setItem('praedicta_accent', 'violet');
+        if (DOM.accentToggleBtn) DOM.accentToggleBtn.textContent = '🎨 Turquoise';
+    }
+}
+
 function init() {
     initTheme();
+    initAccent();
     if (typeof loadFilters === 'function') loadFilters();
     if (typeof cleanOldHoroscopeCache === 'function') cleanOldHoroscopeCache();
     if (typeof initEventListeners === 'function') initEventListeners();
-    
+
     // System theme detection
     if (window.matchMedia) {
         var dmq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -50,8 +73,8 @@ function init() {
             });
         }
     }
-    
-    // Service worker (single registration)
+
+    // Service worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
             .then(function(reg) {
@@ -64,23 +87,23 @@ function init() {
             })
             .catch(function(e) { console.log('SW failed', e); });
     }
-    
-    // Load watchlist if wallet exists (with guard)
+
+    // Load watchlist if wallet exists
     if (walletAddress) {
         callSecureRpc('get_watchlist', {}).then(function(res) {
             watchlist = res.data || [];
             if (typeof renderWatchlist === 'function') renderWatchlist();
         }).catch(function(e) { console.debug('Watchlist load error', e); });
     }
-    
-    // Auto-connect if Phantom is already connected
+
+    // Auto-connect if Phantom already connected
     if (window.solana && window.solana.isConnected) {
-        setTimeout(function() { 
+        setTimeout(function() {
             var btn = document.getElementById('connectBtn');
-            if (btn) btn.click(); 
+            if (btn) btn.click();
         }, 100);
     }
-    
+
     // Daily challenge reset
     try {
         var savedChallenge = JSON.parse(localStorage.getItem('prae_daily_challenge') || '{}');
@@ -89,20 +112,19 @@ function init() {
             if (!savedChallenge.completed) dailyChallengeStreak = 0;
         }
     } catch(e) {}
-    
+
     // Supabase real-time subscriptions (predictions + fills)
     if (typeof supabaseClient !== 'undefined') {
         try {
             supabaseClient.channel('predictions-changes')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, function() {
                     if (typeof loadPredictions === 'function') {
-                        loadPredictions().then(function(p) { 
-                            currentPredictions = p; 
-                            if (typeof renderPraedictions === 'function') renderPraedictions(); 
+                        loadPredictions().then(function(p) {
+                            currentPredictions = p;
+                            if (typeof renderPraedictions === 'function') renderPraedictions();
                         }).catch(function(e) {});
                     }
                 }).subscribe();
-            // Real-time fills for price updates
             supabaseClient.channel('fills-changes')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fills' }, (payload) => {
                     const predictionId = payload.new?.prediction_id;
@@ -114,40 +136,47 @@ function init() {
                 }).subscribe();
         } catch(e) {}
     }
-    
+
     if (typeof startConsolidatedInterval === 'function') startConsolidatedInterval();
     if (typeof initMicroInteractions === 'function') initMicroInteractions();
     if (typeof updateLiveCounter === 'function') updateLiveCounter();
-    
+
     // Check wallet for surprise drops and milestones
-    var checkWalletInterval = setInterval(function() { 
-        if (walletAddress) { 
-            if (typeof checkSurpriseDrop === 'function') checkSurpriseDrop(); 
-            if (typeof checkMilestones === 'function') checkMilestones(); 
-            clearInterval(checkWalletInterval); 
-        } 
+    var checkWalletInterval = setInterval(function() {
+        if (walletAddress) {
+            if (typeof checkSurpriseDrop === 'function') checkSurpriseDrop();
+            if (typeof checkMilestones === 'function') checkMilestones();
+            clearInterval(checkWalletInterval);
+        }
     }, 1000);
     setTimeout(function() { clearInterval(checkWalletInterval); }, 30000);
-    
+
     // Keyboard shortcuts (blind voting removed)
-    document.addEventListener('keydown', function(e) { 
+    document.addEventListener('keydown', function(e) {
         var tag = document.activeElement ? document.activeElement.tagName : '';
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return; 
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         var key = e.key.toLowerCase();
-        var targetEl = e.target && e.target.nodeType === Node.ELEMENT_NODE ? e.target : e.target.parentElement;
-        if (!targetEl) return;
-        if (key === '1') { var el = document.querySelector('[data-tab="praedictions"]'); if (el) el.click(); }
-        else if (key === '2') { var el = document.querySelector('[data-tab="profile"]'); if (el) el.click(); }
-        else if (key === '3') { var el = document.querySelector('[data-tab="leaderboard"]'); if (el) el.click(); }
-        else if (key === '4') { var el = document.querySelector('[data-tab="support"]'); if (el) el.click(); }
-        else if (key === 't') { toggleTheme(); }
+        if (key === '1') {
+            var el = document.querySelector('[data-tab="praedictions"]');
+            if (el) el.click();
+        } else if (key === '2') {
+            var el = document.querySelector('[data-tab="profile"]');
+            if (el) el.click();
+        } else if (key === '3') {
+            var el = document.querySelector('[data-tab="leaderboard"]');
+            if (el) el.click();
+        } else if (key === '4') {
+            var el = document.querySelector('[data-tab="support"]');
+            if (el) el.click();
+        } else if (key === 't') {
+            toggleTheme();
+        }
     });
-    
+
     // Deep linking: expand prediction from URL hash
     const hash = window.location.hash;
     if (hash && hash.startsWith('#pred-')) {
         const predictionId = hash.replace('#pred-', '');
-        // Wait for predictions to load, then expand
         const checkAndExpand = setInterval(() => {
             if (currentPredictions.length > 0) {
                 clearInterval(checkAndExpand);
@@ -160,8 +189,8 @@ function init() {
         }, 200);
         setTimeout(() => clearInterval(checkAndExpand), 5000);
     }
-    
-    // Mobile FAB logic
+
+    // Mobile FAB
     var fab = document.getElementById('createFab');
     var form = document.querySelector('.create-praediction');
     function adjustMobileUI() {
@@ -174,50 +203,50 @@ function init() {
     }
     adjustMobileUI();
     window.addEventListener('resize', adjustMobileUI);
-    
+
     // PWA install prompt
     var deferredPrompt;
-    window.addEventListener('beforeinstallprompt', function(e) { 
-        e.preventDefault(); 
-        deferredPrompt = e; 
-        setTimeout(function() { 
-            if (deferredPrompt && !localStorage.getItem('pwa_installed')) { 
-                var t = document.createElement('div'); 
-                t.className = 'toast toast-info'; 
-                t.style.cssText = 'bottom:80px;cursor:pointer;'; 
-                t.textContent = '📱 Install app?'; 
-                t.addEventListener('click', function() { 
-                    if (deferredPrompt) { 
-                        deferredPrompt.prompt(); 
-                        deferredPrompt.userChoice.then(function(r) { 
-                            if (r.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true'); 
-                            deferredPrompt = null; 
-                        }); 
-                    } 
-                    t.remove(); 
-                }); 
-                document.body.appendChild(t); 
-                setTimeout(function() { if (t.parentNode) t.remove(); }, 15000); 
-            } 
-        }, 30000); 
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        setTimeout(function() {
+            if (deferredPrompt && !localStorage.getItem('pwa_installed')) {
+                var t = document.createElement('div');
+                t.className = 'toast toast-info';
+                t.style.cssText = 'bottom:80px;cursor:pointer;';
+                t.textContent = '📱 Install app?';
+                t.addEventListener('click', function() {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then(function(r) {
+                            if (r.outcome === 'accepted') localStorage.setItem('pwa_installed', 'true');
+                            deferredPrompt = null;
+                        });
+                    }
+                    t.remove();
+                });
+                document.body.appendChild(t);
+                setTimeout(function() { if (t.parentNode) t.remove(); }, 15000);
+            }
+        }, 30000);
     });
-    
-    window.addEventListener('appinstalled', function() { 
-        localStorage.setItem('pwa_installed', 'true'); 
+
+    window.addEventListener('appinstalled', function() {
+        localStorage.setItem('pwa_installed', 'true');
     });
-    
-    window.addEventListener('beforeunload', function() { 
+
+    window.addEventListener('beforeunload', function() {
         if (typeof analyticsData !== 'undefined' && (analyticsData.bets > 0 || analyticsData.creations > 0)) {
-            try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {} 
+            try { localStorage.setItem('praedicta_analytics', JSON.stringify(analyticsData)); } catch(e) {}
         }
-        if (typeof stopAllIntervals === 'function') stopAllIntervals(); 
-        if (typeof crossTabChannel !== 'undefined' && crossTabChannel) crossTabChannel.close(); 
+        if (typeof stopAllIntervals === 'function') stopAllIntervals();
+        if (typeof crossTabChannel !== 'undefined' && crossTabChannel) crossTabChannel.close();
     });
-    
+
     // Global error handlers
-    window.addEventListener('error', function(e) { 
+    window.addEventListener('error', function(e) {
         var msg = e.message || (e.error && e.error.message) || 'Unknown error';
-        console.log('Error:', msg); 
+        console.log('Error:', msg);
     });
 }
 
