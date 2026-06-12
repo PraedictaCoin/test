@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Application State (state.js) - CLEAN (no blind voting)
+// PRAEDICTA – Application State (state.js) - CORRECTED
 // ============================================================
 
 // Wallet & authentication
@@ -22,7 +22,7 @@ var expandedCards = {};
 var showOrderBook = {};
 
 // Filters & sorting
-var currentFilter = { category: 'all', status: 'active', search: '', sort: 'newest', tags: [] };
+var currentFilter = { category: 'all', status: 'active', search: '', sort: 'newest', tags: [], creator: '' };
 var leaderboardPeriod = 'all';
 var searchDebounce = null;
 var previousLeaderboard = [];
@@ -77,6 +77,7 @@ var consolidatedInterval = null;
 var localStorageDirty = false;
 var lastRenderHash = '';
 var signupBonusClaimed = false;
+var realtimeChannel = null;
 
 // Load persisted data from localStorage
 try {

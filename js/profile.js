@@ -1,12 +1,11 @@
 // ============================================================
-// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL v3 (no referral)
+// PRAEDICTA – Profile, Leaderboard & Data Loading (profile.js) - FINAL
 // ============================================================
 
 async function loadPredictions() {
     try {
-        // Optimized: select only needed fields (optional)
         const { data, error } = await supabaseClient.from('predictions')
-            .select('id, title, description, category, status, resolution_date, auto_source, target_value, source_url, created_at, creator, bets, resolved_outcome, unresolvable, payouts')
+            .select('*')
             .order('created_at', { ascending: false })
             .limit(100);
         if (error) throw error;
@@ -68,7 +67,7 @@ async function loadMorePredictions() {
     predictionsOffset += PREDICTIONS_PER_PAGE;
     try {
         const { data } = await supabaseClient.from('predictions')
-            .select('id, title, description, category, status, resolution_date, auto_source, target_value, source_url, created_at, creator, bets, resolved_outcome, unresolvable, payouts')
+            .select('*')
             .order('created_at', { ascending: false })
             .range(predictionsOffset, predictionsOffset + PREDICTIONS_PER_PAGE - 1);
         if (data && data.length > 0) {
@@ -257,7 +256,6 @@ async function renderProfile(userData) {
     updateFreezeTimer(user);
     updateHypeMessage();
     if (DOM.avatarSelect) DOM.avatarSelect.value = user.avatar || '';
-    // Removed referral link – no longer displayed
     if (DOM.streakCalendar) renderStreakCalendar();
     await renderWatchlist();
 }

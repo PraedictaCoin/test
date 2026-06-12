@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Event Listeners (events.js) - FINAL v12 (CLEAN)
+// PRAEDICTA – Event Listeners (events.js) - CORRECTED
 // ============================================================
 
 function initOracleAsk() {
@@ -136,7 +136,7 @@ function initEventListeners() {
             if (r.data?.won) {
                 userPRAEBalance += 0.1;
                 saveBalance();
-                showToast("+0.1 PRAE! 🎉", 'success');
+                showToast("+0.1 PRAE! 🎉', 'success');
             } else {
                 showToast("Better luck next time.", 'info');
             }
@@ -232,7 +232,7 @@ function initEventListeners() {
     // Signup bonus (replaces faucet)
     DOM.signupBonusBtn?.addEventListener('click', claimSignupBonus);
 
-    // Push notifications (optional, ensure function exists)
+    // Push notifications (placeholder)
     DOM.pushSubscribeBtn?.addEventListener('click', registerPushNotifications);
 
     // Export trade history

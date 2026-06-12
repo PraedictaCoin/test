@@ -1,5 +1,5 @@
 // ============================================================
-// PRAEDICTA – Admin Dashboard (admin.js) - FINAL WITH USER SEARCH
+// PRAEDICTA – Admin Dashboard (admin.js) - FINAL
 // ============================================================
 
 let adminData = {};
@@ -94,7 +94,7 @@ async function adminAction(action, params = {}) {
             resultContainer.innerHTML = '';
         }
         showToast('Done!', 'success');
-        await loadAdminDashboard(); // refresh after action
+        await loadAdminDashboard();
     } catch (err) {
         showToast('Failed: ' + err.message, 'error');
     }
@@ -141,7 +141,6 @@ async function adminSearchUser() {
             resultContainer.innerHTML = '<div class="card">No users found.</div>';
             return;
         }
-        // Display users in a table
         let html = '<div class="card"><h3 style="color:var(--accent);">Search Results</h3><div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:.8rem;">';
         html += '<thead><tr><th style="text-align:left;">Wallet</th><th>Display Name</th><th>Balance</th><th>SeerScore</th><th>Email</th><th>Banned</th></tr></thead><tbody>';
         for (const u of result.data) {
@@ -152,7 +151,7 @@ async function adminSearchUser() {
                         <td style="padding:4px;">${u.seerscore || 0}</td>
                         <td style="padding:4px;">${u.email ? (u.email_verified ? '✅' : '❌') : '-'}</td>
                         <td style="padding:4px;">${u.banned ? '🚫 Yes' : '❌ No'}</td>
-                     </tr>`;
+                      </tr>`;
         }
         html += '</tbody></table></div></div>';
         resultContainer.innerHTML = html;
@@ -164,21 +163,18 @@ async function adminSearchUser() {
 function exportAdminCSV() {
     const { topSeers = [], recentActivity = [] } = adminData;
     let csv = 'type,address,name,seerscore,title,status,created\n';
-    
     const escapeCSV = (str) => {
         if (str === undefined || str === null) return '';
         str = String(str);
         str = str.replace(/"/g, '""');
         return `"${str}"`;
     };
-    
     topSeers.forEach(u => {
         csv += `seer,${escapeCSV(u.address)},${escapeCSV(u.display_name)},${u.seerscore || 0},,,,,\n`;
     });
     recentActivity.forEach(p => {
         csv += `prediction,${escapeCSV(p.creator)},,${escapeCSV(p.title)},${p.status},${p.created_at},\n`;
     });
-    
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
